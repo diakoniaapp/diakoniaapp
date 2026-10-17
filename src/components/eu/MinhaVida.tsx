@@ -166,9 +166,6 @@ export function MinhaEbdCard({
                 Uma classe da Escola Bíblica Dominical {convite.criterio}
               </p>
             </div>
-            <Button asChild size="sm" variant="ghost" className="shrink-0 text-xs">
-              <Link to={`/ebd/${convite.classeId}`}>Conhecer</Link>
-            </Button>
           </div>
           {convite.descricao && (
             <p className="text-xs text-muted-foreground">{convite.descricao}</p>
@@ -216,7 +213,7 @@ export function MinhaEbdCard({
  *   professor             não mostra frequência: quem dá a aula não é chamado
  *                         nela.
  */
-function Frequencia({ dados }: { dados: MinhaEbd }) {
+export function Frequencia({ dados }: { dados: MinhaEbd }) {
   if (dados.souProfessor) return null;
 
   if (dados.aulasComChamada === 0) {

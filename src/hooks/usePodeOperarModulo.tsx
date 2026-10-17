@@ -42,8 +42,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export function usePodeOperarModulo(modulo: "ebd" | "pgm"): boolean {
+  return useOperadorDoModulo(modulo).pode;
+}
+
+/**
+ * O mesmo portão, com o estado "já respondi" (16/10/2026). `false` sozinho não distingue "não lidera" de "ainda perguntando", e uma página que decide o que mostrar
+ * (a classe de EBD: visão da equipe × visão do aluno) precisa dessa diferença para não tratar quem lidera como aluno durante o primeiro segundo.
+ */
+export function useOperadorDoModulo(modulo: "ebd" | "pgm"): { pode: boolean; pronto: boolean } {
   const { hasRole, pessoaId, pessoaCarregada } = useAuth();
-  const [lideraModulo, setLideraModulo] = useState(false);
+  const [lideraModulo, setLideraModulo] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!pessoaCarregada) return;
@@ -51,6 +59,7 @@ export function usePodeOperarModulo(modulo: "ebd" | "pgm"): boolean {
       setLideraModulo(false);
       return;
     }
+    setLideraModulo(null);
     let vivo = true;
     // `.rpc(...)` do supabase-js é thenable, não Promise — `.then().catch()`
     // não encadeia (ver AD-4 no CLAUDE.md). Daí o `await` dentro de um IIFE.
@@ -67,5 +76,6 @@ export function usePodeOperarModulo(modulo: "ebd" | "pgm"): boolean {
     };
   }, [modulo, pessoaId, pessoaCarregada]);
 
-  return hasRole(["admin", "secretaria", "pastor", "diakonia"]) || lideraModulo;
+  const porPapel = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  return { pode: porPapel || lideraModulo === true, pronto: porPapel || lideraModulo !== null };
 }

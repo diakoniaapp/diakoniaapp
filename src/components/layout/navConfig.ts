@@ -634,9 +634,17 @@ export function rotaInicialPorPapel(roles: AppRole[]): string {
  * as rotas que nem `ROUTE_ROLES` nem esta lista de atalhos alcançam — o
  * Risco 5 do CLAUDE.md mede quantas ainda ficam de fora.
  */
+/** `/ebd/<id da classe>`, só a página da classe (não a chamada, os relatórios nem as campanhas, que seguem sendo da equipe). */
+export function ehPaginaDeClasseEbd(rota: string): boolean {
+  return /^\/ebd\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i.test(rota.split("?")[0].split("#")[0]);
+}
+
 export function papeisExigidosPara(rota: string): AppRole[] | undefined {
   // Sem a query string: `/financas?lancar=true` e a mesma tela de `/financas`.
   const limpa = rota.split("?")[0];
+  // A página da classe é aberta pelo aluno matriculado (16/10/2026): sem papel de liderança na porta. É a PÁGINA que confere se a pessoa é da classe — e mostra a ela só a
+  // visão do aluno. Chamada, relatório mensal e campanhas continuam com a guarda do `/ebd`.
+  if (ehPaginaDeClasseEbd(limpa)) return undefined;
   let melhor: string | undefined;
   for (const caminho of Object.keys(ROUTE_ROLES)) {
     if (limpa !== caminho && !limpa.startsWith(caminho + "/")) continue;

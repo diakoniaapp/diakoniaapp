@@ -31,7 +31,7 @@ vi.mock("@/integrations/supabase/client", () => {
     });
     return proxy;
   };
-  return { supabase: { from: (t: string) => consulta(t), auth: { getUser: async () => ({ data: { user: null } }) } }, supabaseRel: {} };
+  return { supabase: { from: (t: string) => consulta(t), rpc: async () => (globalThis as any).__rpc ?? { data: null, error: { message: "função inexistente" } }, auth: { getUser: async () => ({ data: { user: null } }) } }, supabaseRel: {} };
 });
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ canEdit: true, user: { id: "u1" }, hasRole: () => true }) }));
 vi.mock("@/hooks/usePermissoes", () => ({ usePermissoes: () => ({ podeFazer: () => true, permissoes: [], loading: false }) }));
@@ -47,7 +47,7 @@ beforeAll(() => {
   (Element.prototype as unknown as { scrollIntoView?: () => void }).scrollIntoView ??= () => {};
   window.matchMedia ??= ((q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false })) as never;
 });
-beforeEach(() => { localStorage.clear(); avisos.mockClear(); localStorage.setItem("agenda:view:v1", "lista"); });
+beforeEach(() => { (globalThis as any).__rpc = undefined; tabelas.membros = []; localStorage.clear(); avisos.mockClear(); localStorage.setItem("agenda:view:v1", "lista"); });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; });
 
 async function abrir() {
@@ -107,5 +107,32 @@ describe("a Agenda ao abrir", () => {
     expect(el.textContent).toContain("Culto de Celebração");
     expect(gravado().categorias.length).toBe(6);
     expect(gravado().status.length).toBe(3);
+  });
+});
+
+// ─── Aniversários e casamentos de TODOS, para quem trabalha na igreja (o voluntário incluso) ───────────────────────────────────────────────────
+const hojeMd = format(new Date(), "MM-dd");
+const pessoa = (id: string, nome: string) => ({ id, nome_completo: nome, data_nascimento: `1990-${hojeMd}`, nascimento_dia_mes: null, data_casamento: null, tipo_pessoa: "membro" });
+
+describe("a camada de aniversários da página Agenda", () => {
+  it("usa a função do banco: o voluntário vê o aniversário de todos, e não só o dele", async () => {
+    (globalThis as any).__rpc = { data: [pessoa("a1", "Ana Souza"), pessoa("a2", "Bruno Lima")], error: null };
+    tabelas.membros = [pessoa("a1", "Ana Souza")];   // o que a RLS deixaria o voluntário ler direto: só a própria ficha
+    const el = await abrir();
+    expect(el.textContent).toContain("Ana Souza");
+    expect(el.textContent).toContain("Bruno Lima");
+  });
+
+  it("sem a função (migration ainda não aplicada) volta à leitura direta de sempre", async () => {
+    tabelas.membros = [pessoa("c1", "Carla Dias")];
+    const el = await abrir();
+    expect(el.textContent).toContain("Carla Dias");
+  });
+
+  it("função que devolve vazio (conta fora dos papéis de trabalho) também cai na leitura direta: o membro comum segue vendo o próprio", async () => {
+    (globalThis as any).__rpc = { data: [], error: null };
+    tabelas.membros = [pessoa("d1", "Davi Rocha")];
+    const el = await abrir();
+    expect(el.textContent).toContain("Davi Rocha");
   });
 });

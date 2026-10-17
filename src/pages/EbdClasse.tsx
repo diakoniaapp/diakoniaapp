@@ -29,7 +29,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
+import { usePodeOperarModulo, useOperadorDoModulo } from "@/hooks/usePodeOperarModulo";
+import { useAuth } from "@/hooks/useAuth";
+import { ROLES_LIDERES } from "@/components/layout/navConfig";
+import { EbdClasseDoAluno } from "@/components/ebd/EbdClasseDoAluno";
 import { useNavigate } from "react-router-dom";
 import { PaginaSkeleton } from "@/components/ListState";
 
@@ -45,7 +48,20 @@ function calcIdade(dn: string | null): number | null {
   return Math.floor((Date.now() - new Date(dn).getTime()) / (365.25 * 86_400_000));
 }
 
+/**
+ * A página da classe tem DUAS caras (16/10/2026). A equipe (administração, secretaria, pastor, liderança e quem lidera o ministério de EBD) vê a tela de gestão de sempre; todo
+ * o resto — o voluntário e o membro — só chega aqui pela classe em que está matriculado, e vê a visão do aluno (a gestão pede dados de outras pessoas, que a RLS nem entrega).
+ */
 export default function EbdClasse() {
+  const { classeId = "" } = useParams();
+  const { hasRole } = useAuth();
+  const { pode, pronto } = useOperadorDoModulo("ebd");
+  const equipe = hasRole(ROLES_LIDERES) || pode;
+  if (!equipe && !pronto) return <PaginaSkeleton />;
+  return equipe ? <EbdClasseDaEquipe /> : <EbdClasseDoAluno classeId={classeId} />;
+}
+
+function EbdClasseDaEquipe() {
   const { classeId = "" } = useParams();
   const [classe, setClasse] = useState<EbdClasse | null>(null);
   useRotuloDaTela(classe?.nome); // nome real na trilha de navegação (BarraDeContexto)
