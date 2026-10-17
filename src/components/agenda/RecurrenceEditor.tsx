@@ -2,7 +2,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { RecorrenciaFreq, RecorrenciaRegra } from "@/lib/agenda/types";
+import { useEffect, useRef } from "react";
 import { descreverRegra, daquiAMeses, hojeLocal } from "@/lib/agenda/recurrence";
+import { parseLocalDate } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { CampoData } from "@/components/CampoData";
 
@@ -32,13 +34,29 @@ const DIAS_POR_EXTENSO = [
   "quinta-feira", "sexta-feira", "sábado",
 ];
 
+/** O dia da semana (0 = domingo) da data do evento; sem data, o de hoje. */
+const diaDaSemanaDe = (dataInicio?: string) => (dataInicio ? parseLocalDate(dataInicio) : new Date()).getDay();
+
 export function RecurrenceEditor({ freq, regra, onChange, dataInicio }: Props) {
+  // Enquanto a pessoa não mexeu nos botões dos dias, o dia sugerido ACOMPANHA a data do evento (16/10/2026). Era o dia de HOJE: quem marcava um evento semanal para um domingo,
+  // numa sexta, via a série nascer nas sextas — e a data escolhida ficava sem o evento.
+  // Série que já existia ao abrir o editor (edição): os dias são escolha dela, e não se mexe.
+  const escolheuOsDias = useRef(!!regra);
+  useEffect(() => {
+    if (!regra || regra.freq !== "semanal" || escolheuOsDias.current) return;
+    const dia = diaDaSemanaDe(dataInicio);
+    const atual = regra.dias_semana ?? [];
+    if (atual.length === 1 && atual[0] !== dia) onChange(freq, { ...regra, dias_semana: [dia] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataInicio, regra?.freq]);
+
   const setFreq = (f: RecorrenciaFreq) => {
     if (f === "nao") return onChange("nao", null);
+    escolheuOsDias.current = false;
     const novo: RecorrenciaRegra = {
       freq: f,
       intervalo: 1,
-      dias_semana: f === "semanal" ? [new Date().getDay()] : undefined,
+      dias_semana: f === "semanal" ? [diaDaSemanaDe(dataInicio)] : undefined,
       fim: { tipo: "nunca" },
     };
     onChange(f, novo);
@@ -93,6 +111,7 @@ export function RecurrenceEditor({ freq, regra, onChange, dataInicio }: Props) {
                   return (
                     <button type="button" key={i}
                       onClick={() => {
+                        escolheuOsDias.current = true;
                         const cur = regra.dias_semana || [];
                         update({ dias_semana: sel ? cur.filter(x => x !== i) : [...cur, i].sort() });
                       }}

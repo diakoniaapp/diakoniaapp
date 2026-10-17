@@ -83,13 +83,21 @@ export function expandirOcorrencias(
     }
     // Mestre com regra → gerar ocorrências entre from..to
     const dtstart = parseLocalDate(ev.data);
-    let rule: RRule;
+    let occs: Date[] = [];
     try {
-      rule = buildRule(ev.recorrencia_regra, dtstart);
+      occs = buildRule(ev.recorrencia_regra, dtstart).between(from, to, true);
     } catch {
-      continue;
+      // Regra que a rrule não entende: o evento NÃO some. Fica a data em que ele foi marcado (abaixo). Antes o `continue` aqui escondia a série inteira, em silêncio.
     }
-    const occs = rule.between(from, to, true);
+    // ── A DATA DO EVENTO É SEMPRE UMA OCORRÊNCIA (16/10/2026) ──────────────────────────────────────────────────────────────────────────
+    // A rrule só devolve as datas que casam com a regra. Se a regra não casa com o dia em que o evento foi marcado, esse dia some da agenda — e o evento continua "segurando" o
+    // horário e o local no banco (a checagem de conflito olha a linha mestre, que está LÁ). Três jeitos de acontecer, todos medidos:
+    //   · semanal com um dia da semana diferente do da data (o editor sugeria o dia de HOJE, e não o da data do evento): a série só aparecia nos outros dias;
+    //   · "termina em" anterior ao começo (ou vazio): a regra não gerava nenhuma data;
+    //   · regra malformada: o `catch` acima.
+    // A linha mestre existe, e é um evento daquele dia. Ela aparece, salvo se uma exceção já ocupa a data.
+    const ancora = parseLocalDate(ev.data);
+    if (ancora >= from && ancora <= to && !occs.some((o) => toYmd(o) === ev.data)) occs.push(ancora);
     const serieId = ev.recorrencia_id || ev.id;
     for (const occ of occs) {
       const ymd = toYmd(occ);

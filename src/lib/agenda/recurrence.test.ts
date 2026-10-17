@@ -238,3 +238,46 @@ describe("descreverRegra avisa quando a série acabou", () => {
     })).toBe("Semanalmente (Dom) até 2026-12-27");
   });
 });
+
+// ─── A data do evento sempre aparece (16/10/2026) ─────────────────────────────────────────────────────────────────────────────────────────
+// Relato: "criei um evento recorrente; ele segura o horário e o local, mas não aparece na agenda". A linha mestre existia no banco (por isso a checagem de conflito a via), mas a
+// rrule só devolve as datas que casam com a regra — e a regra podia não casar com o dia em que o evento foi marcado.
+describe("a data em que o evento foi marcado sempre está na agenda", () => {
+  const serie = (data: string, regra: RecorrenciaRegra) => evento({ data, recorrencia_regra: regra });
+  const datas = (e: EventoRow, de: string, ate: string) => expandirOcorrencias([e], dia(de), dia(ate)).map(o => o.data);
+
+  it("semanal com o dia da semana DIFERENTE do da data (o editor sugeria o dia de hoje): a data marcada aparece, e a série segue nos dias escolhidos", () => {
+    // 18/10/2026 é domingo; a regra só tem quinta
+    const e = serie("2026-10-18", { freq: "semanal", intervalo: 1, dias_semana: [QUI], fim: { tipo: "nunca" } });
+    expect(datas(e, "2026-10-01", "2026-10-31")).toEqual(["2026-10-18", "2026-10-22", "2026-10-29"]);
+  });
+
+  it("'termina em' ANTERIOR ao começo não apaga o evento: ele continua no dia em que foi marcado", () => {
+    const e = serie("2026-10-18", { freq: "semanal", intervalo: 1, dias_semana: [0], fim: { tipo: "data", data: "2026-10-10" } });
+    expect(datas(e, "2026-10-01", "2026-10-31")).toEqual(["2026-10-18"]);
+  });
+
+  it("'termina em' vazio (data inválida) também não apaga", () => {
+    const e = serie("2026-10-18", { freq: "semanal", intervalo: 1, dias_semana: [0], fim: { tipo: "data", data: "" } });
+    expect(datas(e, "2026-10-01", "2026-10-31")).toEqual(["2026-10-18"]);
+  });
+
+  it("regra que a rrule não entende não derruba a série: fica a data marcada", () => {
+    const e = serie("2026-10-18", { freq: "inexistente" as never, intervalo: 1, fim: { tipo: "nunca" } });
+    expect(datas(e, "2026-10-01", "2026-10-31")).toEqual(["2026-10-18"]);
+  });
+
+  it("a data marcada não é duplicada quando a regra já casa com ela", () => {
+    const e = serie("2026-10-18", { freq: "semanal", intervalo: 1, dias_semana: [0], fim: { tipo: "nunca" } });
+    expect(datas(e, "2026-10-01", "2026-10-31")).toEqual(["2026-10-18", "2026-10-25"]);
+  });
+
+  it("fora da janela, a data marcada não aparece; e uma exceção que já ocupa a data tem prioridade", () => {
+    const e = serie("2026-10-18", { freq: "semanal", intervalo: 1, dias_semana: [QUI], fim: { tipo: "nunca" } });
+    expect(datas(e, "2026-11-01", "2026-11-30")).toEqual(["2026-11-05", "2026-11-12", "2026-11-19", "2026-11-26"]);
+    const excecao = evento({ id: "ex1", is_excecao: true, serie_origem_id: "serie-1", ocorrencia_original_data: "2026-10-18", data: "2026-10-18", recorrencia_regra: null });
+    const ocs = expandirOcorrencias([e, excecao], dia("2026-10-01"), dia("2026-10-31"));
+    expect(ocs.filter(o => o.data === "2026-10-18")).toHaveLength(1);
+    expect(ocs.find(o => o.data === "2026-10-18")!.isExcecao).toBe(true);
+  });
+});
