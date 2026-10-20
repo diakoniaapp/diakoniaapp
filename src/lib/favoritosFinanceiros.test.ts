@@ -19,19 +19,18 @@ describe("telas fixáveis do Financeiro", () => {
     for (const r of ["/financas/dre", "/financas/orcamento", "/financas/executivo", "/financas/prestacao-de-contas", "/financas/extrato-de-obrigacoes"]) expect(rotas).toContain(r);
   });
 
-  it("outras telas recentes ou de apoio também são fixáveis (Malote, Central de Documentos, Fiscal, Auditoria do extrato, Reuniões, Conta de Sustento, Insights, Recorrências)", () => {
-    for (const r of ["/financas/documentos", "/financas/fiscal", "/financas/auditoria-extrato", "/financas/reunioes", "/financas/sustento", "/financas/insights", "/financas/recorrencias"]) expect(rotas).toContain(r);
+  it("outras telas recentes ou de apoio também são fixáveis (Malote, Central de Documentos, Fiscal, Reuniões, Conta de Sustento, Insights, Recorrências)", () => {
+    for (const r of ["/financas/documentos", "/financas/fiscal", "/financas/reunioes", "/financas/sustento", "/financas/insights", "/financas/recorrencias"]) expect(rotas).toContain(r);
   });
 
   it("fica de fora o que tem parâmetro (não se escolhe numa lista), a própria Mesa e o que tem motivo técnico registrado", () => {
     expect(rotas.some(r => r.includes(":"))).toBe(false);
     expect(rotas).not.toContain("/painel-tesouraria");
     expect(rotas).not.toContain("/financas/relatorio-contas");
-    expect(TELAS.find(t => t.padrao === "/financas/relatorio-contas")!.naoFixavel).toMatch(/contas/);
   });
 
   it("REGRA: toda rota do Financeiro no App.tsx é fixável por padrão — ou tem parâmetro, ou é a própria Mesa, ou registra um motivo técnico (nunca fica de fora em silêncio)", () => {
-    expect(rotasFinanceirasDoApp.length).toBeGreaterThan(30);
+    expect(rotasFinanceirasDoApp.length).toBeGreaterThan(20); // só garante que o regex achou as rotas; o módulo encolheu nas Fases A–D
     const silenciosas = rotasFinanceirasDoApp.filter(r => {
       if (r.includes(":") || r === "/painel-tesouraria") return false;
       const t = TELAS.find(x => x.padrao === r);

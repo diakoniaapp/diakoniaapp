@@ -41,3 +41,21 @@ export async function verificarSobreposicaoPeriodo(
   if (error) throw error;
   return count ?? 0;
 }
+
+export interface ArquivoImportado {
+  id: string; arquivo_nome: string | null; lote_tag: string; qtd_linhas: number;
+  data_min: string | null; data_max: string | null; importado_em: string;
+}
+
+/** Os arquivos já importados numa conta (fatura de cartão e os lotes antigos do Omie), do mais recente ao mais antigo.
+ *  O OFX do banco NÃO entra aqui: ele é conciliado na hora, sem registro de arquivo (a trava dele é o identificador de cada linha do extrato). */
+export async function listarArquivosImportados(contaId: string, limite = 200): Promise<ArquivoImportado[]> {
+  const { data, error } = await supabase
+    .from("fin_import_arquivos")
+    .select("id, arquivo_nome, lote_tag, qtd_linhas, data_min, data_max, importado_em")
+    .eq("conta_id", contaId)
+    .order("importado_em", { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return data ?? [];
+}

@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
-import { useRotuloDaTela, useVoltarPersonalizado } from "@/hooks/useNavegacao";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { centroESubcentro } from "@/lib/centroSubcentro";
-import { destinoSeguro } from "@/lib/destinoPosEntrada";
-import {
-  contextoParaQuery, lerRetorno, limparRetorno, queryParaContexto, salvarContextoExtrato,
-} from "@/lib/contextoExtrato";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +47,7 @@ import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/fin
 import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
+import { AbasDaConta } from "@/components/financas/contas/AbasDaConta";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -128,16 +125,8 @@ export default function FinancasConta() {
   const [conta, setConta] = useState<FinConta | null>(null);
   useRotuloDaTela(conta?.nome ? `${conta.nome} · Extrato completo` : undefined); // nome real na trilha (BarraDeContexto)
 
-  // Veio do painel da conta (botão "Extrato completo")? Então o "Voltar" da barra de contexto vira
-  // "Voltar para movimentações" e reabre aquele painel, na mesma conta — com o contexto de trabalho
-  // que estiver agora (o painel o lê de lib/contextoExtrato.ts), inclusive o que foi mudado aqui.
+  // O estado de navegação (`location.state`) é repassado ao espelho dos filtros na URL (`setSearchParams` com `replace` reescreve a entrada do histórico e, sem repassar o `state`, ele some).
   const location = useLocation();
-  // Capturado na chegada: o espelho dos filtros na URL (`setSearchParams` com `replace`) reescreve a
-  // entrada do histórico e, sem repassar o `state`, ele sumia logo depois da primeira renderização.
-  const [origemDoPainel] = useState(() => destinoSeguro((location.state as { origem?: string } | null)?.origem));
-  useVoltarPersonalizado(origemDoPainel && contaId && contaId !== "todas"
-    ? { rotulo: "Voltar para movimentações", acao: () => navigate(origemDoPainel, { state: { reabrirExtrato: contaId } }) }
-    : null);
   const [contas, setContas] = useState<FinConta[]>([]);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -380,15 +369,6 @@ export default function FinancasConta() {
     params.set("ate", dataFim);
     setSearchParams(params, { replace: true, state: location.state });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // O mesmo contexto alimenta o painel da conta (ExtratoContaDrawer): o que se muda aqui vale
-    // lá ao voltar (lib/contextoExtrato.ts). Fora de "atrasados", que é filtro de situação.
-    if (periodoPreset !== "atrasados") {
-      salvarContextoExtrato({
-        periodo: periodoPreset, de: dataInicio, ate: dataFim, tipo: filtroTipo, categoriaId: filtroCategoriaId,
-        centroId: filtroCentroCustoId, fornecedorId: filtroFornecedorId, busca,
-        valorMin: filtroValorMinTexto, valorMax: filtroValorMaxTexto,
-      });
-    }
   }, [filtroTipo, busca, periodoPreset, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
@@ -960,6 +940,9 @@ export default function FinancasConta() {
         </Button>
         </div>
       </div>
+
+      {/* Fase D (20/10/2026): Extrato · Conciliação · Diagnóstico · Importações — as abas da conta (só nas contas que têm mais de uma; "Todas as Contas" não tem) */}
+      {!isTodasContas && conta && <AbasDaConta contaId={contaId} tipo={conta.tipo} aba="extrato" />}
 
       {/* Cabeçalho imprimível — mesmo padrão de financas/DashboardExecutivo.tsx */}
       <div className="avoid-break hidden print:block text-center mb-3 pb-3 border-b-2 border-gold/30">

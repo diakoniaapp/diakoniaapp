@@ -128,7 +128,7 @@ export const TELAS: Tela[] = [
   // Operações
   T("/financas", "Contas correntes", "financeiro", { secao: "operacoes" }),
   T("/financas/conta/:contaId", "Conta", "financeiro", { pai: "/financas" }),
-  T("/financas/relatorio-contas", "Relatório de contas", "financeiro", { pai: "/financas", naoFixavel: "só abre com as contas escolhidas na URL (?contas=…); sem elas mostra \"nenhuma conta selecionada\"" }),
+  T("/financas/conta/:contaId/:aba", "Conta", "financeiro", { pai: "/financas/conta/:contaId" }),
   T("/financas/doacoes", "Doações", "financeiro", { secao: "operacoes" }),
   // Gestão
   T("/financas/insights", "Insights", "financeiro", { secao: "gestao" }),
@@ -152,7 +152,6 @@ export const TELAS: Tela[] = [
   T("/financas/doadores", "Doadores", "financeiro", { secao: "cadastros" }),
   T("/financas/doadores/:pessoaId", "Doador", "financeiro", { pai: "/financas/doadores" }),
   T("/financas/sustento", "Conta Corrente de Sustento", "financeiro", { secao: "cadastros" }),
-  T("/financas/auditoria-extrato", "Auditoria do extrato", "financeiro", { secao: "fechamento" }),
   // Fechamento
   T("/financas/fiscal", "Módulo Fiscal", "financeiro", { secao: "fechamento" }),
   T("/financas/documentos", "Central de Documentos", "financeiro", { secao: "fechamento" }),

@@ -1,4 +1,6 @@
-// ─── AuditoriaExtrato.tsx — por que o saldo do sistema não bate com o do banco (SÓ LEITURA) ──────────────────────────────────
+// ─── DiagnosticoDoExtrato — a aba "Diagnóstico" da conta: por que o saldo do sistema não bate com o do banco (SÓ LEITURA) ──────────────────────────────────
+// Fase D (20/10/2026): era a página isolada "Auditoria do extrato" (/financas/auditoria-extrato). Agora é uma aba da própria conta; o endereço antigo redireciona para cá.
+// A conta vem da aba (não se escolhe de novo); só a conta da aplicação (Invest Fácil) continua sendo escolha desta tela.
 //
 // Pedido dela (08/10/2026): "explique matematicamente cada diferença entre saldo bancário e saldo do sistema", sem presumir que toda
 // divergência é erro de importação. Recebe o OFX e, de preferência, o PDF do extrato consolidado do Bradesco — que traz o que o OFX NÃO
@@ -6,8 +8,7 @@
 // (a soma dos componentes tem de dar a diferença: o "resíduo" tem de ser R$ 0,00), o dia em que o saldo deixa de bater e as linhas
 // responsáveis. Nada é corrigido aqui. A única gravação (só ao clicar em "Gravar a ordem do banco") é a posição de cada lançamento no extrato do banco.
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, ClipboardCopy, FileSearch, Loader2 } from "lucide-react";
+import { ClipboardCopy, FileSearch, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,8 @@ import { causaDoBanco, causaDoSistema, porDia, primeiroDiaQueDiverge, ROTULO_CAU
 const dataBr = (d: string) => d.split("-").reverse().join("/");
 const CAMPO = "h-8 rounded-md border bg-background px-2 text-xs min-w-0";
 
-export default function AuditoriaExtrato() {
+export function DiagnosticoDoExtrato({ contaId, contaNome }: { contaId: string; contaNome: string }) {
   const [contas, setContas] = useState<{ id: string; nome: string }[]>([]);
-  const [contaId, setContaId] = useState("");
   const [aplicacaoId, setAplicacaoId] = useState("");
   const [ofx, setOfx] = useState<File | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
@@ -33,17 +33,16 @@ export default function AuditoriaExtrato() {
     listarContas(true).then((cs) => {
       const lista = cs.map((c) => ({ id: c.id, nome: c.nome }));
       setContas(lista);
-      setContaId(lista.find((c) => /^bradesco$/i.test(c.nome))?.id ?? lista[0]?.id ?? "");
       setAplicacaoId(lista.find((c) => /aplica/i.test(c.nome))?.id ?? "");
     }).catch((e) => toast.error(e?.message ?? "Não foi possível listar as contas."));
   }, []);
 
   async function auditar() {
-    if (!ofx || !contaId) { toast.error("Escolha a conta e o arquivo OFX."); return; }
+    if (!ofx || !contaId) { toast.error("Escolha o arquivo OFX."); return; }
     setRodando(true); setResultado(null);
     try {
       const r = await executarAuditoria({
-        contaId, contaNome: contas.find((c) => c.id === contaId)?.nome ?? "", contaAplicacaoId: aplicacaoId || null, arquivoOfx: ofx, arquivoPdf: pdf,
+        contaId, contaNome, contaAplicacaoId: aplicacaoId || null, arquivoOfx: ofx, arquivoPdf: pdf,
       });
       setResultado(r); setCorteEscolhido(r.cortes[r.cortes.length - 1]);
     } catch (e: any) {
@@ -86,33 +85,23 @@ export default function AuditoriaExtrato() {
   const dec: Decomposicao | undefined = resultado?.decomposicoes.find((d) => d.corte === corteEscolhido);
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
-      <div className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon" className="shrink-0 -ml-2">
-          <Link to="/painel-tesouraria" aria-label="Voltar à Tesouraria"><ArrowLeft className="w-4 h-4" /></Link>
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className="font-serif text-xl flex items-center gap-2"><FileSearch className="w-5 h-5 text-gold shrink-0" /> Auditoria do extrato</h1>
-          <p className="text-xs text-muted-foreground">Compara o extrato do banco com o que o sistema tem e explica cada centavo da diferença. Só leitura: não grava nem corrige nada.</p>
-        </div>
-      </div>
+    <div className="space-y-4" data-aba="diagnostico">
+      <p className="text-xs text-muted-foreground">
+        Compara o extrato do banco com o que o sistema tem em <strong>{contaNome}</strong> e explica cada centavo da diferença. Só leitura: não corrige nada
+        (a única gravação, só ao clicar, é a posição de cada lançamento no extrato do banco).
+      </p>
 
       <Card>
         <CardContent className="py-3 px-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs space-y-1 min-w-0">
-              <span className="block text-muted-foreground">Conta corrente</span>
-              <select className={`${CAMPO} w-full`} value={contaId} onChange={(e) => setContaId(e.target.value)} aria-label="Conta corrente">
-                {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </label>
-            <label className="text-xs space-y-1 min-w-0">
               <span className="block text-muted-foreground">Conta da aplicação (Invest Fácil)</span>
               <select className={`${CAMPO} w-full`} value={aplicacaoId} onChange={(e) => setAplicacaoId(e.target.value)} aria-label="Conta da aplicação">
                 <option value="">— não comparar —</option>
-                {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {contas.filter((c) => c.id !== contaId).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </label>
+            <span className="hidden sm:block" />
             <label className="text-xs space-y-1 min-w-0">
               <span className="block text-muted-foreground">Extrato OFX (obrigatório)</span>
               <input type="file" accept=".ofx,.OFX" className="block w-full text-xs" aria-label="Arquivo OFX" onChange={(e) => setOfx(e.target.files?.[0] ?? null)} />

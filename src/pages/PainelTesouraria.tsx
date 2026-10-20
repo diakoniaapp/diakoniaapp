@@ -59,8 +59,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { IndicadoresMissionarios } from "@/components/financas/IndicadoresMissionarios";
 import { carregarDadosDeMissoes, type DadosDeMissoes } from "@/services/missoesService";
 import { categoriaPadraoDeRepasse, ehCategoriaDeRepasse, fundoAcumulado } from "@/lib/indicadoresMissionarios";
-import { Link, useLocation, useNavigate, useNavigationType } from "react-router-dom";
-import { lerRetorno, limparRetorno } from "@/lib/contextoExtrato";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { enderecoDaAba } from "@/components/financas/contas/AbasDaConta";
 import { renovarRecorrenciasSemFim } from "@/services/recorrenciaService";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
@@ -94,10 +94,8 @@ import {
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
-import { ConciliacaoDrawer } from "@/components/financas/ConciliacaoDrawer";
 import { FornecedoresDrawer } from "@/components/financas/FornecedoresDrawer";
 import { RecorrenciasDrawer } from "@/components/financas/RecorrenciasDrawer";
-import { ExtratoContaDrawer } from "@/components/financas/ExtratoContaDrawer";
 import { EstoqueDrawer } from "@/components/financas/EstoqueDrawer";
 import { ProjetosDrawer } from "@/components/financas/ProjetosDrawer";
 import { ContratadosDrawer } from "@/components/financas/ContratadosDrawer";
@@ -211,20 +209,11 @@ export default function PainelTesouraria() {
   // mesmo diálogo que já existe no extrato de conta (Fase 9).
   const acoes = useAcoesLancamento(carregar);
   const [anexosPara, setAnexosPara] = useState<PendenciaLancamento | null>(null);
-  // Fase 10, parte 3 (22/09/2026), pedido dela: "drawer largo... sem trocar
-  // de rota". Guarda {id, nome} (não o objeto pendência inteiro) porque as
-  // TRÊS entradas pra conciliação (linha da pendência, tile da Mesa,
-  // "Mais ações") levam à mesma conta mas nenhuma delas tem o mesmo shape.
-  const [conciliandoConta, setConciliandoConta] = useState<{ id: string; nome: string } | null>(null);
   // Fase 11b do Workspace Financeiro (23/09/2026): os dois primeiros
   // atalhos de "Ir para" a virar drawer, provando o padrão antes de
   // estender pros outros nove do mapa.
   const [fornecedoresAberto, setFornecedoresAberto] = useState(false);
   const [recorrenciasAberto, setRecorrenciasAberto] = useState(false);
-  // Fase 11c: maior drawer do mapa — extrato completo de UMA conta.
-  const [extratoContaId, setExtratoContaId] = useState<string | null>(null);
-  /** Só preenchida ao voltar do "Extrato completo": a rolagem que a lista tinha ao sair. */
-  const [rolagemDoExtrato, setRolagemDoExtrato] = useState<number | undefined>(undefined);
   // Fase 11d: os últimos quatro atalhos de "Ir para" a virar drawer.
   const [estoqueAberto, setEstoqueAberto] = useState(false);
   const [projetosAberto, setProjetosAberto] = useState(false);
@@ -266,22 +255,10 @@ export default function PainelTesouraria() {
     try { await desfixarFavorito(id); } catch { carregarFavoritos(); }
   }
 
+  // "Importar extrato": importar OFX é sempre de UMA conta — a aba Importações da primeira conta de banco (Fase D, 20/10/2026: era uma gaveta sobre este painel)
   function abrirImportacao() {
-    // Igual a `abrirConciliacao()` abaixo: importar OFX é sempre de UMA
-    // conta, e a `ConciliacaoOFXDialog`/`ImportacaoOmieDialog` (já aposentado) vivem dentro
-    // do `ExtratoContaDrawer` (Fase 11c) — abrir o extrato da primeira
-    // conta ativa é o caminho real pra chegar lá, não um botão novo.
-    if (contas.length === 0) { navigate("/financas"); return; }
-    setExtratoContaId(contas[0].id);
-  }
-
-  function abrirConciliacao() {
-    // Sem pendência real, não tem conta certa pra abrir — cai no hub de
-    // contas mesmo, mais honesto que fingir que sabe onde ir (mesma régua
-    // de antes desta fase, só que agora só se aplica ao caso vazio).
-    if (aguardandoConciliacao.length === 0) { navigate("/financas"); return; }
-    const p = aguardandoConciliacao[0];
-    setConciliandoConta({ id: p.conta_id, nome: p.conta_nome ?? "Conta" });
+    const banco = contas.find(c => c.tipo === "banco");
+    navigate(banco ? enderecoDaAba(banco.id, "importacoes") : "/financas");
   }
 
   // ── Indicadores Eclesiásticos (Fase 12, aba Gestão) ───────────────────────
@@ -471,34 +448,6 @@ export default function PainelTesouraria() {
   // lugar nenhum. Disparar só depois do carregamento acabar garante medir
   // a altura final da página.
   const location = useLocation();
-  const tipoDeNavegacao = useNavigationType();
-
-  // Voltando do "Extrato completo": reabre o painel daquela conta, com o contexto de trabalho que
-  // a pessoa deixou (período, filtros, busca — lib/contextoExtrato.ts). Dois caminhos:
-  //   · o botão "Voltar para movimentações" avisa por `location.state.reabrirExtrato`;
-  //   · o "voltar" do navegador (POP) não carrega estado, então vale a promessa gravada ao sair —
-  //     só se for recente e do mesmo endereço, para não abrir o painel do nada, dias depois.
-  // Uma vez só: consome a promessa e limpa o estado do histórico (F5 não reabre de novo).
-  useEffect(() => {
-    const pedido = (location.state as { reabrirExtrato?: string } | null)?.reabrirExtrato;
-    if (pedido) {
-      setRolagemDoExtrato(lerRetorno()?.rolagem);
-      limparRetorno();
-      setExtratoContaId(pedido);
-      navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state: null });
-      return;
-    }
-    if (tipoDeNavegacao === "POP") {
-      const r = lerRetorno();
-      if (r && r.origem.split(/[?#]/)[0] === location.pathname) {
-        setRolagemDoExtrato(r.rolagem);
-        limparRetorno();
-        setExtratoContaId(r.contaId);
-      }
-    }
-    // só na chegada à tela
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (location.hash === "#ir-para" && !carregando) irParaSecao("ir-para");
@@ -782,7 +731,7 @@ export default function PainelTesouraria() {
               22/09/2026 (mora no painel da Administração). */}
           {aba === "fechamento" && (
           <>
-          <FechamentoMensal onConciliar={(c) => setConciliandoConta(c)} />
+          <FechamentoMensal onConciliar={(c) => navigate(enderecoDaAba(c.id, "conciliacao"))} />
 
           </>
           )}
@@ -1139,11 +1088,10 @@ export default function PainelTesouraria() {
               {/* "Todas as Contas" — pedido dela (30/09/2026), vendo o
                   seletor de conta do Omie: lá existe uma opção no topo do
                   dropdown pra ver o extrato consolidado de todas as contas
-                  de uma vez, sem escolher uma por uma. Mesmo drawer
-                  (`ExtratoContaDrawer`), `contaId=null` — ver o comentário
-                  lá dentro sobre o que muda no modo consolidado. */}
-              <button type="button" onClick={() => setExtratoContaId("__todas__")}
-                className="rounded-md border-2 border-gold/40 bg-gold/5 p-2.5 hover:border-gold transition-colors min-w-0 text-left">
+                  de uma vez, sem escolher uma por uma. Hoje é a página `/financas/conta/todas`
+                  (Fase D, 20/10/2026: era uma gaveta sobre este painel). */}
+              <Link to="/financas/conta/todas"
+                className="block rounded-md border-2 border-gold/40 bg-gold/5 p-2.5 hover:border-gold transition-colors min-w-0 text-left">
                 <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-gold-text truncate">
                   <Layers className="w-3.5 h-3.5" />
                   <span className="truncate">Todas as Contas</span>
@@ -1151,10 +1099,10 @@ export default function PainelTesouraria() {
                 <p className="font-semibold tabular-nums mt-0.5 text-base truncate">
                   {brl(contas.reduce((s, c) => s + Number(c.saldo_atual), 0))}
                 </p>
-              </button>
+              </Link>
               {contas.map(c => (
-                <button key={c.id} type="button" onClick={() => setExtratoContaId(c.id)}
-                  className="rounded-md border bg-card p-2.5 hover:border-gold/50 transition-colors min-w-0 text-left">
+                <Link key={c.id} to={`/financas/conta/${c.id}`}
+                  className="block rounded-md border bg-card p-2.5 hover:border-gold/50 transition-colors min-w-0 text-left">
                   <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground truncate">
                     {iconeConta(c, "w-3.5 h-3.5")}
                     <span className="truncate">{c.nome}</span>
@@ -1162,7 +1110,7 @@ export default function PainelTesouraria() {
                   <p className="font-semibold tabular-nums mt-0.5 text-base truncate" style={{ color: c.cor ?? undefined }}>
                     {brl(Number(c.saldo_atual))}
                   </p>
-                </button>
+                </Link>
               ))}
             </section>
           )}
@@ -1188,7 +1136,6 @@ export default function PainelTesouraria() {
                 { to: "/financas/folha", label: "Calculadoras (Folha)", icone: Briefcase },
                 ...(hasRole(ROLES_DOADORES) ? [{ to: "/financas/doadores", label: "Doadores", icone: Users }] : []),
                 // Conta Corrente de Sustento (Fase 1, 08/10/2026): remuneração pastoral, só admin + tesouraria.
-                { to: "/financas/auditoria-extrato", label: "Auditoria do extrato", icone: ClipboardCheck },
                 ...(hasRole(ROLES_SUSTENTO) ? [{ to: "/financas/sustento", label: "Sustento Pastoral", icone: HeartHandshake }] : []),
               ]}
             />
@@ -1218,28 +1165,8 @@ export default function PainelTesouraria() {
           onChange={carregar}
         />
       )}
-      {conciliandoConta && (
-        <ConciliacaoDrawer
-          open={!!conciliandoConta}
-          onOpenChange={(v) => !v && setConciliandoConta(null)}
-          contaId={conciliandoConta.id}
-          contaNome={conciliandoConta.nome}
-          onChange={carregar}
-        />
-      )}
       <FornecedoresDrawer open={fornecedoresAberto} onOpenChange={setFornecedoresAberto} />
       <RecorrenciasDrawer open={recorrenciasAberto} onOpenChange={setRecorrenciasAberto} />
-      {extratoContaId && (
-        <ExtratoContaDrawer
-          open={!!extratoContaId}
-          onOpenChange={(v) => !v && setExtratoContaId(null)}
-          contaId={extratoContaId === "__todas__" ? null : extratoContaId}
-          contas={contas}
-          onTrocarConta={(id) => setExtratoContaId(id ?? "__todas__")}
-          onChange={carregar}
-          rolagemInicial={rolagemDoExtrato}
-        />
-      )}
       <EstoqueDrawer open={estoqueAberto} onOpenChange={setEstoqueAberto} />
       <ProjetosDrawer open={projetosAberto} onOpenChange={setProjetosAberto} onChange={carregar} />
       <ContratadosDrawer open={contratadosAberto} onOpenChange={setContratadosAberto} />

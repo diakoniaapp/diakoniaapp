@@ -56,7 +56,7 @@ import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
 import { RedirecionaParaOFechamento } from "./pages/RedirecionaParaOFechamento.tsx";
 import FinancasAuditoriaAnexos from "./pages/FinancasAuditoriaAnexos.tsx";
 import FinancasCentralDocumentos from "./pages/FinancasCentralDocumentos.tsx";
-import FinancasRelatorioContas from "./pages/FinancasRelatorioContas.tsx";
+import ContaComAbas from "./pages/ContaComAbas.tsx";
 import FinancasEstoque from "./pages/FinancasEstoque.tsx";
 import FinancasInsights from "./pages/FinancasInsights.tsx";
 import FinancasCentros from "./pages/FinancasCentros.tsx";
@@ -76,7 +76,7 @@ import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
 import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
 import FinancasDRE from "./pages/FinancasDRE.tsx";
 import FinancasSustento from "./pages/financas/Sustento.tsx";
-import FinancasAuditoriaExtrato from "./pages/financas/AuditoriaExtrato.tsx";
+import { RedirecionaParaODiagnostico, RedirecionaParaTodasAsContas } from "./pages/RedirecionaParaAsContas.tsx";
 import FinancasPrestacaoContas from "./pages/FinancasPrestacaoContas.tsx";
 import FinancasExtratoObrigacoes from "./pages/FinancasExtratoObrigacoes.tsx";
 import ArrecadacaoHome from "./pages/arrecadacao/index.tsx";
@@ -200,7 +200,9 @@ const App = () => (
                   <Route path="/pgm/:grupoId/reuniao/:reuniaoId/relatorio" element={<PgmReuniaoRelatorio />} />
                   <Route path="/financas" element={<Financas />} />
                   <Route path="/financas/conta/:contaId" element={<FinancasConta />} />
-                  <Route path="/financas/relatorio-contas" element={<FinancasRelatorioContas />} />
+                  {/* Contas com abas (Fase D, 20/10/2026): Extrato (acima) · Conciliação · Diagnóstico · Importações. O relatório combinado e a auditoria isolada viraram essa visão e essas abas. */}
+                  <Route path="/financas/conta/:contaId/:aba" element={<ContaComAbas />} />
+                  <Route path="/financas/relatorio-contas" element={<RedirecionaParaTodasAsContas />} />
                   <Route path="/financas/admin" element={<FinancasAdmin />} />
                   <Route path="/financas/recorrencias" element={<FinancasRecorrencias />} />
                   {/* A Agenda Financeira virou o "Calendário" da Mesa (Fase A, 20/10/2026): links e favoritos antigos continuam funcionando */}
@@ -230,7 +232,7 @@ const App = () => (
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
                   <Route path="/financas/executivo" element={<DashboardExecutivo />} />
                   <Route path="/financas/sustento" element={<FinancasSustento />} />
-                  <Route path="/financas/auditoria-extrato" element={<FinancasAuditoriaExtrato />} />
+                  <Route path="/financas/auditoria-extrato" element={<RedirecionaParaODiagnostico />} />
                   <Route path="/financas/dre" element={<FinancasDRE />} />
                   <Route path="/financas/dre/:ano" element={<FinancasDRE />} />
                   <Route path="/financas/prestacao-de-contas" element={<FinancasPrestacaoContas />} />

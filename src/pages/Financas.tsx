@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
-} from "@/components/ui/dialog";
-import { CampoData } from "@/components/CampoData";
 import {
   DollarSign, Wallet, TrendingUp, TrendingDown, AlertTriangle,
   Plus, ChevronRight, Building2, CreditCard, PiggyBank, Mail, Coins,
@@ -23,7 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
-import { toYmd } from "@/lib/data";
 
 // Ícone por `tipo` sozinho não diferencia duas contas do MESMO tipo — Caixa
 // de Aplicação e Poupança nasceram as duas como "aplicacao" (30/09/2026,
@@ -69,53 +63,6 @@ export default function Financas() {
   const [tipoPadraoLancamento, setTipoPadraoLancamento] = useState<FinMovimentoTipo>("entrada");
   const [transfOpen, setTransfOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-
-  // Diálogo "Imprimir" — pedido da Telma (16/09/2026): "hoje temos
-  // impressão isolada em cada conta, mas quero a opção de visualizar o
-  // extrato completo das contas, filtrando quais quero visualizar e
-  // imprimir... de acordo com filtro de data escolhido". Escolhe contas
-  // (todas marcadas por padrão) + período, e monta a query string que
-  // `FinancasRelatorioContas.tsx` lê pra gerar o documento combinado.
-  const [imprimirOpen, setImprimirOpen] = useState(false);
-  const [contasParaImprimir, setContasParaImprimir] = useState<Set<string>>(new Set());
-  const hojeImpressao = new Date();
-  // Bug de produtividade (23/09/2026): abria em "01 do mês até hoje" —
-  // ela pediu que todo filtro de período abra em HOJE por padrão.
-  const [printDataInicio, setPrintDataInicio] = useState(toYmd(hojeImpressao));
-  const [printDataFim, setPrintDataFim] = useState(toYmd(hojeImpressao));
-  // Mesmo histórico de defeito relatado ao vivo pela Telma em
-  // FinancasConta.tsx (17/09/2026): `min` dinâmico + campo cruzado →
-  // teclado nativo do `<input type="date">` quebrado no WebView → e por
-  // fim, mesmo com o calendário em popover funcionando, ela queria a
-  // digitação de volta. Mesmo `CampoData` (components/CampoData.tsx)
-  // usado lá — ver o comentário grande de lá pro histórico completo.
-  const printInicioEfetivo = printDataInicio <= printDataFim ? printDataInicio : printDataFim;
-  const printFimEfetivo = printDataInicio <= printDataFim ? printDataFim : printDataInicio;
-
-  function abrirImprimir() {
-    setContasParaImprimir(new Set(contas.map(c => c.id)));
-    setImprimirOpen(true);
-  }
-
-  function alternarContaImpressao(id: string) {
-    setContasParaImprimir(prev => {
-      const novo = new Set(prev);
-      if (novo.has(id)) novo.delete(id); else novo.add(id);
-      return novo;
-    });
-  }
-
-  function gerarRelatorio() {
-    if (contasParaImprimir.size === 0) return;
-    const params = new URLSearchParams({
-      contas: Array.from(contasParaImprimir).join(","),
-      inicio: printInicioEfetivo,
-      fim: printFimEfetivo,
-    });
-    setImprimirOpen(false);
-    navigate(`/financas/relatorio-contas?${params.toString()}`);
-  }
 
   useEffect(() => { carregar(); }, []);
 
@@ -205,8 +152,9 @@ export default function Financas() {
           <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/financas/admin">
               <Settings className="w-3.5 h-3.5" /> Configurações
             </Link></Button>
-          <Button variant="outline" size="sm" onClick={abrirImprimir} className="gap-1.5" disabled={contas.length === 0}>
-            <Printer className="w-3.5 h-3.5" /> Imprimir
+          {/* Fase D (20/10/2026): o relatório combinado de contas virou o extrato de "Todas as Contas" (período à escolha, Imprimir / PDF na própria tela) */}
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link to="/financas/conta/todas"><Printer className="w-3.5 h-3.5" /> Extrato de todas as contas</Link>
           </Button>
           <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
             <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
@@ -368,49 +316,6 @@ export default function Financas() {
         onOpenChange={setTransfOpen}
         onSaved={carregar}
       />
-
-      <Dialog open={imprimirOpen} onOpenChange={setImprimirOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Imprimir extrato de contas</DialogTitle>
-            <DialogDescription>
-              Escolha as contas e o período. Cada conta escolhida entra como
-              uma seção própria, com o saldo acumulado dela.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="min-w-0">
-                <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-                <CampoData value={printDataInicio} onChange={setPrintDataInicio} />
-              </div>
-              <div className="min-w-0">
-                <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-                <CampoData value={printDataFim} onChange={setPrintDataFim} />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wide text-muted-foreground">Contas</label>
-              <div className="mt-1 space-y-1.5 max-h-56 overflow-y-auto border rounded-md p-2">
-                {contas.map(c => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox checked={contasParaImprimir.has(c.id)} onCheckedChange={() => alternarContaImpressao(c.id)} />
-                    <span className="flex-1 truncate">{c.nome}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">{CONTA_TIPO_LABEL[c.tipo]}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setImprimirOpen(false)}>Cancelar</Button>
-            <Button variant="gold" size="sm" onClick={gerarRelatorio} disabled={contasParaImprimir.size === 0} className="gap-1.5">
-              <Printer className="w-3.5 h-3.5" />
-              Gerar relatório {contasParaImprimir.size > 0 && `(${contasParaImprimir.size})`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Os blocos que a Home devolveu ao virar tela pessoal — aqui, a agenda
           fiscal e a manutencao de Bazar/Cantina. Ver `widgetRegistry.paineis`. */}
