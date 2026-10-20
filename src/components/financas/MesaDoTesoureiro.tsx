@@ -26,8 +26,7 @@ import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { NotaQuitadaDialog } from "@/components/financas/NotaQuitadaDialog";
-import { PendenciasDeQuitacao } from "@/components/financas/PendenciasDeQuitacao";
-import { PrazosDaQuitacao } from "@/components/financas/PrazosDaQuitacao";
+import { FilaDoDia } from "@/components/financas/mesa/FilaDoDia";
 import { SaneamentoDeCadastros } from "@/components/financas/SaneamentoDeCadastros";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { ROTULO_FILA, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
@@ -90,7 +89,9 @@ function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string
   );
 }
 
-export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarReembolso, onEditar, onAnexo, onAbrir }: {
+export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarReembolso, onEditar, onAnexo, onAbrir, chip }: {
+  /** o chip da ação (vocabulário único da fila do dia), à frente da linha */
+  chip?: React.ReactNode;
   v: FinVencimento; temAnexo: boolean; parcial?: ParcialEmAberto; quitacao?: QuitacaoDaObrigacao; onPagar: () => void; onPagarReembolso: () => void; onEditar: () => void; onAnexo: () => void; onAbrir: () => void;
 }) {
   // Fase 1A da Quitação: se um terceiro já pagou o fornecedor, a igreja NÃO paga de novo — o botão Pagar dá lugar à fila em que a conta está.
@@ -101,9 +102,10 @@ export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarR
   const dias = v.dias_para_vencer;
   const quando = dias < 0 ? `há ${Math.abs(dias)}d` : dias === 0 ? "hoje" : dias === 1 ? "amanhã" : dataCurta(v.data);
   return (
-    <li className="flex items-center gap-2 py-2 border-t first:border-t-0 text-sm min-w-0">
+    <li className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2 border-t first:border-t-0 text-sm min-w-0 sm:flex-nowrap">
+      {chip && <span className="shrink-0 sm:w-[8.5rem]">{chip}</span>}
       <span className={`w-14 shrink-0 text-xs tabular-nums ${dias < 0 ? "text-destructive-text font-semibold" : "text-muted-foreground"}`}>{quando}</span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-0 flex-1 basis-40">
         <span className="block truncate font-medium">{principal}</span>
         <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
           {secundario && <span className="truncate">{secundario}</span>}
@@ -152,9 +154,10 @@ export function MesaDoTesoureiro({
   const hoje = hojeLocal();
   const [dados, setDados] = useState<DadosDaMesa | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [mostrar30, setMostrar30] = useState(false);
   // LISTA (as janelas de sempre) ou CALENDÁRIO (o mês numa grade). O calendário substitui a Agenda Financeira (Fase A, 20/10/2026); `/financas/agenda` redireciona para cá com `?mesa=calendario`.
-  const [visao, setVisao] = useState<"lista" | "calendario">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") === "calendario" ? "calendario" : "lista"));
+  const [visao, setVisao] = useState<"fila" | "calendario">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") === "calendario" ? "calendario" : "fila"));
+  // a fila relê as quitações quando algo muda aqui (reembolso pago, detalhe fechado…)
+  const [recargaDaFila, setRecargaDaFila] = useState(0);
   const { hasRole } = useAuth();
   const podeOperar = hasRole(ROLES_FINANCEIRO);
   // contas pagas parcialmente (liquidação real): a linha do saldo diz quanto já foi pago; sem a migration, mapa vazio
@@ -218,24 +221,16 @@ export function MesaDoTesoureiro({
   const { aPagar, caixa, compromissos7, cobertura, ind, pagosHoje, semComprovante, checklist, porId } = derivados;
   const pendentesDoDia = pendenciasDoChecklist(checklist);
 
-  const grupo = (id: string, titulo: string, itens: FinVencimento[], tom?: string) => itens.length === 0 ? null : (
-    <div key={id} className="mb-2 last:mb-0">
-      <div className="flex items-baseline justify-between gap-2 pt-1">
-        <h3 className={`text-xs font-bold uppercase tracking-wide ${tom ?? "text-muted-foreground"}`}>{titulo} · {itens.length}</h3>
-        <span className="text-xs tabular-nums font-semibold">{brl(soma(itens))}</span>
-      </div>
-      <ul>
-        {itens.map(v => (
-          <LinhaDeConta key={v.id} v={v} temAnexo={dados.comAnexo.has(v.id)} parcial={parciais.get(v.id)} quitacao={quitacoes.get(v.id)}
-            onPagar={() => onPagar(v)} onAnexo={() => onAnexo({ id: v.id, label: nomeExtrato(v).principal })}
-            onPagarReembolso={() => { const q = quitacoes.get(v.id); if (q) setPagandoReembolso(q); }}
-            onEditar={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setEditando(l); else toast.error("Não encontrei esta obrigação — atualize a mesa."); }).catch(e => toast.error(mensagemErro(e))); }}
-            onAbrir={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre */ }); }} />
-        ))}
-      </ul>
-    </div>
+  /** A linha de uma conta a pagar, com o chip da ação à frente — a MESMA da Mesa, agora dentro da fila única. */
+  const renderConta = (v: FinVencimento, chip: React.ReactNode) => (
+    <LinhaDeConta key={v.id} v={v} chip={chip} temAnexo={dados.comAnexo.has(v.id)} parcial={parciais.get(v.id)} quitacao={quitacoes.get(v.id)}
+      onPagar={() => onPagar(v)} onAnexo={() => onAnexo({ id: v.id, label: nomeExtrato(v).principal })}
+      onPagarReembolso={() => { const q = quitacoes.get(v.id); if (q) setPagandoReembolso(q); }}
+      onEditar={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setEditando(l); else toast.error("Não encontrei esta obrigação — atualize a mesa."); }).catch(e => toast.error(mensagemErro(e))); }}
+      onAbrir={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre */ }); }} />
   );
-  const nadaAPagar = Object.values(aPagar).every(g => g.length === 0);
+  const abrirObrigacao = (id: string) => { void buscarLancamentoParaEditar(id).then(l => { if (l) setDetalhe(l); else toast.error("Não encontrei a obrigação — atualize a mesa."); }).catch(e => toast.error(mensagemErro(e))); };
+  const obrigacoesComQuitacao = new Set(quitacoes.keys());
 
   return (
     <div className="space-y-4">
@@ -259,13 +254,13 @@ export function MesaDoTesoureiro({
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
         {/* 2 · contas a pagar */}
-        <Cartao id="mesa-contas" className="lg:col-span-2" titulo={visao === "calendario" ? "Calendário de vencimentos" : "Contas a pagar"}
-          subtitulo={visao === "calendario" ? "O mês de uma vez: contas e débitos automáticos — clique num dia" : "Boletos, faturas e pagamentos manuais — o que depende de você"}
+        <Cartao id="mesa-contas" className="lg:col-span-2" titulo={visao === "calendario" ? "Calendário de vencimentos" : "Fila do dia"}
+          subtitulo={visao === "calendario" ? "O mês de uma vez: contas e débitos automáticos — clique num dia" : "O que pede você agora: contas, débitos e quitações — um vocabulário, uma ordem"}
           direita={<div className="flex flex-wrap justify-end gap-1.5">
             <div role="group" aria-label="Visão" className="inline-flex overflow-hidden rounded-md border">
-              {(["lista", "calendario"] as const).map(v => (
+              {(["fila", "calendario"] as const).map(v => (
                 <button key={v} type="button" aria-pressed={visao === v} onClick={() => setVisao(v)}
-                  className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "lista" ? "Lista" : "Calendário"}</button>
+                  className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "fila" ? "Fila" : "Calendário"}</button>
               ))}
             </div>
             {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
@@ -276,37 +271,13 @@ export function MesaDoTesoureiro({
           ) : <>
           {/* conta aberta que já tem pagamento no extrato (criada depois dele, ou a linha entrou como lançamento comum): um registro só */}
           <ContasJaPagas chave={chaveDeAtualizacao} onMudou={carregar} />
-          {nadaAPagar ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhuma conta a pagar nos próximos 30 dias. Os débitos automáticos aparecem mais abaixo.
-            </p>
-          ) : (
-            <>
-              {grupo("atrasadas", "Atrasadas", aPagar.atrasadas, "text-destructive-text")}
-              {grupo("hoje", "Vencem hoje", aPagar.hoje, "text-warning-text")}
-              {grupo("amanha", "Amanhã", aPagar.amanha)}
-              {grupo("semana", "Próximos 7 dias", aPagar.semana)}
-              {aPagar.ate30.length > 0 && (
-                <div className="mt-1 border-t pt-2">
-                  <button type="button" onClick={() => setMostrar30(m => !m)}
-                    className="w-full flex items-center justify-between text-xs font-semibold text-muted-foreground hover:text-foreground">
-                    <span className="flex items-center gap-1">
-                      {mostrar30 ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      De 8 a 30 dias · {aPagar.ate30.length}
-                    </span>
-                    <span className="tabular-nums">{brl(soma(aPagar.ate30))}</span>
-                  </button>
-                  {mostrar30 && grupo("ate30", "De 8 a 30 dias", aPagar.ate30)}
-                </div>
-              )}
-            </>
-          )}
+          <FilaDoDia hoje={hoje} vencimentos={dados.vencimentos} debitos={dados.debitos} obrigacoesComQuitacao={obrigacoesComQuitacao} chave={chaveDeAtualizacao + recargaDaFila}
+            acoes={{ renderConta, onAbrirObrigacao: abrirObrigacao, onPagarReembolso: q => setPagandoReembolso(q), podePagar: podeOperar,
+              onMarcarDebitado: id => { const v = porId.get(id); if (v) onPagar(v); else abrirObrigacao(id); } }} />
           </>}
         </Cartao>
 
-        {/* 2b · Quitações a resolver (Política de Compras por Terceiros): só aparece depois da migration e quando há algo nas filas */}
-        <PrazosDaQuitacao chave={chaveDeAtualizacao} />
-        <PendenciasDeQuitacao hoje={hoje} chave={chaveDeAtualizacao} />
+        {/* as filas e os prazos da Quitação agora são itens da Fila do dia (um vocabulário só) */}
         <SaneamentoDeCadastros chave={chaveDeAtualizacao} />
 
         {/* 3 · seu dia */}
@@ -421,9 +392,9 @@ export function MesaDoTesoureiro({
         </Button>
       </div>
 
-      <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
+      <DetalhesDoLancamento lancamento={detalhe} onFechar={() => { setDetalhe(null); setRecargaDaFila(n => n + 1); }} />
       <LancamentoForm open={!!editando} onOpenChange={v => { if (!v) setEditando(null); }} lancamento={editando} onSaved={() => { setEditando(null); void carregar(); }} />
-      <PagarReembolsoDialog alvo={pagandoReembolso} onFechar={() => setPagandoReembolso(null)} onFeito={() => { setPagandoReembolso(null); void carregar(); }} />
+      <PagarReembolsoDialog alvo={pagandoReembolso} onFechar={() => setPagandoReembolso(null)} onFeito={() => { setPagandoReembolso(null); setRecargaDaFila(n => n + 1); void carregar(); }} />
       <NotaQuitadaDialog aberto={notaAberta} onFechar={() => setNotaAberta(false)}
         onFeito={id => { void carregar(); void buscarLancamentoParaEditar(id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre o detalhe */ }); }} />
     </div>
