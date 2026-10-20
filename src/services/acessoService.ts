@@ -232,7 +232,13 @@ export async function criarAcessoPessoa(params: {
 
   try {
     const { data, error } = await supabase.rpc("admin_criar_acesso", { p_pessoa_id: params.pessoaId, p_role: params.role, p_senha: senha });
-    if (error) return { ok: false, erro: `Erro ao criar acesso: ${error.message}` };
+    if (error) {
+      // função ainda não criada no banco (migration 20261020200000 não aplicada): diz o que falta, em vez de uma mensagem do PostgREST
+      if (error.code === "PGRST202" || error.code === "42883" || /admin_criar_acesso|schema cache/i.test(error.message)) {
+        return { ok: false, erro: "Falta aplicar no Supabase a migration 20261020200000_admin_criar_acesso.sql (cria a função que cria o acesso). Até lá, nenhum acesso novo pode ser criado por aqui." };
+      }
+      return { ok: false, erro: `Erro ao criar acesso: ${error.message}` };
+    }
     const r = (Array.isArray(data) ? data[0] : data) as { ok: boolean; erro: string | null; telefone: string | null; user_id: string | null } | null;
     if (!r?.ok || !r.user_id) return { ok: false, erro: r?.erro ?? "Não foi possível criar o acesso. Tente novamente." };
     const uid = r.user_id;

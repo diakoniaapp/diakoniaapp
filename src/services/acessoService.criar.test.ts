@@ -46,6 +46,12 @@ describe("criarAcessoPessoa", () => {
     expect(chamadas.some(x => x.fn === "registrar_audit_log")).toBe(false);
   });
 
+  it("função ainda não criada no banco: a mensagem diz que falta aplicar a migration", async () => {
+    respostaDaCriacao = { data: null, error: { message: "Could not find the function public.admin_criar_acesso in the schema cache", code: "PGRST202" } as any };
+    const r = await criarAcessoPessoa(pedido);
+    expect(r.ok).toBe(false); expect(r.erro).toContain("20261020200000_admin_criar_acesso.sql");
+  });
+
   it("erro de rede/RPC vira mensagem", async () => {
     respostaDaCriacao = { data: null, error: { message: "boom" } };
     expect((await criarAcessoPessoa(pedido)).erro).toContain("boom");
