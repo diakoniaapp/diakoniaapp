@@ -9,7 +9,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { daquiADias } from "@/lib/data";
 import { limitesDoMes } from "@/lib/fechamentoMensal";
-import type { DebitoItem } from "@/lib/formaLiquidacao";
+import { LIQUIDACAO_AUTOMATICA, type DebitoItem } from "@/lib/formaLiquidacao";
 import {
   enriquecerLancamentos, listarContas, listarProximosVencimentos,
   type FinConta, type FinLancamento, type FinVencimento,
@@ -95,10 +95,12 @@ async function pagosDesde(desde: string): Promise<PagoRecente[]> {
   }));
 }
 
-async function debitosDoMes(ini: string, fim: string): Promise<DebitoDoMes[]> {
+export async function debitosDoMes(ini: string, fim: string): Promise<DebitoDoMes[]> {
   const { data, error } = await supabase.from("fin_lancamentos").select("*")
     .eq("tipo", "saida").in("status", ["previsto", "realizado", "conciliado"])
-    .neq("forma_liquidacao", "manual").gte("data", ini).lte("data", fim)
+    // SÓ as formas que o BANCO executa (débito automático, PIX recorrente, transferência programada). Antes era "tudo que não é manual", o que arrastava o boleto/fatura (373 linhas em
+    // 20/10/2026): conta a pagar à mão aparecia como "possível falha no débito" na Mesa. A definição de "automática" é uma só: `LIQUIDACAO_AUTOMATICA`.
+    .in("forma_liquidacao", [...LIQUIDACAO_AUTOMATICA]).gte("data", ini).lte("data", fim)
     .order("data").order("id").limit(PAGINA);
   if (error) throw error;
   const ext = await enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
