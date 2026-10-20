@@ -138,7 +138,7 @@ export async function documentacaoDoMes(ano: number, mes: number): Promise<Resum
   return resumoDeDocumentacao(resumirProntidao((await auditarPeriodo(ini, fim)).map(l => l.documentacao)));
 }
 
-export interface ResumoPacote { dossies: number; pendencias: number; totalSaidas: number }
+export interface ResumoPacote { dossies: number; pendencias: number; totalSaidas: number; ofertadas: number; avisos: number }
 
 export async function pacoteDoMes(ano: number, mes: number): Promise<ResumoPacote> {
   const plano = await prepararPacoteContabil(ano, mes);
@@ -146,6 +146,8 @@ export async function pacoteDoMes(ano: number, mes: number): Promise<ResumoPacot
     dossies: plano.dossies.filter(d => d.caminhoZip || d.aoLado.length > 0).length,
     pendencias: plano.pendencias.length,
     totalSaidas: plano.totalSaidas,
+    ofertadas: plano.ofertadas,
+    avisos: plano.avisos,
   };
 }
 

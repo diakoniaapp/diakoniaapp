@@ -155,8 +155,8 @@ export const TELAS: Tela[] = [
   T("/financas/auditoria-extrato", "Auditoria do extrato", "financeiro", { secao: "fechamento" }),
   // Fechamento
   T("/financas/fiscal", "Módulo Fiscal", "financeiro", { secao: "fechamento" }),
-  T("/financas/relatorio", "Malote Contábil", "financeiro", { secao: "fechamento" }),
-  T("/financas/relatorio/:ano/:mes", "Malote do mês", "financeiro", { pai: "/financas/relatorio" }),
+  T("/financas/relatorio", "Movimento do mês", "financeiro", { secao: "fechamento" }),
+  T("/financas/relatorio/:ano/:mes", "Movimento do mês", "financeiro", { pai: "/financas/relatorio" }),
   T("/financas/documentos", "Central de Documentos", "financeiro", { secao: "fechamento" }),
   T("/financas/auditoria-anexos", "Auditoria de documentos", "financeiro", { secao: "fechamento" }),
   T("/financas/reunioes", "Reuniões Financeiras", "financeiro", { secao: "fechamento" }),

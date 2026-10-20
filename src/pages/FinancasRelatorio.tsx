@@ -15,7 +15,6 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
-import { PacoteContabilCard } from "@/components/financas/PacoteContabilCard";
 
 const MESES = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -120,10 +119,11 @@ export default function FinancasRelatorio() {
         </div>
       </div>
 
-      {/* Pacote Contábil (02/10/2026): conferência dos documentos + ZIP.
-          Fora da folha impressa — não é parte do relatório. */}
+      {/* O ZIP do malote e a conferência dos documentos moram no FECHAMENTO do mês (Fase B, 20/10/2026): uma porta só. Esta página ficou com o que só ela faz — o movimento do mês, por conta e por categoria, com CSV. */}
       <div className="no-print max-w-5xl mx-auto px-4 pt-4">
-        <PacoteContabilCard ano={ano} mes={mes} />
+        <Link to={`/painel-tesouraria?mes=${ano}-${String(mes).padStart(2, "0")}#fechamento`} className="text-sm text-primary underline underline-offset-2">
+          Gerar o malote e conferir a prontidão: Fechamento de {MESES[mes - 1]} de {ano}
+        </Link>
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
@@ -151,7 +151,7 @@ export default function FinancasRelatorio() {
 
         {/* Título */}
         <div className="text-center my-6 avoid-break">
-          <p className="text-xs tracking-[0.25em] uppercase text-gold">Movimento contábil — Malote</p>
+          <p className="text-xs tracking-[0.25em] uppercase text-gold">Movimento do mês — relatório contábil</p>
           <h1 className="font-serif text-3xl mt-2">{MESES[mes - 1]} {ano}</h1>
           <p className="text-xs text-muted-foreground mt-1">{resumo.qtdLancamentos} lançamentos · realizados/conciliados</p>
         </div>

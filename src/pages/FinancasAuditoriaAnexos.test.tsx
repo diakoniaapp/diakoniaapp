@@ -20,9 +20,6 @@ let temPapel = true;
 const chamadas: string[] = [];
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1" }, hasRole: () => temPapel }) }));
 vi.mock("@/services/pacoteContabilService", () => ({ auditarPeriodo: async () => linhas }));
-vi.mock("@/services/fechamentoDocumentosService", () => ({
-  documentosEDispensasDoMes: async () => ({ documentos: [{ tipo: "extrato_bancario" }, { tipo: "ofx" }], dispensas: [] }),
-}));
 vi.mock("@/components/financas/AnexosLancamentoDialog", () => ({ AnexosLancamentoDialog: (p: { lancamentoId: string }) => { chamadas.push("anexar:" + p.lancamentoId); return <div data-testid="anexos">{p.lancamentoId}</div>; } }));
 vi.mock("@/components/financas/DetalhesDoLancamento", () => ({ DetalhesDoLancamento: (p: { lancamento: { id: string } | null }) => (p.lancamento ? <div data-testid="detalhe">{p.lancamento.id}</div> : null) }));
 vi.mock("@/components/financas/LancamentoForm", () => ({ LancamentoForm: (p: { lancamento: { id: string } | null }) => (p.lancamento ? <div data-testid="form">{p.lancamento.id}</div> : null) }));
@@ -86,15 +83,13 @@ describe("Auditoria de documentos — prontidão do malote", () => {
     expect(ex.querySelector("[data-documento='Comprovante de pagamento']")!.textContent).toContain("3 de 4");
   });
 
-  it("o checklist do mês mostra os documentos mensais (extrato e OFX anexados; cartão e adquirente faltando)", async () => {
+  it("o checklist dos documentos do mês NÃO mora aqui (é a etapa 4 do Fechamento): a tela só aponta para o Fechamento do mês", async () => {
     cenario();
     const el = await abrir();
-    const ck = bloco(el, "checklist");
-    expect(ck.textContent).toContain("Extrato bancário");
-    const itens = [...ck.querySelectorAll("[data-item-do-checklist]")].map(i => [i.textContent, i.getAttribute("data-item-do-checklist")]);
-    expect(itens.find(i => i[0]!.includes("Cartão"))![1]).toBe("atencao");
-    expect(itens.find(i => i[0]!.includes("OFX"))![1]).toBe("ok");
-    expect(ck.textContent).toContain("Anexar os documentos do mês");
+    expect(el.querySelector("[data-bloco=checklist]")).toBeNull();
+    const link = [...el.querySelectorAll("a")].find(x => x.textContent!.includes("Abrir o Fechamento do mês")) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("/painel-tesouraria?mes=2026-09#fechamento");
+    expect(el.textContent).not.toContain("Gerar pacote");                          // uma porta só para o ZIP: o Fechamento
   });
 });
 
