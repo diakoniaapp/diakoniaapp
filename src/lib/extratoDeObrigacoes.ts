@@ -34,8 +34,8 @@ export interface LinhaDeObrigacao {
   projeto_id: string | null;
 }
 
-/** A quitação registrada para a obrigação (`vw_fin_quitacao`), quando existe. */
-export interface QuitacaoDoExtrato { responsavel: ResponsavelTipo; responsavelNome: string | null; intencao: Intencao }
+/** A quitação registrada para a obrigação (`vw_fin_quitacao`), quando existe. `resultado` e `fila` dizem se o reembolso JÁ foi pago ou se a igreja ainda deve. */
+export interface QuitacaoDoExtrato { responsavel: ResponsavelTipo; responsavelNome: string | null; intencao: Intencao; resultado?: string | null; fila?: string | null; saldoAReembolsar?: number | null }
 
 export interface NomesDoExtrato {
   fornecedores: Map<string, string>; pessoas: Map<string, string>; categorias: Map<string, string>; centros: Map<string, string>; projetos: Map<string, string>;
@@ -57,6 +57,39 @@ export interface LinhaDoExtrato {
   responsavel: string;
   intencao: string;
   diasEmAtraso: number | null;
+  /** A linha de `fin_lancamentos` que está em aberto (a que se edita e se paga): a mais antiga entre as `previsto`. Nula quando nada falta pagar. Num pagamento parcial NÃO é a raiz da obrigação. */
+  idEmAberto: string | null;
+  /** Reembolso que a igreja ainda deve à pessoa que pagou (o reembolso pago continua `reembolso`, mas sem esta marca). */
+  reembolsoAPagar: boolean;
+  saldoAReembolsar: number | null;
+}
+
+/** O que o tesoureiro pode fazer a partir da linha do extrato — uma regra só, para a tela e para os testes. */
+export interface AcoesDaObrigacao {
+  visualizar: boolean;
+  editar: boolean;
+  /** "normal": o Pagar de sempre · "reembolso": o pagamento do reembolso à pessoa · null: a igreja não paga (já foi paga, é de terceiro, ou foi cancelada) */
+  pagar: "normal" | "reembolso" | null;
+  corrigirQuitacao: boolean;
+}
+
+/**
+ * Comportamento por situação (pedido de 20/10/2026):
+ *   Em aberto / Atrasada (atraso é indicador, não estado) → Editar + Pagar agora · Paga → Visualizar · Cancelada → Visualizar ·
+ *   Quitada por terceiro → Visualizar + Corrigir quitação (a igreja NÃO paga) · Reembolso a pagar → Pagar agora abre o pagamento do REEMBOLSO; reembolso já pago → só Visualizar + Corrigir quitação.
+ * Editar e pagar precisam de uma linha em aberto (`idEmAberto`): sem ela não há o que corrigir nem pagar.
+ */
+export function acoesDaObrigacao(l: Pick<LinhaDoExtrato, "situacao" | "idEmAberto" | "reembolsoAPagar">): AcoesDaObrigacao {
+  switch (l.situacao) {
+    case "em_aberto": case "paga_parcialmente":
+      return { visualizar: true, editar: !!l.idEmAberto, pagar: l.idEmAberto ? "normal" : null, corrigirQuitacao: false };
+    case "reembolso":
+      return { visualizar: true, editar: false, pagar: l.reembolsoAPagar ? "reembolso" : null, corrigirQuitacao: true };
+    case "quitada_por_terceiro":
+      return { visualizar: true, editar: false, pagar: null, corrigirQuitacao: true };
+    case "paga": case "cancelada":
+      return { visualizar: true, editar: false, pagar: null, corrigirQuitacao: false };
+  }
 }
 
 const PAGAS = ["realizado", "conciliado", "quitado_terceiro"];
@@ -104,6 +137,8 @@ export function montarExtratoDeObrigacoes(entrada: {
     const abertas = grupo.filter(l => l.status !== "cancelado" && !PAGAS.includes(l.status));
     const saldoEmAberto = soma(abertas.map(l => Number(l.valor)));
     const vencimentoAberto = abertas.map(l => l.data).sort()[0];
+    const idEmAberto = [...abertas].sort((a, b) => a.data.localeCompare(b.data) || a.id.localeCompare(b.id))[0]?.id ?? null;
+    const reembolsoAPagar = situacao === "reembolso" && !!q && (q.fila === "reembolso_a_pagar" || q.resultado === "divida_com_terceiro");
     const diasEmAtraso = situacao !== "cancelada" && vencimentoAberto && vencimentoAberto < hoje ? diasEntre(vencimentoAberto, hoje) : null;
     const nomeDoFavorecido = (raiz.fornecedor_id && nomes.fornecedores.get(raiz.fornecedor_id)) || (raiz.pessoa_id && nomes.pessoas.get(raiz.pessoa_id)) || "";
     const responsavel = situacao === "cancelada" ? "—"
@@ -124,6 +159,9 @@ export function montarExtratoDeObrigacoes(entrada: {
       responsavel,
       intencao: q && q.intencao !== "nao_se_aplica" ? ROTULO_INTENCAO[q.intencao] : "—",
       diasEmAtraso,
+      idEmAberto,
+      reembolsoAPagar,
+      saldoAReembolsar: reembolsoAPagar ? (q?.saldoAReembolsar ?? null) : null,
     });
   }
   return saida.sort((a, b) => a.data.localeCompare(b.data) || a.fornecedor.localeCompare(b.fornecedor, "pt-BR") || a.descricao.localeCompare(b.descricao, "pt-BR"));

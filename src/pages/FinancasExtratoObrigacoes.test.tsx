@@ -9,7 +9,7 @@ import type { LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
 
 const linha = (o: Partial<LinhaDoExtrato> & { obrigacaoId: string }): LinhaDoExtrato => ({
   data: "2026-09-10", fornecedor: "Papelaria Central", documento: "NF 10", descricao: "Resmas de papel", categoria: "Material de Consumo", centro: "Ministério Pastoral", projeto: "",
-  valor: 100, saldoEmAberto: 0, situacao: "paga", responsavel: "Igreja", intencao: "—", diasEmAtraso: null, ...o,
+  valor: 100, saldoEmAberto: 0, situacao: "paga", responsavel: "Igreja", intencao: "—", diasEmAtraso: null, idEmAberto: null, reembolsoAPagar: false, saldoAReembolsar: null, ...o,
 });
 let dados: LinhaDoExtrato[] = [];
 const pedidos: { de: string; ate: string; fornecedorId?: string }[] = [];
@@ -19,13 +19,24 @@ const csvs: { nome: string; conteudo: string }[] = [];
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { nome: "Tesoureira Teste" } }) }) }) }) },
 }));
-vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1", email: "t@x.com" }, hasRole: () => true }) }));
+let temPapel = true;
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "u1", email: "t@x.com" }, hasRole: () => temPapel }) }));
+// as ações por linha reaproveitam os fluxos da Mesa — aqui só importa que a linha CHAMA o fluxo certo, com o id certo
+const chamadas: string[] = [];
+vi.mock("@/hooks/useAcoesLancamento", () => ({ useAcoesLancamento: () => ({ pagar: (v: { id: string }) => { chamadas.push("pagar:" + v.id); }, dialogs: null }) }));
+vi.mock("@/components/financas/DetalhesDoLancamento", () => ({ DetalhesDoLancamento: ({ lancamento }: { lancamento: { id: string } | null }) => lancamento ? <div data-testid="detalhe">{lancamento.id}</div> : null }));
+vi.mock("@/components/financas/LancamentoForm", () => ({ LancamentoForm: ({ open, lancamento }: { open: boolean; lancamento?: { id: string } | null }) => open ? <div data-testid="form">{lancamento?.id}</div> : null }));
+vi.mock("@/components/financas/PagarReembolsoDialog", () => ({ PagarReembolsoDialog: ({ alvo }: { alvo: { obrigacaoId: string } | null }) => alvo ? <div data-testid="reembolso">{alvo.obrigacaoId}</div> : null }));
+vi.mock("@/components/financas/QuitacaoDialog", () => ({ QuitacaoDialog: ({ alvo }: { alvo: { id: string } | null }) => alvo ? <div data-testid="quitacao">{alvo.id}</div> : null }));
+vi.mock("@/services/fechamentoMensalService", () => ({ buscarLancamentoParaEditar: async (id: string) => ({ id }) }));
+vi.mock("@/services/quitacaoService", () => ({ quitacaoDaObrigacao: async (id: string) => ({ quitacaoId: "q-" + id, obrigacaoId: id }) }));
 vi.mock("@/services/extratoDeObrigacoesService", () => ({ carregarExtratoDeObrigacoes: async (f: { de: string; ate: string; fornecedorId?: string }) => { pedidos.push(f); return dados; } }));
 vi.mock("@/services/finService", () => ({
   brl: (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
   downloadCSV: (nome: string, conteudo: string) => { csvs.push({ nome, conteudo }); },
   listarFornecedores: async () => [{ id: "f1", nome: "Papelaria Central" }], listarCategoriasTodas: async () => [{ id: "c1", nome: "Material de Consumo", tipo: "saida" }],
   listarCentrosCustoTodas: async () => [{ id: "ce1", nome: "Ministério Pastoral" }], listarProjetosTodos: async () => [{ id: "pr1", nome: "Reforma" }],
+  buscarVencimentoPorId: async (id: string) => (id === "ja-paga" ? null : { id }),
 }));
 vi.mock("file-saver", () => ({ saveAs: (blob: Blob, nome: string) => { salvos.push({ blob, nome }); } }));
 vi.mock("@/components/CampoData", () => ({ CampoData: ({ value }: { value: string }) => <input aria-label="data" value={value} readOnly /> }));
@@ -37,7 +48,7 @@ beforeAll(() => {
   (globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
   (Element.prototype as unknown as { scrollIntoView?: () => void }).scrollIntoView ??= () => {};
 });
-afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; pedidos.length = 0; salvos.length = 0; csvs.length = 0; });
+afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; pedidos.length = 0; salvos.length = 0; csvs.length = 0; chamadas.length = 0; temPapel = true; });
 
 async function abrir(url = "/financas/extrato-de-obrigacoes?inicio=2026-09-01&fim=2026-09-30") {
   const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
@@ -63,7 +74,9 @@ describe("Extrato de Obrigações", () => {
     completo();
     const el = await abrir();
     const cabecalho = [...el.querySelectorAll("table thead th")].map(t => t.textContent);
-    expect(cabecalho).toEqual(["Data", "Fornecedor", "Documento", "Descrição", "Categoria", "Centro de custo", "Projeto", "Valor", "Situação", "Responsável pela quitação", "Intenção", "Dias em atraso"]);
+    // as 12 do relatório + a coluna "Ações", que só existe na tela (no papel sai: .no-print)
+    expect(cabecalho).toEqual(["Data", "Fornecedor", "Documento", "Descrição", "Categoria", "Centro de custo", "Projeto", "Valor", "Situação", "Responsável pela quitação", "Intenção", "Dias em atraso", "Ações"]);
+    expect(el.querySelector("table thead th:last-child")!.className).toContain("no-print");
   });
 
   it("a obrigação quitada por terceiro aparece normalmente, com quem quitou e a intenção", async () => {
@@ -132,5 +145,77 @@ describe("Extrato de Obrigações", () => {
     expect(imprimir).toHaveBeenCalledTimes(1);
     expect([...document.querySelectorAll("style")].map(s => s.textContent).join("\n")).toMatch(/size: A4 landscape/);
     imprimir.mockRestore();
+  });
+});
+
+describe("ações por linha", () => {
+  const rotulos = (el: HTMLElement, id: string) => [...el.querySelector(`tr[data-obrigacao='${id}']`)!.querySelectorAll("button")].map(b => b.textContent!.trim());
+  const ações = () => {
+    dados = [
+      linha({ obrigacaoId: "aberta", fornecedor: "Light", situacao: "em_aberto", valor: 100, saldoEmAberto: 100, idEmAberto: "linha-aberta", diasEmAtraso: 12 }),
+      linha({ obrigacaoId: "paga", fornecedor: "Papelaria", situacao: "paga" }),
+      linha({ obrigacaoId: "terceiro", fornecedor: "Mercado Bom", situacao: "quitada_por_terceiro", responsavel: "Empresa — Mercado Bom", intencao: "Oferta" }),
+      linha({ obrigacaoId: "reemb-pagar", fornecedor: "Leandro Dias", situacao: "reembolso", reembolsoAPagar: true, idEmAberto: "linha-reemb", saldoAReembolsar: 1500 }),
+      linha({ obrigacaoId: "reemb-pago", fornecedor: "Ilumishop", situacao: "reembolso" }),
+      linha({ obrigacaoId: "cancelada", fornecedor: "Gráfica", situacao: "cancelada" }),
+    ];
+  };
+
+  it("cada situação mostra só as ações que lhe cabem (e quitada por terceiro nunca tem Pagar agora)", async () => {
+    ações();
+    const el = await abrir();
+    expect(rotulos(el, "aberta")).toEqual(["Pagar agora", "Editar", "Visualizar"]);
+    expect(rotulos(el, "paga")).toEqual(["Visualizar"]);
+    expect(rotulos(el, "terceiro")).toEqual(["Corrigir quitação", "Visualizar"]);
+    expect(rotulos(el, "reemb-pagar")).toEqual(["Pagar reembolso", "Corrigir quitação", "Visualizar"]);
+    expect(rotulos(el, "reemb-pago")).toEqual(["Corrigir quitação", "Visualizar"]);
+    expect(rotulos(el, "cancelada")).toEqual(["Visualizar"]);
+  });
+
+  it("quem não opera o dinheiro só visualiza", async () => {
+    ações(); temPapel = false;
+    const el = await abrir();
+    expect([...el.querySelectorAll("tbody button")].map(b => b.textContent!.trim()).every(t => t === "Visualizar")).toBe(true);
+  });
+
+  it("Pagar agora busca o vencimento da LINHA EM ABERTO e abre o fluxo de pagamento de sempre", async () => {
+    ações();
+    const el = await abrir();
+    const tr = [...el.querySelectorAll("tbody tr")].find(t => t.textContent!.includes("Light"))!;
+    await act(async () => { ([...tr.querySelectorAll("button")].find(b => b.textContent!.includes("Pagar agora")) as HTMLButtonElement).click(); });
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    expect(chamadas).toEqual(["pagar:linha-aberta"]);
+  });
+
+  it("Pagar reembolso abre o pagamento do REEMBOLSO (e não o pagamento ao fornecedor)", async () => {
+    ações();
+    const el = await abrir();
+    const tr = [...el.querySelectorAll("tbody tr")].find(t => t.textContent!.includes("Leandro Dias"))!;
+    await act(async () => { ([...tr.querySelectorAll("button")].find(b => b.textContent!.includes("Pagar reembolso")) as HTMLButtonElement).click(); });
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    expect(el.querySelector("[data-testid=reembolso]")!.textContent).toBe("reemb-pagar");
+    expect(chamadas).toEqual([]);
+  });
+
+  it("Editar abre o formulário da linha em aberto; Visualizar abre o detalhe da obrigação; Corrigir quitação abre a quitação", async () => {
+    ações();
+    const el = await abrir();
+    const clicar = async (nome: string, botaoTexto: string) => {
+      const tr = [...el.querySelectorAll("tbody tr")].find(t => t.textContent!.includes(nome))!;
+      await act(async () => { ([...tr.querySelectorAll("button")].find(b => b.textContent!.includes(botaoTexto)) as HTMLButtonElement).click(); });
+      await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    };
+    await clicar("Light", "Editar");
+    expect(el.ownerDocument.querySelector("[data-testid=form]")!.textContent).toBe("linha-aberta");
+    await clicar("Papelaria", "Visualizar");
+    expect(el.ownerDocument.querySelector("[data-testid=detalhe]")!.textContent).toBe("paga");
+    await clicar("Mercado Bom", "Corrigir quitação");
+    expect(el.ownerDocument.querySelector("[data-testid=quitacao]")!.textContent).toBe("terceiro");
+  });
+
+  it("as ações NÃO saem no papel (a coluna e os diálogos ficam em .no-print)", async () => {
+    ações();
+    const el = await abrir();
+    expect(el.querySelector("tbody tr td:last-child")!.className).toContain("no-print");
   });
 });

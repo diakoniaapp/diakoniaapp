@@ -19,10 +19,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, Clock, FileText, Landmark,
-  Loader2, Paperclip, RefreshCw, RotateCw, Wallet,
+  Loader2, Paperclip, Pencil, RefreshCw, RotateCw, Wallet,
 } from "lucide-react";
 import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
+import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { NotaQuitadaDialog } from "@/components/financas/NotaQuitadaDialog";
 import { PendenciasDeQuitacao } from "@/components/financas/PendenciasDeQuitacao";
 import { PrazosDaQuitacao } from "@/components/financas/PrazosDaQuitacao";
@@ -30,6 +32,8 @@ import { SaneamentoDeCadastros } from "@/components/financas/SaneamentoDeCadastr
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { ROTULO_FILA, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
 import { quitacaoDisponivel, quitacoesDasObrigacoes, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
+import { toast } from "sonner";
+import { mensagemErro } from "@/lib/erroRede";
 import { Button } from "@/components/ui/button";
 import { brl, nomeExtrato, type FinLancamentoExtenso, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
@@ -88,11 +92,13 @@ function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string
   );
 }
 
-function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onAnexo, onAbrir }: {
-  v: FinVencimento; temAnexo: boolean; parcial?: ParcialEmAberto; quitacao?: QuitacaoDaObrigacao; onPagar: () => void; onAnexo: () => void; onAbrir: () => void;
+export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarReembolso, onEditar, onAnexo, onAbrir }: {
+  v: FinVencimento; temAnexo: boolean; parcial?: ParcialEmAberto; quitacao?: QuitacaoDaObrigacao; onPagar: () => void; onPagarReembolso: () => void; onEditar: () => void; onAnexo: () => void; onAbrir: () => void;
 }) {
-  // Fase 1A da Quitação: se um terceiro já pagou o fornecedor, a igreja NÃO paga de novo — o botão Pagar dá lugar à fila em que a conta está
-  const terceiro = !!quitacao && quitacao.responsavel !== "nao_localizado";
+  // Fase 1A da Quitação: se um terceiro já pagou o fornecedor, a igreja NÃO paga de novo — o botão Pagar dá lugar à fila em que a conta está.
+  // EXCEÇÃO (20/10/2026): o reembolso JÁ APROVADO é dívida da igreja com a pessoa que pagou — aí o botão é "Pagar reembolso" (outro fluxo: paga a PESSOA, não o fornecedor).
+  const reembolsoAPagar = !!quitacao && quitacao.fila === "reembolso_a_pagar";
+  const terceiro = !!quitacao && quitacao.responsavel !== "nao_localizado" && !reembolsoAPagar;
   const { principal, secundario } = nomeExtrato(v);
   const dias = v.dias_para_vencer;
   const quando = dias < 0 ? `há ${Math.abs(dias)}d` : dias === 0 ? "hoje" : dias === 1 ? "amanhã" : dataCurta(v.data);
@@ -108,7 +114,9 @@ function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onAnexo, onAbri
         </span>
         {quitacao && (
           <span className="block text-xs text-warning-text">
-            {quitacao.responsavel === "nao_localizado" ? "Marcada como Não localizado: ninguém sabe quem pagou" : `Quitada por ${quitacao.responsavelNome ?? ROTULO_RESPONSAVEL[quitacao.responsavel]}`}{quitacao.fila ? ` · fila: ${ROTULO_FILA[quitacao.fila]}` : ""}
+            {quitacao.responsavel === "nao_localizado" ? "Marcada como Não localizado: ninguém sabe quem pagou"
+              : reembolsoAPagar ? `Reembolso a pagar a ${quitacao.responsavelNome ?? ROTULO_RESPONSAVEL[quitacao.responsavel]} · saldo ${brl(quitacao.saldoAReembolsar ?? quitacao.valorDaObrigacao)}`
+              : `Quitada por Terceiro — ${quitacao.responsavelNome ?? ROTULO_RESPONSAVEL[quitacao.responsavel]}`}{!reembolsoAPagar && quitacao.fila ? ` · fila: ${ROTULO_FILA[quitacao.fila]}` : ""}
           </span>
         )}
         {parcial && (
@@ -126,9 +134,15 @@ function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onAnexo, onAbri
       {terceiro ? (
         <Button variant="outline" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={onAbrir}>Ver quitação</Button>
       ) : (
-        <Button variant="success" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={onPagar}>
-          <CheckCircle2 className="w-3 h-3" /> Pagar
-        </Button>
+        <>
+          {/* Editar sem sair da Mesa: o MESMO formulário de lançamento (fornecedor, valor, categoria, centro, projeto, conta, vencimento); o anexo ao lado já cuida da documentação */}
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={onEditar} title="Editar obrigação" aria-label="Editar obrigação">
+            <Pencil className="w-3 h-3" /> <span className="hidden sm:inline">Editar</span>
+          </Button>
+          <Button variant="success" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={reembolsoAPagar ? onPagarReembolso : onPagar}>
+            <CheckCircle2 className="w-3 h-3" /> {reembolsoAPagar ? "Pagar reembolso" : "Pagar agora"}
+          </Button>
+        </>
       )}
     </li>
   );
@@ -146,6 +160,8 @@ export function MesaDoTesoureiro({
   // Fase 1A da Quitação: as contas em que um terceiro já pagou o fornecedor (vazio até a migration ser aplicada) e o detalhe aberto a partir delas
   const [quitacoes, setQuitacoes] = useState<Map<string, QuitacaoDaObrigacao>>(new Map());
   const [detalhe, setDetalhe] = useState<FinLancamentoExtenso | null>(null);
+  const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
+  const [pagandoReembolso, setPagandoReembolso] = useState<QuitacaoDaObrigacao | null>(null);
   // Fase 1B: registrar uma NOTA que o aplicativo ainda não tinha, já quitada por terceiro (só depois da migration da Quitação)
   const [quitacaoOk, setQuitacaoOk] = useState(false);
   const [notaAberta, setNotaAberta] = useState(false);
@@ -209,6 +225,8 @@ export function MesaDoTesoureiro({
         {itens.map(v => (
           <LinhaDeConta key={v.id} v={v} temAnexo={dados.comAnexo.has(v.id)} parcial={parciais.get(v.id)} quitacao={quitacoes.get(v.id)}
             onPagar={() => onPagar(v)} onAnexo={() => onAnexo({ id: v.id, label: nomeExtrato(v).principal })}
+            onPagarReembolso={() => { const q = quitacoes.get(v.id); if (q) setPagandoReembolso(q); }}
+            onEditar={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setEditando(l); else toast.error("Não encontrei esta obrigação — atualize a mesa."); }).catch(e => toast.error(mensagemErro(e))); }}
             onAbrir={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre */ }); }} />
         ))}
       </ul>
@@ -391,6 +409,8 @@ export function MesaDoTesoureiro({
       </div>
 
       <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
+      <LancamentoForm open={!!editando} onOpenChange={v => { if (!v) setEditando(null); }} lancamento={editando} onSaved={() => { setEditando(null); void carregar(); }} />
+      <PagarReembolsoDialog alvo={pagandoReembolso} onFechar={() => setPagandoReembolso(null)} onFeito={() => { setPagandoReembolso(null); void carregar(); }} />
       <NotaQuitadaDialog aberto={notaAberta} onFechar={() => setNotaAberta(false)}
         onFeito={id => { void carregar(); void buscarLancamentoParaEditar(id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre o detalhe */ }); }} />
     </div>

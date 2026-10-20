@@ -2,25 +2,36 @@
 //
 // Pedido (16/10/2026): ver TODAS as obrigações de um período, tenham sido pagas pela igreja, reembolsadas ou quitadas por terceiros. A quitada por terceiro aparece normalmente,
 // mesmo sem movimentação financeira (não há extrato de banco que a "prove"). Filtros: período, situação, fornecedor, categoria, centro de custo, projeto. Exporta Excel, PDF e CSV.
-// Só leitura. A leitura está em `services/extratoDeObrigacoesService.ts` e as regras (situação, resumo, atraso) em `lib/extratoDeObrigacoes.ts`.
+// Leitura em `services/extratoDeObrigacoesService.ts`; regras (situação, resumo, atraso, AÇÕES de cada linha) em `lib/extratoDeObrigacoes.ts`.
+// Pedido de 20/10/2026: deixou de ser só consulta. Cada linha tem as ações que cabem à sua situação — Visualizar, Editar, Pagar agora (ou Pagar reembolso), Corrigir quitação — e TODAS reaproveitam o que a
+// Mesa já usa (`useAcoesLancamento`, `LancamentoForm`, `PagarReembolsoDialog`, `QuitacaoDialog`, `DetalhesDoLancamento`): o tesoureiro resolve sem sair daqui e a lista recarrega ao terminar. As ações não saem no papel.
 // Impressão: A4 em PAISAGEM — são 12 colunas; as demais telas de relatório com muitas colunas fazem o mesmo.
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { saveAs } from "file-saver";
-import { ArrowLeft, Download, FileSpreadsheet, Loader2, Printer, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, Eye, FileSpreadsheet, Loader2, Pencil, Printer, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CampoData } from "@/components/CampoData";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import { PaginaSkeleton } from "@/components/ListState";
+import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
+import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
+import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
+import { useAcoesLancamento } from "@/hooks/useAcoesLancamento";
+import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
+import { mensagemErro } from "@/lib/erroRede";
+import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
+import { quitacaoDaObrigacao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import {
-  brl, downloadCSV, listarCategoriasTodas, listarCentrosCustoTodas, listarFornecedores, listarProjetosTodos,
+  brl, buscarVencimentoPorId, downloadCSV, listarCategoriasTodas, listarCentrosCustoTodas, listarFornecedores, listarProjetosTodos,
   type FinCategoria, type FinCentroCusto, type FinFornecedor, type FinProjeto,
 } from "@/services/finService";
 import { carregarExtratoDeObrigacoes } from "@/services/extratoDeObrigacoesService";
 import {
-  CABECALHO_DO_EXTRATO, OPCOES_DE_SITUACAO, ROTULO_SITUACAO, dataDoExtrato, filtrarPorSituacao, gerarCSVDoExtrato, resumoDoExtrato,
+  CABECALHO_DO_EXTRATO, OPCOES_DE_SITUACAO, acoesDaObrigacao, ROTULO_SITUACAO, dataDoExtrato, filtrarPorSituacao, gerarCSVDoExtrato, resumoDoExtrato,
   type FiltroDeSituacao, type LinhaDoExtrato, type SituacaoDaObrigacao,
 } from "@/lib/extratoDeObrigacoes";
 import { gerarXlsx, serialDoExcel, type Celula } from "@/lib/xlsxSimples";
@@ -55,13 +66,45 @@ function Filtro({ rotulo, valor, onChange, itens, todos }: { rotulo: string; val
   );
 }
 
+/** As ações da linha — o que aparece vem de `acoesDaObrigacao` (lib), que carrega a regra por situação. Fora da tela para não remontar a cada renderização. */
+function AcoesDaLinha({ l, podeOperar, ocupada, onVisualizar, onEditar, onPagar, onPagarReembolso, onCorrigirQuitacao }: {
+  l: LinhaDoExtrato; podeOperar: boolean; ocupada: boolean;
+  onVisualizar: () => void; onEditar: () => void; onPagar: () => void; onPagarReembolso: () => void; onCorrigirQuitacao: () => void;
+}) {
+  const a = acoesDaObrigacao(l);
+  const btn = "h-6 px-1.5 text-[11px] gap-1 whitespace-nowrap";
+  return (
+    <div className="flex flex-wrap gap-1">
+      {a.pagar === "normal" && podeOperar && (
+        <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagar}><CheckCircle2 className="w-3 h-3" /> Pagar agora</Button>
+      )}
+      {a.pagar === "reembolso" && podeOperar && (
+        <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagarReembolso}><CheckCircle2 className="w-3 h-3" /> Pagar reembolso</Button>
+      )}
+      {a.editar && podeOperar && (
+        <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onEditar}><Pencil className="w-3 h-3" /> Editar</Button>
+      )}
+      {a.corrigirQuitacao && podeOperar && (
+        <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onCorrigirQuitacao}><ShieldCheck className="w-3 h-3" /> Corrigir quitação</Button>
+      )}
+      {a.visualizar && (
+        <Button size="sm" variant="ghost" className={btn} disabled={ocupada} onClick={onVisualizar} aria-label={`Visualizar ${l.fornecedor || l.descricao || "obrigação"}`}>
+          {ocupada ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Visualizar
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function mesAtual(): { de: string; ate: string } {
   const [a, m] = hojeLocal().split("-").map(Number);
   return { de: `${a}-${String(m).padStart(2, "0")}-01`, ate: toYmd(new Date(a, m, 0)) };
 }
 
 export default function FinancasExtratoObrigacoes() {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  // quem opera o dinheiro; os demais só visualizam (a RLS do banco é a barreira de verdade — isto só poupa o botão que daria "permissão negada")
+  const podeOperar = hasRole(ROLES_FINANCEIRO);
   const [params, setParams] = useSearchParams();
   const padrao = useMemo(mesAtual, []);
   const de = params.get("inicio") || padrao.de;
@@ -80,6 +123,13 @@ export default function FinancasExtratoObrigacoes() {
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [projetos, setProjetos] = useState<FinProjeto[]>([]);
+  // ações por linha
+  const acoes = useAcoesLancamento(() => carregar());
+  const [detalhe, setDetalhe] = useState<Awaited<ReturnType<typeof buscarLancamentoParaEditar>>>(null);
+  const [editando, setEditando] = useState<Awaited<ReturnType<typeof buscarLancamentoParaEditar>>>(null);
+  const [reembolso, setReembolso] = useState<QuitacaoDaObrigacao | null>(null);
+  const [corrigindo, setCorrigindo] = useState<{ alvo: AlvoDaQuitacao; quitacao: QuitacaoDaObrigacao } | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([listarFornecedores("", true), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos()])
@@ -102,6 +152,39 @@ export default function FinancasExtratoObrigacoes() {
     } finally { setCarregando(false); }
   }
   useEffect(() => { void carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [de, ate, fornecedorId, categoriaId, centroId, projetoId]);
+
+  /** Uma ação por vez na linha: o botão fica desabilitado enquanto a leitura (de um lançamento, vencimento ou quitação) responde, e qualquer falha vira aviso — nunca fica muda. */
+  async function naLinha(id: string, fazer: () => Promise<void>) {
+    setOcupado(id);
+    try { await fazer(); } catch (e) { toast.error(mensagemErro(e)); } finally { setOcupado(null); }
+  }
+  const visualizar = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
+    const x = await buscarLancamentoParaEditar(l.obrigacaoId);
+    if (!x) throw new Error("Não encontrei esta obrigação — ela pode ter sido removida. Atualize a lista.");
+    setDetalhe(x);
+  });
+  const editar = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
+    if (!l.idEmAberto) return;
+    const x = await buscarLancamentoParaEditar(l.idEmAberto);
+    if (!x) throw new Error("Não encontrei esta obrigação — ela pode ter sido removida. Atualize a lista.");
+    setEditando(x);
+  });
+  const pagarAgora = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
+    if (!l.idEmAberto) return;
+    const v = await buscarVencimentoPorId(l.idEmAberto);
+    if (!v) { toast.info("Esta obrigação já não está em aberto — alguém acabou de pagá-la. Atualizando a lista."); await carregar(); return; }
+    acoes.pagar(v);   // o MESMO fluxo de sempre: documento, Pix/QR, liquidação, comprovante
+  });
+  const pagarReembolso = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
+    const q = await quitacaoDaObrigacao(l.obrigacaoId);
+    if (!q) throw new Error("Não encontrei a quitação deste reembolso. Atualize a lista.");
+    setReembolso(q);
+  });
+  const corrigirQuitacao = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
+    const q = await quitacaoDaObrigacao(l.obrigacaoId);
+    if (!q) throw new Error("Esta obrigação não tem quitação registrada para corrigir.");
+    setCorrigindo({ alvo: { id: l.obrigacaoId, descricao: l.descricao || l.fornecedor || "Obrigação", valor: l.valor }, quitacao: q });
+  });
 
   function mudar(campos: Record<string, string>) {
     const p = new URLSearchParams(params);
@@ -277,16 +360,18 @@ export default function FinancasExtratoObrigacoes() {
             <div className="overflow-x-auto">
               <table className="tabela-extrato w-full text-xs border-collapse min-w-[1100px] print:min-w-0">
                 <colgroup>
-                  {[6, 12, 6, 16, 10, 10, 7, 8, 8, 8, 6, 3].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+                  {[5, 10, 5, 13, 9, 9, 6, 7, 7, 7, 5, 3].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
+                  <col className="no-print" style={{ width: "210px" }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
                     {CABECALHO_DO_EXTRATO.map((h, i) => <th key={h} className={`py-1.5 pr-2 font-semibold ${i === 7 || i === 11 ? "text-right" : i === 8 ? "pl-2" : ""}`}>{h}</th>)}
+                    <th className="no-print sticky right-0 z-[1] min-w-[215px] bg-white py-1.5 pl-2 font-semibold shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visiveis.map(l => (
-                    <tr key={l.obrigacaoId} className="border-b border-border/40 avoid-break align-top">
+                    <tr key={l.obrigacaoId} data-obrigacao={l.obrigacaoId} className="border-b border-border/40 avoid-break align-top">
                       <td className="py-1 pr-2 tabular-nums whitespace-nowrap">{dataDoExtrato(l.data)}</td>
                       <td className="py-1 pr-2">{l.fornecedor || "—"}</td>
                       <td className="py-1 pr-2">{l.documento || "—"}</td>
@@ -301,6 +386,11 @@ export default function FinancasExtratoObrigacoes() {
                       <td className="py-1 pr-2">{l.responsavel}</td>
                       <td className="py-1 pr-2">{l.intencao}</td>
                       <td className={`py-1 text-right tabular-nums ${l.diasEmAtraso ? "text-destructive-text font-medium" : ""}`}>{l.diasEmAtraso ?? "—"}</td>
+                      <td className="no-print sticky right-0 z-[1] min-w-[215px] bg-white py-1 pl-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">
+                        <AcoesDaLinha l={l} podeOperar={podeOperar} ocupada={ocupado === l.obrigacaoId}
+                          onVisualizar={() => void visualizar(l)} onEditar={() => void editar(l)} onPagar={() => void pagarAgora(l)}
+                          onPagarReembolso={() => void pagarReembolso(l)} onCorrigirQuitacao={() => void corrigirQuitacao(l)} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -309,11 +399,21 @@ export default function FinancasExtratoObrigacoes() {
                     <td colSpan={7} className="py-1.5 uppercase tracking-wide">Total (sem canceladas)</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap">{brl(resumo.valorTotal)}</td>
                     <td colSpan={4} />
+                    <td className="no-print" />
                   </tr>
                 </tfoot>
               </table>
             </div>
           )}
+
+          {/* Os fluxos de sempre, montados uma vez: pagar (documento, Pix/QR, liquidação, comprovante) · detalhe · edição · pagar reembolso · corrigir quitação */}
+          <div className="no-print">
+            {acoes.dialogs}
+            <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
+            <LancamentoForm open={!!editando} onOpenChange={v => { if (!v) setEditando(null); }} lancamento={editando} onSaved={() => { setEditando(null); void carregar(); }} />
+            <PagarReembolsoDialog alvo={reembolso} onFechar={() => setReembolso(null)} onFeito={() => { setReembolso(null); void carregar(); }} />
+            <QuitacaoDialog alvo={corrigindo?.alvo ?? null} quitacao={corrigindo?.quitacao ?? null} onFechar={() => setCorrigindo(null)} onFeito={() => { setCorrigindo(null); void carregar(); }} />
+          </div>
 
           <footer className="avoid-break mt-6 pt-3 border-t border-gold/30 text-center">
             <p className="text-xs italic text-muted-foreground font-serif">"Tudo, porém, deve ser feito com decência e ordem."</p>

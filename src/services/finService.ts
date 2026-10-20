@@ -1919,6 +1919,13 @@ export async function listarProximosVencimentos(opts: {
   return (data ?? []) as FinVencimento[];
 }
 
+/** O vencimento de UMA linha em aberto (`previsto`) — o que o "Pagar" recebe. `null` quando a linha já não está em aberto (alguém pagou enquanto a tela estava aberta). */
+export async function buscarVencimentoPorId(id: string): Promise<FinVencimento | null> {
+  const { data, error } = await supabase.from("vw_fin_proximos_vencimentos").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data as FinVencimento | null) ?? null;
+}
+
 // ─── Confirmar pagamento — previsto → realizado ─────────────────────────
 export async function confirmarPagamento(lancamentoId: string, opts?: {
   dataPagamento?: string; valorReal?: number;

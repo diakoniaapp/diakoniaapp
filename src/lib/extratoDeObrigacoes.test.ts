@@ -1,7 +1,7 @@
 // Extrato de Obrigações (16/10/2026): a situação de cada obrigação, o agrupamento do pagamento parcial, o resumo e o CSV.
 import { describe, expect, it } from "vitest";
 import {
-  CABECALHO_DO_EXTRATO, diasEntre, filtrarPorSituacao, gerarCSVDoExtrato, montarExtratoDeObrigacoes, resumoDoExtrato, situacaoDaObrigacao,
+  CABECALHO_DO_EXTRATO, acoesDaObrigacao, diasEntre, filtrarPorSituacao, gerarCSVDoExtrato, montarExtratoDeObrigacoes, resumoDoExtrato, situacaoDaObrigacao,
   type LinhaDeObrigacao, type NomesDoExtrato, type QuitacaoDoExtrato,
 } from "./extratoDeObrigacoes";
 
@@ -149,5 +149,51 @@ describe("dias e CSV", () => {
     expect(csv).toContain("Em aberto;1;100.00");
     expect(csv).toContain("Quitadas por terceiros;0;0.00");
     expect(csv).toContain("Filtros: Período: 01/09/2026 a 30/09/2026");
+  });
+});
+
+describe("ações por linha (20/10/2026): o que o tesoureiro pode fazer sem sair do extrato", () => {
+  const a = (situacao: Parameters<typeof acoesDaObrigacao>[0]["situacao"], extra: Partial<Parameters<typeof acoesDaObrigacao>[0]> = {}) =>
+    acoesDaObrigacao({ situacao, idEmAberto: "x", reembolsoAPagar: false, ...extra });
+
+  it("em aberto (e vencida: atraso é indicador, não estado) → Editar + Pagar agora", () => {
+    for (const s of ["em_aberto", "paga_parcialmente"] as const) expect(a(s)).toEqual({ visualizar: true, editar: true, pagar: "normal", corrigirQuitacao: false });
+  });
+  it("paga → só Visualizar; cancelada → só Visualizar", () => {
+    for (const s of ["paga", "cancelada"] as const) expect(a(s)).toEqual({ visualizar: true, editar: false, pagar: null, corrigirQuitacao: false });
+  });
+  it("quitada por terceiro → Visualizar + Corrigir quitação, e NUNCA Pagar agora (a igreja não paga)", () => {
+    expect(a("quitada_por_terceiro")).toEqual({ visualizar: true, editar: false, pagar: null, corrigirQuitacao: true });
+  });
+  it("reembolso a pagar → Pagar agora abre o pagamento do REEMBOLSO; reembolso já pago não tem pagar", () => {
+    expect(a("reembolso", { reembolsoAPagar: true }).pagar).toBe("reembolso");
+    expect(a("reembolso", { reembolsoAPagar: false }).pagar).toBeNull();
+    expect(a("reembolso").corrigirQuitacao).toBe(true);
+  });
+  it("sem linha em aberto não há o que editar nem pagar, mesmo 'em aberto'", () => {
+    expect(a("em_aberto", { idEmAberto: null })).toMatchObject({ editar: false, pagar: null });
+  });
+});
+
+describe("montagem: a linha em aberto e o reembolso a pagar", () => {
+  it("pagamento parcial: a linha a editar/pagar é a PARCELA em aberto, não a raiz já paga", () => {
+    const x = montar([l({ id: "raiz", status: "realizado", valor: 40, valor_original: 100 }), l({ id: "parcela", obrigacao_id: "raiz", status: "previsto", valor: 60, data: "2026-10-30" })]);
+    expect(x[0].situacao).toBe("paga_parcialmente");
+    expect(x[0].idEmAberto).toBe("parcela");
+  });
+  it("com mais de uma linha em aberto, vale a mais antiga; paga e cancelada não têm", () => {
+    const x = montar([l({ id: "b", status: "previsto", data: "2026-10-20" }), l({ id: "a", obrigacao_id: "b", status: "previsto", data: "2026-10-05" })]);
+    expect(x[0].idEmAberto).toBe("a");
+    expect(montar([l({ id: "p", status: "realizado" })])[0].idEmAberto).toBeNull();
+    expect(montar([l({ id: "c", status: "cancelado" })])[0].idEmAberto).toBeNull();
+  });
+  it("reembolso: a pagar quando a fila ou o resultado dizem que a igreja deve; pago não; e só reembolso tem a marca", () => {
+    const q = (extra: Partial<QuitacaoDoExtrato>): [string, QuitacaoDoExtrato] => ["r", { responsavel: "pessoa", responsavelNome: "Lucio", intencao: "reembolso", ...extra }];
+    const aPagar = montar([l({ id: "r", status: "previsto", valor: 1500 })], [q({ fila: "reembolso_a_pagar", resultado: "divida_com_terceiro", saldoAReembolsar: 1500 })])[0];
+    expect(aPagar).toMatchObject({ situacao: "reembolso", reembolsoAPagar: true, saldoAReembolsar: 1500 });
+    const pago = montar([l({ id: "r", status: "conciliado", valor: 310.5 })], [q({ fila: null, resultado: "reembolsada", saldoAReembolsar: 0 })])[0];
+    expect(pago).toMatchObject({ situacao: "reembolso", reembolsoAPagar: false, saldoAReembolsar: null });
+    const oferta = montar([l({ id: "r", status: "quitado_terceiro" })], [q({ intencao: "oferta", resultado: "extinta_como_oferta" })])[0];
+    expect(oferta.reembolsoAPagar).toBe(false);
   });
 });

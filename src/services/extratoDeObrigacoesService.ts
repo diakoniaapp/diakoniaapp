@@ -61,13 +61,16 @@ async function linhasDoPeriodo(f: FiltrosDoExtrato): Promise<LinhaDeObrigacao[]>
   return [...todas.values()];
 }
 
-interface QuitacaoBruta { obrigacao_id: string; responsavel_tipo: ResponsavelTipo; responsavel_pessoa_id: string | null; responsavel_fornecedor_id: string | null; intencao: Intencao }
+interface QuitacaoBruta {
+  obrigacao_id: string; responsavel_tipo: ResponsavelTipo; responsavel_pessoa_id: string | null; responsavel_fornecedor_id: string | null; intencao: Intencao;
+  resultado?: string | null; fila?: string | null; saldo_a_reembolsar?: number | null;
+}
 
 async function quitacoesDe(chaves: string[]): Promise<QuitacaoBruta[]> {
   const brutas: QuitacaoBruta[] = [];
   for (const grupo of lotes(lotes(chaves, 100), 6)) {
     const respostas = await Promise.all(grupo.map(ks => supabase.from("vw_fin_quitacao" as never)
-      .select("obrigacao_id, responsavel_tipo, responsavel_pessoa_id, responsavel_fornecedor_id, intencao").in("obrigacao_id" as never, ks as never)));
+      .select("obrigacao_id, responsavel_tipo, responsavel_pessoa_id, responsavel_fornecedor_id, intencao, resultado, fila, saldo_a_reembolsar").in("obrigacao_id" as never, ks as never)));
     // a Política de Quitação pode ainda não estar aplicada no banco: sem a visão, ninguém tem quitação registrada
     for (const r of respostas) if (!r.error) brutas.push(...((r.data ?? []) as unknown as typeof brutas));
   }
@@ -94,7 +97,8 @@ export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<
   // o nome de quem quitou (pessoa, empresa ou entidade) vem do cadastro: a visão só guarda o id
   const quitacoes = new Map<string, QuitacaoDoExtrato>();
   brutas.forEach(b => quitacoes.set(b.obrigacao_id, {
-    responsavel: b.responsavel_tipo, intencao: b.intencao ?? "nao_se_aplica",
+    responsavel: b.responsavel_tipo, intencao: b.intencao ?? "nao_se_aplica", resultado: b.resultado ?? null, fila: b.fila ?? null,
+    saldoAReembolsar: b.saldo_a_reembolsar === null || b.saldo_a_reembolsar === undefined ? null : Number(b.saldo_a_reembolsar),
     responsavelNome: (b.responsavel_pessoa_id && pessoas.get(b.responsavel_pessoa_id)) || (b.responsavel_fornecedor_id && fornecedores.get(b.responsavel_fornecedor_id)) || null,
   }));
   const nomes: NomesDoExtrato = {
