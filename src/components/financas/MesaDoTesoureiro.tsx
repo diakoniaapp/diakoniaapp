@@ -208,7 +208,12 @@ export function MesaDoTesoureiro({
       documentosFaltando: (dados.documentos?.pendencias ?? 0) + (dados.documentosAnterior?.resumo.pendencias ?? 0),
     });
     const porId = new Map(dados.vencimentos.map(v => [v.id, v]));
-    return { aPagar, automaticos, caixa, compromissos7, cobertura, ind, debitosAConferir, pagosHoje, semComprovante, checklist, porId };
+    // o que ficou atrasado ANTES do mês corrente: a grade do calendário só mostra o mês aberto, a Fila mostra tudo
+    const primeiroDia = hoje.slice(0, 7) + "-01";
+    const velhas = aPagar.atrasadas.filter(v => String(v.data).slice(0, 10) < primeiroDia);
+    const velhosDebitos = dados.debitos.filter(d => d.status === "previsto" && d.data < primeiroDia);
+    const atrasadasDeAntes = { n: velhas.length + velhosDebitos.length, total: velhas.reduce((t, v) => t + Number(v.valor), 0) + velhosDebitos.reduce((t, d) => t + d.valor, 0) };
+    return { aPagar, automaticos, caixa, compromissos7, cobertura, ind, debitosAConferir, pagosHoje, semComprovante, checklist, porId, atrasadasDeAntes };
   }, [dados, hoje]);
 
   if (!dados || !derivados) {
@@ -266,6 +271,12 @@ export function MesaDoTesoureiro({
             {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>
           </div>}>
+          {visao === "calendario" && derivados.atrasadasDeAntes.n > 0 && (
+            <p role="status" data-atrasadas-de-antes className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-destructive-line bg-destructive-soft/40 px-3 py-2 text-xs text-destructive-text">
+              <span>▲ {derivados.atrasadasDeAntes.n} {derivados.atrasadasDeAntes.n === 1 ? "obrigação atrasada" : "obrigações atrasadas"} de meses anteriores ({brl(derivados.atrasadasDeAntes.total)}) — não aparecem na grade deste mês.</span>
+              <button type="button" className="font-medium underline underline-offset-2" onClick={() => setVisao("fila")}>Ver na Fila</button>
+            </p>
+          )}
           {visao === "calendario" ? (
             <CalendarioDeVencimentos hoje={hoje} podeOperar={podeOperar} chaveDeAtualizacao={chaveDeAtualizacao} onMudou={carregar} />
           ) : <>

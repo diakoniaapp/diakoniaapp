@@ -95,15 +95,30 @@ async function pagosDesde(desde: string): Promise<PagoRecente[]> {
   }));
 }
 
+const daFormaAutomatica = (q: any) => q.eq("tipo", "saida")
+  // SÓ as formas que o BANCO executa (débito automático, PIX recorrente, transferência programada). Antes era "tudo que não é manual", o que arrastava o boleto/fatura (373 linhas em
+  // 20/10/2026): conta a pagar à mão aparecia como "possível falha no débito" na Mesa. A definição de "automática" é uma só: `LIQUIDACAO_AUTOMATICA`.
+  .in("forma_liquidacao", [...LIQUIDACAO_AUTOMATICA]);
+
 export async function debitosDoMes(ini: string, fim: string): Promise<DebitoDoMes[]> {
-  const { data, error } = await supabase.from("fin_lancamentos").select("*")
-    .eq("tipo", "saida").in("status", ["previsto", "realizado", "conciliado"])
-    // SÓ as formas que o BANCO executa (débito automático, PIX recorrente, transferência programada). Antes era "tudo que não é manual", o que arrastava o boleto/fatura (373 linhas em
-    // 20/10/2026): conta a pagar à mão aparecia como "possível falha no débito" na Mesa. A definição de "automática" é uma só: `LIQUIDACAO_AUTOMATICA`.
-    .in("forma_liquidacao", [...LIQUIDACAO_AUTOMATICA]).gte("data", ini).lte("data", fim)
+  const { data, error } = await daFormaAutomatica(supabase.from("fin_lancamentos").select("*").in("status", ["previsto", "realizado", "conciliado"]))
+    .gte("data", ini).lte("data", fim)
     .order("data").order("id").limit(PAGINA);
   if (error) throw error;
-  const ext = await enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
+  return paraDebitos((data ?? []) as unknown as FinLancamento[]);
+}
+
+/** Débito de um mês ANTERIOR que ninguém marcou como debitado: continua pedindo conferência (antes sumia da Mesa no dia 1º, porque a Mesa só lia o mês corrente). */
+export async function debitosEmAbertoAntes(ini: string): Promise<DebitoDoMes[]> {
+  const { data, error } = await daFormaAutomatica(supabase.from("fin_lancamentos").select("*").eq("status", "previsto"))
+    .lt("data", ini)
+    .order("data").order("id").limit(PAGINA);
+  if (error) throw error;
+  return paraDebitos((data ?? []) as unknown as FinLancamento[]);
+}
+
+async function paraDebitos(linhas: FinLancamento[]): Promise<DebitoDoMes[]> {
+  const ext = await enriquecerLancamentos(linhas);
   return ext.map(l => ({
     id: l.id, data: l.data, dataPagamento: l.data_pagamento, valor: Number(l.valor), status: l.status,
     descricao: l.descricao, fornecedor: l.fornecedor_nome ?? null, contaNome: l.conta_nome ?? "",
@@ -134,7 +149,7 @@ export async function carregarMesa(hoje: string): Promise<DadosDaMesa> {
       return count ?? 0;
     })(), 0),
     guardar("pagamentos recentes", pagosDesde(daquiADias(hoje, -DIAS_DE_COMPROVANTE)), [] as PagoRecente[]),
-    debitosDoMes(ini, fim).catch(e => {
+    Promise.all([debitosEmAbertoAntes(ini), debitosDoMes(ini, fim)]).then(([antes, doMes]) => [...antes, ...doMes]).catch(e => {
       if (colunaAusente(e)) debitosIndisponiveis = true; else erros.push(`débitos automáticos: ${(e as Error)?.message ?? "erro"}`);
       return [] as DebitoDoMes[];
     }),
