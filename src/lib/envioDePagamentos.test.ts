@@ -1,7 +1,8 @@
 // "Arquivos de pagamento": o e-mail que a Tesouraria manda aos tesoureiros, montado pelo sistema — no formato do e-mail real de 13.10.2026.
 import { describe, expect, it } from "vitest";
 import {
-  INTRODUCAO_PADRAO, SAUDACAO_PADRAO, assuntoDoEmail, bancoDaLinha, ehSigiloso, formatarLinha, linkDoEmail, montarEnvio, montarItemDeEnvio, nomeDaPasta, nomeDeArquivoSeguro, periodoDoDia,
+  INTRODUCAO_PADRAO, SAUDACAO_PADRAO, assuntoDoEmail, bancoDaLinha, contadoresDoEnvio, ehSigiloso, entraNoZip, formatarLinha, linkDoEmail, montarEnvio, montarItemDeEnvio, nomeDaPasta,
+  nomeDeArquivoSeguro, nomeDoDocumentoNoZip, nomeDoZip, periodoDoDia, rotuloDoCodigo,
   type ItemDeEnvio, type OpcoesDoEnvio,
 } from "./envioDePagamentos";
 
@@ -73,10 +74,27 @@ describe("classificação do item", () => {
     const i = montarItemDeEnvio(base(), leitura({ vencimentoDoDocumento: "2026-10-12" }));
     expect(i.vencimento).toBe("2026-10-12"); expect(i.avisos[0]).toContain("o boleto vence"); expect(i.marcadoPorPadrao).toBe(true);
   });
-  it("sem linha: Pix vai para o bloco Pix (desmarcado); sem nada, para 'sem dado automático'", () => {
-    const pix = montarItemDeEnvio(base(), leitura({ linha: null, pix: "00020126..." }));
-    expect(pix.grupo).toBe("pix"); expect(pix.marcadoPorPadrao).toBe(false);
-    expect(montarItemDeEnvio(base(), leitura({ linha: null, pix: null })).grupo).toBe("sem_dado");
+  it("sem linha: o Pix do DOCUMENTO e o do CADASTRO ligado à obrigação vêm marcados (de hoje/atrasado); sem nada, 'sem meio automático'", () => {
+    const doc = montarItemDeEnvio(base(), leitura({ linha: null, pix: "00020126...", origemDoPix: "documento" }));
+    expect(doc.grupo).toBe("pix"); expect(doc.origem).toBe("pix_documento"); expect(doc.marcadoPorPadrao).toBe(true);
+    const cad = montarItemDeEnvio(base(), leitura({ linha: null, pix: "00020126...", origemDoPix: "cadastro", favorecidoDoPix: "Junta" }));
+    expect(cad.origem).toBe("pix_cadastro"); expect(cad.marcadoPorPadrao).toBe(true); expect(cad.favorecidoParaConfirmar).toBeNull();
+    const nada = montarItemDeEnvio(base(), leitura({ linha: null, pix: null }));
+    expect(nada.grupo).toBe("sem_dado"); expect(nada.origem).toBeNull(); expect(nada.marcadoPorPadrao).toBe(false);
+  });
+  it("favorecido achado só pelo NOME: Pix do cadastro, mas 'Confirmar favorecido' — desmarcado, nunca vai sozinho", () => {
+    const i = montarItemDeEnvio(base(), leitura({ linha: null, pix: "00020126...", origemDoPix: "cadastro_por_nome", favorecidoDoPix: "Junta de Missões Nacionais" }));
+    expect(i.origem).toBe("pix_cadastro"); expect(i.favorecidoParaConfirmar).toBe("Junta de Missões Nacionais"); expect(i.marcadoPorPadrao).toBe(false);
+  });
+  it("a origem segue a ordem de prioridade: linha do documento > Pix do documento > Pix do cadastro", () => {
+    expect(montarItemDeEnvio(base(), leitura({ pix: "x", origemDoPix: "documento" })).origem).toBe("linha_documento");   // tem linha E Pix: a linha manda
+  });
+  it("o Pix que vence depois de hoje vem desmarcado, qualquer que seja a origem", () => {
+    expect(montarItemDeEnvio(base({ diasParaVencer: 3 }), leitura({ linha: null, pix: "x", origemDoPix: "documento" })).marcadoPorPadrao).toBe(false);
+  });
+  it("conta os documentos que acompanham a obrigação", () => {
+    expect(montarItemDeEnvio(base(), leitura({ documentos: 2 })).documentos).toBe(2);
+    expect(montarItemDeEnvio(base(), leitura()).documentos).toBe(0);
   });
   it("prebenda/folha: sigiloso mesmo com linha digitável, nunca marcado", () => {
     const i = montarItemDeEnvio(base({ fornecedor: "Lucio Paulo Paz Barreto", categoria: "Prebenda", centro: "Pastoral · Sustento Pastoral" }), leitura());
@@ -129,18 +147,56 @@ describe("o e-mail", () => {
   });
 
   it("Pix: cabeçalho próprio e 'Pix copia e cola' com o código", () => {
-    const pix = item({ id: "p", fornecedor: "Ana Patrícia", linha: null, pix: "00020126580014br.gov.bcb.pix0136abc", grupo: "pix", valor: 800 });
+    const pix = item({ id: "p", fornecedor: "Ana Patrícia", linha: null, pix: "00020126580014br.gov.bcb.pix0136abc", grupo: "pix", origem: "pix_documento", valor: 800 });
     const e = montarEnvio([pix], opcoes());
     expect(e.texto).toContain("➡️ Pix · R$ 800,00 · vence 13/10/2026");
-    expect(e.texto).toContain("Pix copia e cola:"); expect(e.texto).toContain("00020126580014br.gov.bcb.pix0136abc");
+    expect(e.texto).toContain("💳 PIX do documento — copia e cola:"); expect(e.texto).toContain("00020126580014br.gov.bcb.pix0136abc");
   });
 
   it("quadro-resumo opcional com o total; e a citação do que está só na pasta", () => {
     const sem = item({ id: "s", fornecedor: "ABC Associação", valor: 37.8, linha: null, grupo: "sem_dado" });
     const e = montarEnvio([junta, letra], opcoes({ incluirResumo: true, citarSemLinha: true, semDado: [sem] }));
     expect(e.html).toContain("VENCEM · 2 · R$ 768,33");
-    expect(e.html).toContain("Na pasta do drive, sem linha digitável: ABC Associação (R$ 37,80).");
-    expect(montarEnvio([junta], opcoes({ incluirResumo: false, citarSemLinha: false, semDado: [sem] })).html).not.toContain("Na pasta do drive");
+    expect(e.html).toContain("❓ Sem meio automático de pagamento — documentos na pasta do drive: ABC Associação (R$ 37,80).");
+    expect(montarEnvio([junta], opcoes({ incluirResumo: false, citarSemLinha: false, semDado: [sem] })).html).not.toContain("documentos na pasta do drive");
+  });
+
+  it("a ORIGEM aparece sempre: 🧾 linha do documento · 💳 PIX do documento · 👤 PIX do cadastro (com a conferência do titular)", () => {
+    const pixCad = item({ id: "c", linha: null, pix: "000201", grupo: "pix", origem: "pix_cadastro" });
+    expect(rotuloDoCodigo(junta)).toBe("🧾 Linha digitável do documento:");
+    expect(rotuloDoCodigo(item({ linha: null, pix: "000201", origem: "pix_documento" }))).toBe("💳 PIX do documento — copia e cola:");
+    expect(rotuloDoCodigo(pixCad)).toBe("👤 PIX do cadastro do favorecido — copia e cola (confira o titular no aplicativo do banco):");
+    const e = montarEnvio([junta, pixCad], opcoes());
+    for (const t of [e.texto, e.whatsapp]) { expect(t).toContain("🧾 Linha digitável do documento:"); expect(t).toContain("👤 PIX do cadastro do favorecido"); }
+    expect(e.html).toContain("🧾 Linha digitável do documento:");
+  });
+
+  it("contadores do painel: pagamentos, boletos, Pix, sem meio e documentos", () => {
+    const pixDoc = item({ id: "p", linha: null, pix: "000201", grupo: "pix", origem: "pix_documento", documentos: 1 });
+    const sem = item({ id: "s", linha: null, pix: null, grupo: "sem_dado", origem: null, documentos: 0 });
+    const aConf = item({ id: "n", linha: null, pix: "000201", grupo: "pix", origem: "pix_cadastro", favorecidoParaConfirmar: "X" });
+    const c = contadoresDoEnvio([item({ documentos: 2 }), pixDoc], [item({ documentos: 2 }), pixDoc, sem, aConf]);
+    expect(c).toEqual({ pagamentos: 2, boletos: 1, pix: 1, semMeio: 1, documentos: 3, aConfirmar: 1 });
+  });
+
+  it("o ZIP é o dossiê: tudo da obrigação entra, menos comprovante, XML e as provas de quitação por terceiros", () => {
+    for (const t of ["boleto", "guia", "fatura", "nota_fiscal", "contrato", "rpa", "documento", "outro"]) expect(entraNoZip(t), t).toBe(true);
+    for (const t of ["comprovante", "xml", "declaracao_terceiro", "pedido_reembolso", "prova_pagamento_terceiro", "prova_cancelamento"]) expect(entraNoZip(t), t).toBe(false);
+  });
+
+  it("nome dos arquivos: número da mensagem, banco, favorecido, valor e o tipo do documento; o 2º do mesmo tipo leva (2)", () => {
+    const nome = nomeDoDocumentoNoZip(3, junta, "boleto", 1, "pdf");
+    expect(nome.startsWith("03 Bradesco - Junta de Missoes Nacionais")).toBe(true);
+    expect(nome.endsWith(" - boleto.pdf")).toBe(true);
+    expect(nome.length - " - boleto.pdf".length).toBeLessThanOrEqual(70);   // o nome do favorecido é cortado, o tipo do documento nunca
+    expect(nomeDoDocumentoNoZip(1, letra, "nota_fiscal", 1, "pdf")).toMatch(/^01 Nubank - Letra do Ceu .* - 468,33 - nota fiscal\.pdf$/);
+    expect(nomeDoDocumentoNoZip(2, flora, "fatura", 2, "png")).toMatch(/ - fatura \(2\)\.png$/);
+    expect(nomeDoDocumentoNoZip(2, flora, "fatura", 1, "pdf")).not.toContain("Flora Energia Renovável");   // sem acento nem caracteres proibidos
+  });
+
+  it("o ZIP se chama como a pasta do Drive com o ano", () => {
+    expect(nomeDoZip("2026-10-20")).toBe("20.OUT.2026.zip");
+    expect(nomeDaPasta("2026-10-20")).toBe("20.OUT");
   });
 
   it("texto digitado nunca vira HTML (nome com < > &)", () => {

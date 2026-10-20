@@ -13,6 +13,20 @@ export const AVISO_DE_CONFERENCIA = "Confira sempre os valores e vencimentos ant
 
 export type GrupoDoEnvio = "padrao" | "pix" | "sigiloso" | "sem_dado";
 
+/** DE ONDE veio o meio de pagamento — o tesoureiro precisa saber o que veio do documento, o que veio do cadastro e o que exige conferência. */
+export type OrigemDoMeio = "linha_documento" | "pix_documento" | "pix_cadastro";
+
+export const ROTULO_DA_ORIGEM: Record<OrigemDoMeio, string> = {
+  linha_documento: "Linha digitável do documento",
+  pix_documento: "PIX do documento",
+  pix_cadastro: "PIX do cadastro do favorecido",
+};
+export const ICONE_DA_ORIGEM: Record<OrigemDoMeio, string> = { linha_documento: "🧾", pix_documento: "💳", pix_cadastro: "👤" };
+export const ROTULO_SEM_MEIO = "Sem meio automático";
+export const ICONE_SEM_MEIO = "❓";
+export const ROTULO_CONFIRMAR_FAVORECIDO = "Confirmar favorecido";
+export const ICONE_CONFIRMAR_FAVORECIDO = "⚠";
+
 export interface ItemDeEnvio {
   id: string;
   fornecedor: string;
@@ -28,6 +42,12 @@ export interface ItemDeEnvio {
   linha: string | null;
   /** Pix copia e cola (do documento ou montado a partir da chave do favorecido) */
   pix: string | null;
+  /** de onde veio o meio (null = sem meio automático) */
+  origem: OrigemDoMeio | null;
+  /** nome do favorecido do cadastro cujo Pix foi achado PELO NOME da obrigação: a pessoa confirma que é ele (nunca vem marcado, nunca vai sozinho) */
+  favorecidoParaConfirmar: string | null;
+  /** quantos documentos da obrigação acompanham o envio (ZIP) */
+  documentos: number;
   grupo: GrupoDoEnvio;
   avisos: string[];
   /** vem marcado ao abrir o painel (pronto, sem aviso que exija decisão, atrasado ou de hoje) */
@@ -77,6 +97,12 @@ export interface BaseDoItem {
 }
 export interface LeituraDoItem {
   linha: string | null; pix: string | null;
+  /** de onde veio o `pix`: o próprio documento, o cadastro do favorecido ligado à obrigação, ou o cadastro de um favorecido achado só pelo nome */
+  origemDoPix?: "documento" | "cadastro" | "cadastro_por_nome" | null;
+  /** nome do favorecido do cadastro (para o "Confirmar favorecido") */
+  favorecidoDoPix?: string | null;
+  /** documentos anexados à obrigação que vão no ZIP */
+  documentos?: number;
   /** valor/vencimento que o DOCUMENTO traz, para conferir com a obrigação */
   valorDoDocumento: number | null; vencimentoDoDocumento: string | null; codigoValido: boolean | null;
 }
@@ -91,12 +117,17 @@ export function montarItemDeEnvio(b: BaseDoItem, l: LeituraDoItem): ItemDeEnvio 
   if (l.vencimentoDoDocumento && l.vencimentoDoDocumento !== b.vencimento) avisos.push(`o boleto vence em ${dataBr(l.vencimentoDoDocumento)}, a obrigação em ${dataBr(b.vencimento)}`);
   const sigiloso = ehSigiloso(b);
   const grupo: GrupoDoEnvio = sigiloso ? "sigiloso" : linha ? "padrao" : l.pix ? "pix" : "sem_dado";
-  // o que decide o dinheiro (valor e código) trava o "marcado por padrão"; a data diferente só informa
+  // Origem do meio (ordem de prioridade: linha digitável > Pix do documento > Pix do cadastro do favorecido). Pix de favorecido achado pelo nome exige confirmação.
+  const porNome = !linha && !!l.pix && l.origemDoPix === "cadastro_por_nome";
+  const origem: OrigemDoMeio | null = linha ? "linha_documento" : l.pix ? (l.origemDoPix === "documento" ? "pix_documento" : "pix_cadastro") : null;
+  const favorecidoParaConfirmar = porNome ? (l.favorecidoDoPix ?? "favorecido do cadastro") : null;
+  // o que decide o dinheiro (valor e código) trava o "marcado por padrão"; a data diferente só informa. Sigiloso e "confirmar favorecido" NUNCA vêm marcados.
   const bloqueia = avisos.some(a => !a.startsWith("o boleto vence"));
   return {
     id: b.id, fornecedor: b.fornecedor, descricao: b.descricao, categoria: b.categoria, centro: b.centro, valor: b.valor,
-    vencimento: l.vencimentoDoDocumento ?? b.vencimento, atrasado: b.diasParaVencer < 0, linha, pix: l.pix, grupo, avisos,
-    marcadoPorPadrao: grupo === "padrao" && !bloqueia && b.diasParaVencer <= 0,
+    vencimento: l.vencimentoDoDocumento ?? b.vencimento, atrasado: b.diasParaVencer < 0, linha, pix: l.pix, origem, favorecidoParaConfirmar,
+    documentos: l.documentos ?? 0, grupo, avisos,
+    marcadoPorPadrao: (grupo === "padrao" || grupo === "pix") && !favorecidoParaConfirmar && !bloqueia && b.diasParaVencer <= 0,
   };
 }
 
@@ -145,10 +176,22 @@ const cabecalho = (i: ItemDeEnvio): string => {
 const beneficiario = (i: ItemDeEnvio, o: OpcoesDoEnvio) => (o.linhasDeDescricao?.[i.id]?.trim() || i.fornecedor).toLocaleUpperCase("pt-BR");
 const codigoDo = (i: ItemDeEnvio) => (i.linha ? formatarLinha(i.linha) : i.pix ?? "");
 
-/** Os dois blocos de um item: cabeçalho e código. */
-function blocoDoItem(i: ItemDeEnvio, o: OpcoesDoEnvio): { cab: string; ben: string; rotuloDoCodigo: string | null; codigo: string } {
-  return { cab: cabecalho(i), ben: beneficiario(i, o), rotuloDoCodigo: i.linha ? null : "Pix copia e cola:", codigo: codigoDo(i) };
+/** A linha que diz DE ONDE veio o código — o tesoureiro vê na hora o que veio do documento e o que veio do cadastro. */
+export function rotuloDoCodigo(i: ItemDeEnvio): string {
+  if (!i.origem) return "";
+  const icone = ICONE_DA_ORIGEM[i.origem];
+  if (i.origem === "linha_documento") return `${icone} ${ROTULO_DA_ORIGEM.linha_documento}:`;
+  if (i.origem === "pix_documento") return `${icone} ${ROTULO_DA_ORIGEM.pix_documento} — copia e cola:`;
+  return `${icone} ${ROTULO_DA_ORIGEM.pix_cadastro} — copia e cola (confira o titular no aplicativo do banco):`;
 }
+
+/** Os blocos de um item: cabeçalho, beneficiário, de onde veio o código e o código. */
+function blocoDoItem(i: ItemDeEnvio, o: OpcoesDoEnvio): { cab: string; ben: string; rotuloDoCodigo: string; codigo: string } {
+  return { cab: cabecalho(i), ben: beneficiario(i, o), rotuloDoCodigo: rotuloDoCodigo(i), codigo: codigoDo(i) };
+}
+
+/** A frase do que está só na pasta (sem meio automático). */
+const fraseSemMeio = (semDado: ItemDeEnvio[]) => `${ICONE_SEM_MEIO} ${ROTULO_SEM_MEIO} de pagamento — documentos na pasta do drive: ${semDado.map(i => `${i.fornecedor} (${brl(i.valor)})`).join("; ")}.`;
 
 /** Negrito `**…**` do texto-modelo → <b> (e-mail) / *…* (WhatsApp) / sem marca (texto). */
 const negrito = (s: string, como: "html" | "wa" | "txt") =>
@@ -168,7 +211,7 @@ export function montarEnvio(itens: ItemDeEnvio[], o: OpcoesDoEnvio): EnvioMontad
   html += `<p>${negrito(o.introducao, "html").replace(/\n/g, "<br>")}</p>`;
   for (const b of blocos) {
     html += `<p style="margin:14px 0 0"><b>➡️ ${esc(b.cab)}</b><br>${esc(b.ben)}`;
-    if (b.rotuloDoCodigo) html += `<br>${esc(b.rotuloDoCodigo)}`;
+    if (b.rotuloDoCodigo) html += `<br><span style="font-size:11px;color:#777">${esc(b.rotuloDoCodigo)}</span>`;
     html += `<br><span style="${mono}">${esc(b.codigo)}</span></p>`;
   }
   if (o.incluirResumo && itens.length > 0) {
@@ -178,7 +221,7 @@ export function montarEnvio(itens: ItemDeEnvio[], o: OpcoesDoEnvio): EnvioMontad
     }
     html += `</table>`;
   }
-  if (semDado.length > 0) html += `<p style="margin-top:14px">Na pasta do drive, sem linha digitável: ${esc(semDado.map(i => `${i.fornecedor} (${brl(i.valor)})`).join("; "))}.</p>`;
+  if (semDado.length > 0) html += `<p style="margin-top:14px">${esc(fraseSemMeio(semDado))}</p>`;
   html += `<p style="margin-top:16px;font-size:12px;color:#555">${esc(AVISO_DE_CONFERENCIA)}</p>`;
   html += assinaturaEmHtml("mensagem");
   html += `</div>`;
@@ -187,13 +230,13 @@ export function montarEnvio(itens: ItemDeEnvio[], o: OpcoesDoEnvio): EnvioMontad
   const wa: string[] = [`*${assunto}*`, "", saudacao, "", negrito(o.introducao, "wa")];
   for (const b of blocos) wa.push("", `➡️ *${b.cab}*`, b.ben, ...(b.rotuloDoCodigo ? [b.rotuloDoCodigo] : []), "```" + b.codigo + "```");
   if (itens.length > 0) wa.push("", `*Total: ${itens.length} · ${brl(total)}*`);
-  if (semDado.length > 0) wa.push("", `Na pasta do drive, sem linha digitável: ${semDado.map(i => `${i.fornecedor} (${brl(i.valor)})`).join("; ")}.`);
+  if (semDado.length > 0) wa.push("", fraseSemMeio(semDado));
 
   // ── texto simples (sem marcas) ──
   const txt: string[] = [saudacao, "", negrito(o.introducao, "txt")];
   for (const b of blocos) txt.push("", `➡️ ${b.cab}`, b.ben, ...(b.rotuloDoCodigo ? [b.rotuloDoCodigo] : []), b.codigo);
   if (itens.length > 0) txt.push("", `Total: ${itens.length} · ${brl(total)}`);
-  if (semDado.length > 0) txt.push("", `Na pasta do drive, sem linha digitável: ${semDado.map(i => `${i.fornecedor} (${brl(i.valor)})`).join("; ")}.`);
+  if (semDado.length > 0) txt.push("", fraseSemMeio(semDado));
 
   wa.push("", AVISO_DE_CONFERENCIA, "", assinaturaEmWhatsapp("mensagem"));
   txt.push("", AVISO_DE_CONFERENCIA, "", assinaturaEmTexto("mensagem"));
@@ -206,7 +249,39 @@ export function linkDoEmail(para: string[], assunto: string): string {
   return `mailto:${para.join(",")}?subject=${encodeURIComponent(assunto)}`;
 }
 
-/** Nome de arquivo seguro, para o ZIP dos boletos. */
-export function nomeDeArquivoSeguro(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+/** Nome de arquivo seguro, para o ZIP. */
+export function nomeDeArquivoSeguro(s: string, max = 80): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max).trim();
 }
+
+/** O que o painel mostra no topo: o lote em números. */
+export interface ContadoresDoEnvio { pagamentos: number; boletos: number; pix: number; semMeio: number; documentos: number; aConfirmar: number }
+export function contadoresDoEnvio(escolhidos: ItemDeEnvio[], todos: ItemDeEnvio[]): ContadoresDoEnvio {
+  return {
+    pagamentos: escolhidos.length,
+    boletos: escolhidos.filter(i => !!i.linha).length,
+    pix: escolhidos.filter(i => !i.linha && !!i.pix).length,
+    semMeio: todos.filter(i => i.grupo === "sem_dado").length,
+    documentos: escolhidos.reduce((t, i) => t + i.documentos, 0),
+    aConfirmar: todos.filter(i => !!i.favorecidoParaConfirmar).length,
+  };
+}
+
+// ── o ZIP documental (dossiê do pagamento) ──────────────────────────────────
+
+/** Documentos que NÃO acompanham o envio: prova de pagamento/quitação por terceiros e arquivos de máquina. Tudo o mais é documento da obrigação (boleto, guia, fatura, nota fiscal, contrato…). */
+export const TIPOS_FORA_DO_ZIP: ReadonlySet<string> = new Set(["comprovante", "xml", "declaracao_terceiro", "pedido_reembolso", "prova_pagamento_terceiro", "prova_cancelamento"]);
+export const entraNoZip = (tipo: string): boolean => !TIPOS_FORA_DO_ZIP.has(tipo);
+
+const ROTULO_DO_ARQUIVO: Record<string, string> = {
+  boleto: "boleto", guia: "guia", fatura: "fatura", nota_fiscal: "nota fiscal", contrato: "contrato", rpa: "RPA", rsp: "RSP", dps: "DPS", outro: "documento", documento: "documento",
+};
+
+/** "03 Bradesco - Junta de Missões - 300,00 - boleto.pdf": o número liga os arquivos da mesma obrigação à ordem da mensagem. `seq` > 1 quando há mais de um documento do mesmo tipo. */
+export function nomeDoDocumentoNoZip(ordem: number, i: ItemDeEnvio, tipo: string, seq: number, extensao: string): string {
+  const base = nomeDeArquivoSeguro(`${String(ordem).padStart(2, "0")} ${[bancoDaLinha(i.linha), i.fornecedor, i.valor.toFixed(2).replace(".", ",")].filter(Boolean).join(" - ")}`, 70);
+  return `${base} - ${ROTULO_DO_ARQUIVO[tipo] ?? "documento"}${seq > 1 ? ` (${seq})` : ""}.${extensao}`;
+}
+
+/** "20.OUT.2026.zip" */
+export const nomeDoZip = (ymd: string): string => `${nomeDaPasta(ymd)}.${ymd.slice(0, 4)}.zip`;

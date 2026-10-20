@@ -3,7 +3,7 @@
 // hoje já marcadas), confere (valor do boleto × obrigação, código de barras) e entrega o MESMO e-mail que ela manda hoje — formatado, para colar no Gmail — ou a versão do WhatsApp, mais o ZIP
 // "13.OUT" com os boletos para a pasta do Drive. Nada é gravado. Prebenda/folha/Sustento nunca vêm marcados; o que não tem meio de pagamento aparece como "sem dado automático".
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, ExternalLink, Loader2, Mail, MessageCircle, Pencil, X } from "lucide-react";
+import { Copy, Download, ExternalLink, FileText, Loader2, Mail, MessageCircle, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,10 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import {
-  INTRODUCAO_PADRAO, SAUDACAO_PADRAO, bancoDaLinha, formatarLinha, linkDoEmail, montarEnvio, tipoDaLinha, type GrupoDoEnvio, type ItemDeEnvio,
+  ICONE_CONFIRMAR_FAVORECIDO, ICONE_DA_ORIGEM, ICONE_SEM_MEIO, INTRODUCAO_PADRAO, ROTULO_CONFIRMAR_FAVORECIDO, ROTULO_DA_ORIGEM, ROTULO_SEM_MEIO, SAUDACAO_PADRAO,
+  bancoDaLinha, contadoresDoEnvio, formatarLinha, linkDoEmail, montarEnvio, tipoDaLinha, type GrupoDoEnvio, type ItemDeEnvio,
 } from "@/lib/envioDePagamentos";
 import {
-  baixarBoletos, buscarPessoasComEmail, carregarItensDeEnvio, guardarPreferencias, lerPreferencias, type Destinatario,
+  baixarPacote, baixarResumo, buscarPessoasComEmail, carregarItensDeEnvio, guardarPreferencias, lerPreferencias, type Destinatario,
 } from "@/services/envioDePagamentosService";
 import { brl, type FinVencimento } from "@/services/finService";
 
@@ -32,10 +33,10 @@ interface Props {
 }
 
 const GRUPOS: { grupo: GrupoDoEnvio; titulo: string; dica?: string; tom?: "aviso" }[] = [
-  { grupo: "padrao", titulo: "Prontos para enviar", dica: "têm linha digitável" },
-  { grupo: "pix", titulo: "Pix — opcional", dica: "sem linha digitável; têm Pix do documento ou chave do favorecido" },
+  { grupo: "padrao", titulo: "Boleto e guia — linha digitável", dica: "vêm marcados os atrasados e os de hoje" },
+  { grupo: "pix", titulo: "Pix — documento ou cadastro do favorecido", dica: "o Pix do documento e o do cadastro ligado à obrigação vêm marcados; \"Confirmar favorecido\" fica desmarcado" },
   { grupo: "sigiloso", titulo: "Prebenda, folha e Sustento — sigilosos", dica: "nunca vêm marcados; vão no corpo do e-mail se você marcar", tom: "aviso" },
-  { grupo: "sem_dado", titulo: "Sem dado automático", dica: "sem linha digitável nem Pix: abra o documento" },
+  { grupo: "sem_dado", titulo: `${ICONE_SEM_MEIO} ${ROTULO_SEM_MEIO}`, dica: "sem linha digitável nem Pix: abra o documento" },
 ];
 
 export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onAbrirObrigacao }: Props) {
@@ -48,6 +49,7 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
   const [busca, setBusca] = useState("");
   const [achadas, setAchadas] = useState<Destinatario[]>([]);
   const [baixando, setBaixando] = useState(false);
+  const [gerandoResumo, setGerandoResumo] = useState(false);
   const sessao = useRef(0);
 
   // lê os documentos quando o painel abre (e de novo se a lista de candidatas mudar enquanto aberto não — só ao abrir)
@@ -88,6 +90,9 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
     linhasDeDescricao: descricoes, incluirResumo: prefs.incluirResumo, citarSemLinha: prefs.citarSemLinha, semDado: porGrupo.sem_dado,
   }), [escolhidos, hojeYmd, prefs, descricoes, porGrupo.sem_dado]);
   const temSigiloso = escolhidos.some(i => i.grupo === "sigiloso");
+  const contadores = useMemo(() => contadoresDoEnvio(escolhidos, itens ?? []), [escolhidos, itens]);
+  // o ZIP e o resumo levam os marcados e, se a mensagem os cita, os que estão só na pasta (sem meio automático): o dossiê completo
+  const pedidoDoPacote = () => ({ itens: escolhidos, semMeio: prefs.citarSemLinha ? porGrupo.sem_dado : [], hojeYmd, linhasDeDescricao: descricoes });
 
   const alternar = (id: string) => setMarcados(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const alternarGrupo = (g: GrupoDoEnvio) => setMarcados(s => {
@@ -111,6 +116,7 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
     const a = document.createElement("a");
     a.href = linkDoEmail(prefs.destinatarios.map(d => d.email), envio.assunto);
     a.click();
+    if (prefs.baixarZipJunto) void zip();
   }
 
   async function soCopiar() {
@@ -122,20 +128,30 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
     if (escolhidos.length === 0) { toast.error("Marque ao menos um pagamento."); return; }
     if (envio.whatsapp.length > LIMITE_DO_WHATSAPP) {
       try { await navigator.clipboard.writeText(envio.whatsapp); toast.success("A mensagem é longa demais para abrir direto: copiada, cole no WhatsApp."); } catch { toast.error("Mensagem longa demais e o navegador não deixou copiar."); }
+      if (prefs.baixarZipJunto) void zip();
       return;
     }
     window.open(montarLinkWhatsApp({ texto: envio.whatsapp }), "_blank", "noopener");
+    if (prefs.baixarZipJunto) void zip();
   }
 
   async function zip() {
     if (escolhidos.length === 0) { toast.error("Marque ao menos um pagamento."); return; }
     setBaixando(true);
     try {
-      const r = await baixarBoletos(escolhidos, hojeYmd);
+      const r = await baixarPacote(pedidoDoPacote());
       if (r.arquivos === 0) toast.error("Nenhum dos marcados tem documento anexado.");
-      else toast.success(`${r.arquivos} ${r.arquivos === 1 ? "arquivo" : "arquivos"} no ZIP${r.semDocumento.length ? ` · sem documento: ${r.semDocumento.join(", ")}` : ""}`);
+      else toast.success(`ZIP com ${r.arquivos} ${r.arquivos === 1 ? "documento" : "documentos"} e o 00 RESUMO.pdf${r.semDocumento.length ? ` · sem documento: ${r.semDocumento.join(", ")}` : ""}${r.falhas.length ? ` · não baixou: ${r.falhas.length}` : ""}`);
     } catch (e: any) { toast.error(e?.message ?? "Não foi possível montar o ZIP"); }
     finally { setBaixando(false); }
+  }
+
+  async function resumo() {
+    if (escolhidos.length === 0) { toast.error("Marque ao menos um pagamento."); return; }
+    setGerandoResumo(true);
+    try { await baixarResumo(pedidoDoPacote()); toast.success("Resumo do lote baixado"); }
+    catch (e: any) { toast.error(e?.message ?? "Não foi possível gerar o resumo"); }
+    finally { setGerandoResumo(false); }
   }
 
   const adicionar = (d: Destinatario) => {
@@ -161,6 +177,26 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
           <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma obrigação para enviar agora.</p>
         ) : (
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" data-contadores aria-label="O lote em números">
+              {([
+                ["Pagamentos", contadores.pagamentos, "marcados"],
+                ["Boletos", contadores.boletos, "com linha digitável"],
+                ["Pix", contadores.pix, "documento ou cadastro"],
+                [ROTULO_SEM_MEIO, contadores.semMeio, "só na pasta"],
+                ["Documentos", contadores.documentos, "anexados, vão no ZIP"],
+              ] as const).map(([rotulo, n, dica]) => (
+                <div key={rotulo} className={`rounded-md border px-2.5 py-1.5 ${rotulo === ROTULO_SEM_MEIO && n > 0 ? "border-warning-line bg-warning-soft/30" : ""}`}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</p>
+                  <p className="text-lg font-extrabold tabular-nums leading-tight" data-contador={rotulo}>{n}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{dica}</p>
+                </div>
+              ))}
+            </div>
+            {contadores.aConfirmar > 0 && (
+              <p className="rounded-md border border-warning-line bg-warning-soft/40 px-3 py-2 text-xs text-warning-text" role="status">
+                {ICONE_CONFIRMAR_FAVORECIDO} {contadores.aConfirmar} {contadores.aConfirmar === 1 ? "pagamento tem" : "pagamentos têm"} Pix de um favorecido achado só pelo nome — nada disso vai se você não marcar \"{ROTULO_CONFIRMAR_FAVORECIDO}\".
+              </p>
+            )}
             {GRUPOS.map(g => porGrupo[g.grupo].length > 0 && (
               <section key={g.grupo} aria-label={g.titulo} data-grupo={g.grupo}>
                 <header className="mb-1 flex flex-wrap items-baseline gap-x-2">
@@ -176,7 +212,7 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
                   {porGrupo[g.grupo].map(i => (
                     <li key={i.id} className="px-3 py-2 text-sm" data-item={i.id}>
                       <div className="flex items-start gap-2">
-                        {i.grupo !== "sem_dado" && <Checkbox className="mt-0.5" checked={marcados.has(i.id)} onCheckedChange={() => alternar(i.id)} aria-label={`Enviar ${i.fornecedor}`} />}
+                        {i.grupo !== "sem_dado" && <Checkbox className="mt-0.5" checked={marcados.has(i.id)} onCheckedChange={() => alternar(i.id)} aria-label={i.favorecidoParaConfirmar ? `${ROTULO_CONFIRMAR_FAVORECIDO}: ${i.fornecedor}` : `Enviar ${i.fornecedor}`} />}
                         <div className="min-w-0 flex-1">
                           <p className="flex flex-wrap items-baseline gap-x-2">
                             <span className="font-medium">{i.fornecedor}</span>
@@ -189,6 +225,17 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
                             {i.linha ? <>{tipoDaLinha(i.linha)}{bancoDaLinha(i.linha) ? ` · ${bancoDaLinha(i.linha)}` : ""} · <span className="font-mono">{formatarLinha(i.linha)}</span></>
                               : i.pix ? "Pix copia e cola" : "sem linha digitável nem Pix"}
                           </p>
+                          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                            {i.origem ? (
+                              <span data-origem={i.origem} className={i.origem === "pix_cadastro" ? "text-info-text" : "text-muted-foreground"}>{ICONE_DA_ORIGEM[i.origem]} {ROTULO_DA_ORIGEM[i.origem]}</span>
+                            ) : (
+                              <span data-origem="nenhuma" className="text-warning-text">{ICONE_SEM_MEIO} {ROTULO_SEM_MEIO}</span>
+                            )}
+                            {i.favorecidoParaConfirmar && (
+                              <span data-confirmar-favorecido className="font-medium text-warning-text">{ICONE_CONFIRMAR_FAVORECIDO} {ROTULO_CONFIRMAR_FAVORECIDO}: o cadastro "{i.favorecidoParaConfirmar}" tem Pix — é o favorecido desta conta?</span>
+                            )}
+                            <span className={i.documentos > 0 ? "text-muted-foreground" : "text-warning-text"}>· {i.documentos > 0 ? `${i.documentos} ${i.documentos === 1 ? "documento" : "documentos"} no ZIP` : "sem documento anexado"}</span>
+                          </p>
                           {i.avisos.map(a => <p key={a} className="text-xs text-warning-text">⚠ {a}</p>)}
                           {editando === i.id && (
                             <Input autoFocus className="mt-1 h-8 text-xs" placeholder={i.fornecedor.toLocaleUpperCase("pt-BR")} aria-label={`Linha do beneficiário de ${i.fornecedor}`}
@@ -198,7 +245,7 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
                           {descricoes[i.id]?.trim() && editando !== i.id && <p className="text-xs">texto no e-mail: <b>{descricoes[i.id].trim().toLocaleUpperCase("pt-BR")}</b></p>}
                         </div>
                         {i.grupo === "sem_dado" ? (
-                          <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 gap-1 text-xs" onClick={() => onAbrirObrigacao(i.id)}><ExternalLink className="h-3 w-3" /> Abrir</Button>
+                          <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 gap-1 text-xs" onClick={() => onAbrirObrigacao(i.id)}><ExternalLink className="h-3 w-3" /> Abrir documento</Button>
                         ) : (
                           <button type="button" className="shrink-0 rounded p-1.5 text-muted-foreground hover:bg-muted" title="Mudar a linha do beneficiário no e-mail" aria-label={`Mudar o texto de ${i.fornecedor}`} onClick={() => setEditando(i.id)}><Pencil className="h-3.5 w-3.5" /></button>
                         )}
@@ -241,7 +288,8 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
                   <Textarea rows={3} className="text-xs" value={prefs.introducao ?? INTRODUCAO_PADRAO} onChange={e => setPrefs(p => ({ ...p, introducao: e.target.value }))} />
                 </div>
                 <label className="flex items-center gap-2 text-xs"><Checkbox checked={prefs.incluirResumo} onCheckedChange={v => setPrefs(p => ({ ...p, incluirResumo: !!v }))} /> Incluir o quadro-resumo (fornecedor, categoria e valor)</label>
-                <label className="flex items-center gap-2 text-xs"><Checkbox checked={prefs.citarSemLinha} onCheckedChange={v => setPrefs(p => ({ ...p, citarSemLinha: !!v }))} /> Citar no fim o que está só na pasta (sem linha digitável)</label>
+                <label className="flex items-center gap-2 text-xs"><Checkbox checked={prefs.citarSemLinha} onCheckedChange={v => setPrefs(p => ({ ...p, citarSemLinha: !!v }))} /> Citar no fim o que está sem meio automático (e levar os documentos deles no ZIP)</label>
+                <label className="flex items-center gap-2 text-xs"><Checkbox checked={prefs.baixarZipJunto} onCheckedChange={v => setPrefs(p => ({ ...p, baixarZipJunto: !!v }))} /> Ao copiar para o e-mail ou abrir o WhatsApp, baixar também o ZIP (documentos + 00 RESUMO.pdf)</label>
                 <p className="text-[11px] text-muted-foreground">Destinatários e textos ficam guardados neste navegador.</p>
               </div>
             </details>
@@ -259,8 +307,11 @@ export function PrepararEnvioDialog({ aberto, onFechar, candidatas, hojeYmd, onA
           <footer className="sticky bottom-0 -mx-6 -mb-6 flex flex-wrap items-center justify-between gap-2 border-t bg-background px-6 py-3">
             <p className="text-sm tabular-nums"><b>{envio.quantidade}</b> {envio.quantidade === 1 ? "pagamento" : "pagamentos"} · <b>{brl(envio.total)}</b></p>
             <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={resumo} disabled={gerandoResumo || envio.quantidade === 0}>
+                {gerandoResumo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Baixar resumo
+              </Button>
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={zip} disabled={baixando || envio.quantidade === 0}>
-                {baixando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Baixar boletos (ZIP)
+                {baixando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Baixar ZIP
               </Button>
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={paraWhatsApp} disabled={envio.quantidade === 0}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</Button>
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={soCopiar} disabled={envio.quantidade === 0}><Copy className="h-3.5 w-3.5" /> Só copiar</Button>

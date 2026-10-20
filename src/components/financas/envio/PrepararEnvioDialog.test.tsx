@@ -1,4 +1,4 @@
-// "Preparar envio": o painel lista, confere e copia o e-mail dos tesoureiros. Atrasadas e de hoje com linha digitável vêm marcadas; sigiloso e Pix, nunca.
+// "Preparar envio": o painel lista, confere e copia o e-mail dos tesoureiros. Atrasadas e de hoje com linha digitável ou Pix (do documento ou do cadastro ligado) vêm marcadas; sigiloso e favorecido achado pelo nome, nunca.
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,12 +13,14 @@ const mk = (id: string, fornecedor: string, valor: number, dias: number, l: Part
     { linha: BRADESCO, pix: null, valorDoDocumento: valor, vencimentoDoDocumento: null, codigoValido: true, ...l });
 
 let itensLidos: ItemDeEnvio[] = [];
-const zips: ItemDeEnvio[][] = [];
+const zips: { itens: ItemDeEnvio[]; semMeio: ItemDeEnvio[] }[] = [];
+const resumos: { itens: ItemDeEnvio[] }[] = [];
 vi.mock("@/services/envioDePagamentosService", () => ({
   carregarItensDeEnvio: async () => itensLidos,
   buscarPessoasComEmail: async (t: string) => (t.toLowerCase().startsWith("bre") ? [{ nome: "Breno Teixeira", email: "breno@qibrj.org.br" }] : []),
-  baixarBoletos: async (itens: ItemDeEnvio[]) => { zips.push(itens); return { arquivos: itens.length, semDocumento: [] }; },
-  lerPreferencias: () => { try { return JSON.parse(localStorage.getItem("teste-prefs") ?? "null") ?? { destinatarios: [], saudacao: null, introducao: null, incluirResumo: true, citarSemLinha: true }; } catch { return { destinatarios: [], saudacao: null, introducao: null, incluirResumo: true, citarSemLinha: true }; } },
+  baixarPacote: async (p: { itens: ItemDeEnvio[]; semMeio: ItemDeEnvio[] }) => { zips.push(p); return { arquivos: p.itens.length, semDocumento: [], falhas: [] }; },
+  baixarResumo: async (p: { itens: ItemDeEnvio[] }) => { resumos.push(p); },
+  lerPreferencias: () => { const padrao = { destinatarios: [], saudacao: null, introducao: null, incluirResumo: true, citarSemLinha: true, baixarZipJunto: true }; try { return JSON.parse(localStorage.getItem("teste-prefs") ?? "null") ?? padrao; } catch { return padrao; } },
   guardarPreferencias: (p: unknown) => localStorage.setItem("teste-prefs", JSON.stringify(p)),
 }));
 vi.mock("@/lib/whatsapp", () => ({ montarLinkWhatsApp: ({ texto }: { texto: string }) => `https://wa.me/?text=${encodeURIComponent(texto)}` }));
@@ -29,7 +31,7 @@ let raiz: Root | null = null;
 const copiados: { html?: string; texto?: string }[] = [];
 const abertos: string[] = [];
 beforeEach(() => {
-  copiados.length = 0; abertos.length = 0; zips.length = 0; localStorage.clear();
+  copiados.length = 0; abertos.length = 0; zips.length = 0; resumos.length = 0; localStorage.clear();
   class ClipboardItemFalso { constructor(public itens: Record<string, Blob>) {} }
   (globalThis as any).ClipboardItem = ClipboardItemFalso;
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: {
@@ -60,13 +62,26 @@ describe("Preparar envio", () => {
     itensLidos = [
       mk("junta", "Junta de Missões", 300, 0), mk("flora", "Flora Energia", 485.66, -1), mk("depois", "Verisure", 291.31, 3),
       mk("prebenda", "Lucio Paulo Paz Barreto", 8000, -5, {}, "Prebenda", "Pastoral · Sustento Pastoral"),
-      mk("pix", "Ana Patrícia", 800, 0, { linha: null, pix: "00020126..." }), mk("nada", "ABC", 37.8, 0, { linha: null, pix: null }),
+      mk("pix", "Ana Patrícia", 800, 0, { linha: null, pix: "00020126...", origemDoPix: "documento" }),
+      mk("pixcad", "Caio Marcelo", 500, -1, { linha: null, pix: "00020126...", origemDoPix: "cadastro", favorecidoDoPix: "Caio Marcelo Mendes" }),
+      mk("pixnome", "Salário Denise", 300, 0, { linha: null, pix: "00020126...", origemDoPix: "cadastro_por_nome", favorecidoDoPix: "Denise Teixeira" }, "Energia", "Administração"),
+      mk("nada", "ABC", 37.8, 0, { linha: null, pix: null }),
     ];
     await abrir();
-    expect(["junta", "flora"].map(marcada)).toEqual([true, true]);
-    expect(["depois", "prebenda", "pix"].map(marcada)).toEqual([false, false, false]);
+    expect(["junta", "flora", "pix", "pixcad"].map(marcada)).toEqual([true, true, true, true]);     // linha, Pix do documento e Pix do cadastro ligado
+    expect(["depois", "prebenda"].map(marcada)).toEqual([false, false]);
     expect(doc().querySelector('[data-grupo="sem_dado"] [role=checkbox]')).toBeNull();      // sem dado automático não se marca: abre-se o documento
-    expect(doc().textContent).toContain("2 pagamentos");
+    expect(doc().textContent).toContain("4 pagamentos");
+    // contadores do lote
+    const cont = (r: string) => doc().querySelector(`[data-contador="${r}"]`)!.textContent;
+    expect([cont("Pagamentos"), cont("Boletos"), cont("Pix"), cont("Sem meio automático")]).toEqual(["4", "2", "2", "1"]);
+    // a origem de cada meio, sempre à vista; e o favorecido achado pelo nome pede confirmação
+    expect(doc().querySelector('[data-item="junta"] [data-origem]')!.getAttribute("data-origem")).toBe("linha_documento");
+    expect(doc().querySelector('[data-item="pix"] [data-origem]')!.getAttribute("data-origem")).toBe("pix_documento");
+    expect(doc().querySelector('[data-item="pixcad"] [data-origem]')!.getAttribute("data-origem")).toBe("pix_cadastro");
+    expect(doc().querySelector('[data-item="nada"] [data-origem]')!.getAttribute("data-origem")).toBe("nenhuma");
+    expect(doc().querySelector('[data-item="pixnome"] [data-confirmar-favorecido]')!.textContent).toContain("Confirmar favorecido");
+    expect(marcada("pixnome")).toBe(false);
     expect(doc().querySelector("[data-previa]")!.textContent).toContain("JUNTA DE MISSÕES");
     expect(doc().querySelector("[data-previa]")!.textContent).not.toContain("LUCIO");
   });
@@ -83,7 +98,7 @@ describe("Preparar envio", () => {
   it("'Sem dado automático' tem botão Abrir que leva à obrigação", async () => {
     itensLidos = [mk("nada", "ABC", 37.8, 0, { linha: null, pix: null })];
     await abrir();
-    await clicar(botao(/Abrir$/));
+    await clicar(botao(/Abrir documento/));
     expect(abertos).toContain("abrir:nada");
   });
 
@@ -110,14 +125,19 @@ describe("Preparar envio", () => {
     await abrir();
     await clicar(botao(/WhatsApp/));
     expect(abertos.find(a => a.startsWith("https://wa.me/"))).toContain(encodeURIComponent("```23790 22607"));
-    await clicar(botao(/Baixar boletos/));
-    expect(zips).toHaveLength(1); expect(zips[0].map(i => i.id)).toEqual(["junta"]);
+    expect(zips).toHaveLength(1);                                            // "baixar o ZIP junto" vem ligado: uma operação só
+    await clicar(botao(/Baixar ZIP/));
+    expect(zips).toHaveLength(2); expect(zips[1].itens.map(i => i.id)).toEqual(["junta"]);
+    expect(zips[1].semMeio).toEqual([]);
+    await clicar(botao(/Baixar resumo/));
+    expect(resumos).toHaveLength(1); expect(resumos[0].itens.map(i => i.id)).toEqual(["junta"]);
   });
 
   it("nada marcado: os botões ficam desligados", async () => {
     itensLidos = [mk("depois", "Verisure", 291.31, 3)];
     await abrir();
     expect(botao(/Copiar e abrir e-mail/).disabled).toBe(true);
-    expect(botao(/Baixar boletos/).disabled).toBe(true);
+    expect(botao(/Baixar ZIP/).disabled).toBe(true);
+    expect(botao(/Baixar resumo/).disabled).toBe(true);
   });
 });
