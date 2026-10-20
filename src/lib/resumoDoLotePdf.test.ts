@@ -31,6 +31,10 @@ describe("conteúdo do resumo", () => {
     expect(b.itens[1].codigo).toBe("00020126580014br.gov.bcb.pix0136abc");
     expect(b.itens[0].cabecalho).toBe("Boleto bancário · Bradesco · R$ 300,00 · vence 13/10/2026");
     expect(b.itens[1].cabecalho).toBe("Pix · R$ 800,00 · vence 13/10/2026");
+    // as colunas da tabela: favorecido e meio · ORIGEM · valor · vence
+    expect(b.itens.map(i => [i.meio, i.valor, i.vencimento])).toEqual([
+      ["Boleto bancário · Bradesco", "R$ 300,00", "13/10/2026"], ["Pix", "R$ 800,00", "13/10/2026"], ["Pix", "R$ 500,00", "13/10/2026"],
+    ]);
     expect(b.itens[0].arquivos).toEqual(["01 Bradesco - Junta - 300,00 - boleto.pdf"]);
     expect(b.itens[2].arquivos).toEqual([]);                       // sem documento: o PDF avisa
   });

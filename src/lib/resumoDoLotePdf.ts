@@ -17,6 +17,11 @@ export interface ItemDoResumo {
   numero: number;
   cabecalho: string;
   beneficiario: string;
+  /** "Boleto bancário · Bradesco" / "Pix" — o tipo do meio, sem valor nem data (que têm coluna própria) */
+  meio: string;
+  valor: string;
+  /** dd/mm/aaaa */
+  vencimento: string;
   /** "Linha digitável do documento" / "PIX do documento" / "PIX do cadastro do favorecido" */
   origem: string;
   codigo: string;
@@ -59,6 +64,9 @@ export function blocosDoResumo(d: DadosDoResumo): BlocosDoResumo {
         ? [tipoDaLinha(i.linha), bancoDaLinha(i.linha), brl(i.valor), `vence ${dataBr(i.vencimento)}`].filter(Boolean).join(" · ")
         : ["Pix", brl(i.valor), `vence ${dataBr(i.vencimento)}`].join(" · "),
       beneficiario: (d.linhasDeDescricao?.[i.id]?.trim() || i.fornecedor).toLocaleUpperCase("pt-BR"),
+      meio: i.linha ? [tipoDaLinha(i.linha), bancoDaLinha(i.linha)].filter(Boolean).join(" · ") : "Pix",
+      valor: brl(i.valor),
+      vencimento: dataBr(i.vencimento),
       origem: i.origem ? ROTULO_DA_ORIGEM[i.origem] : ROTULO_SEM_MEIO,
       codigo: i.linha ? formatarLinha(i.linha) : i.pix ?? "",
       avisos: i.avisos,
@@ -124,16 +132,37 @@ export async function gerarResumoDoLotePdf(d: DadosDoResumo): Promise<Uint8Array
   pagina.drawLine({ start: { x: MARGEM, y }, end: { x: LARGURA - MARGEM, y }, thickness: 0.6, color: rgb(0.8, 0.72, 0.5) });
   y -= 4;
 
+  // colunas da tabela (x de cada uma; "Valor" alinhada à direita em X_VALOR)
+  const X_NUM = MARGEM, X_NOME = MARGEM + 22, X_ORIGEM = MARGEM + 250, X_VALOR = MARGEM + 440, X_VENCE = MARGEM + 448;
+  const L_NOME = X_ORIGEM - X_NOME - 8, L_ORIGEM = X_VALOR - X_ORIGEM - 52;
+  const cabecalhoDaTabela = () => {
+    garantir(24);
+    y -= 14;
+    const rot = (t: string, x: number, direita = false) => pagina.drawText(t, { x: direita ? x - negrito.widthOfTextAtSize(t, 7.5) : x, y, size: 7.5, font: negrito, color: CINZA });
+    rot("Nº", X_NUM); rot("FAVORECIDO E MEIO", X_NOME); rot("ORIGEM", X_ORIGEM); rot("VALOR", X_VALOR, true); rot("VENCE", X_VENCE);
+    y -= 4;
+    pagina.drawLine({ start: { x: MARGEM, y }, end: { x: LARGURA - MARGEM, y }, thickness: 0.4, color: rgb(0.8, 0.8, 0.8) });
+  };
+  cabecalhoDaTabela();
+
   for (const it of b.itens) {
-    garantir(70);
+    // uma linha da tabela não se parte entre páginas; a página nova repete o cabeçalho
+    if (y - 80 < MARGEM + RESERVA_RODAPE) { novaPagina(); cabecalhoDaTabela(); }
     y -= 8;
-    escrever(`${String(it.numero).padStart(2, "0")}  ${it.cabecalho}`, negrito, 10);
-    escrever(it.beneficiario, normal, 10, ESCURO, 16);
-    escrever(`Origem: ${it.origem}`, normal, 8, CINZA, 16);
-    if (it.codigo) escrever(it.codigo, mono, 8.5, ESCURO, 16);
-    for (const a of it.avisos) escrever(`Atenção: ${a}`, normal, 8, VERMELHO, 16);
-    if (it.arquivos.length > 0) escrever(`Arquivos: ${it.arquivos.join("; ")}`, normal, 8, CINZA, 16);
-    else escrever("Sem documento anexado a esta obrigação.", normal, 8, VERMELHO, 16);
+    const nome = quebrar(it.beneficiario, negrito, 9.5, L_NOME), meio = quebrar(it.meio, normal, 8, L_NOME), origem = quebrar(it.origem, normal, 8.5, L_ORIGEM);
+    const topo = y;
+    y = topo - 11;
+    pagina.drawText(String(it.numero).padStart(2, "0"), { x: X_NUM, y, size: 9.5, font: negrito, color: ESCURO });
+    nome.forEach((l, k) => pagina.drawText(l, { x: X_NOME, y: topo - 11 - k * 11.5, size: 9.5, font: negrito, color: ESCURO }));
+    meio.forEach((l, k) => pagina.drawText(l, { x: X_NOME, y: topo - 11 - nome.length * 11.5 - k * 10 + 1, size: 8, font: normal, color: CINZA }));
+    origem.forEach((l, k) => pagina.drawText(l, { x: X_ORIGEM, y: topo - 11 - k * 10, size: 8.5, font: normal, color: it.origem === ROTULO_DA_ORIGEM.pix_cadastro ? OURO : ESCURO }));
+    pagina.drawText(it.valor, { x: X_VALOR - negrito.widthOfTextAtSize(it.valor, 9.5), y, size: 9.5, font: negrito, color: ESCURO });
+    pagina.drawText(it.vencimento, { x: X_VENCE, y, size: 9, font: normal, color: ESCURO });
+    y = topo - 11 - Math.max(nome.length * 11.5 + meio.length * 10 - 8, origem.length * 10 - 2);
+    if (it.codigo) escrever(it.codigo, mono, 8.5, ESCURO, 22);
+    for (const a of it.avisos) escrever(`Atenção: ${a}`, normal, 8, VERMELHO, 22);
+    if (it.arquivos.length > 0) escrever(`Arquivos: ${it.arquivos.join("; ")}`, normal, 8, CINZA, 22);
+    else escrever("Sem documento anexado a esta obrigação.", normal, 8, VERMELHO, 22);
   }
 
   if (b.semMeio.length > 0) {
