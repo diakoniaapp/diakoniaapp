@@ -53,7 +53,7 @@ import Financas from "./pages/Financas.tsx";
 import FinancasConta from "./pages/FinancasConta.tsx";
 import FinancasAdmin from "./pages/FinancasAdmin.tsx";
 import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
-import FinancasRelatorio from "./pages/FinancasRelatorio.tsx";
+import { RedirecionaParaOFechamento } from "./pages/RedirecionaParaOFechamento.tsx";
 import FinancasAuditoriaAnexos from "./pages/FinancasAuditoriaAnexos.tsx";
 import FinancasCentralDocumentos from "./pages/FinancasCentralDocumentos.tsx";
 import FinancasRelatorioContas from "./pages/FinancasRelatorioContas.tsx";
@@ -208,8 +208,9 @@ const App = () => (
                   <Route path="/financas/doacoes" element={<FinancasDoacoes />} />
                   <Route path="/financas/doadores" element={<FinancasDoadores />} />
                   <Route path="/financas/doadores/:pessoaId" element={<FinancasDoadorDetalhe />} />
-                  <Route path="/financas/relatorio" element={<FinancasRelatorio />} />
-                  <Route path="/financas/relatorio/:ano/:mes" element={<FinancasRelatorio />} />
+                  {/* O Malote Contábil / "Movimento do mês" deixou de existir (Fase B, 20/10/2026): o malote é a etapa 5 do Fechamento. Links e favoritos antigos caem no mês certo. */}
+                  <Route path="/financas/relatorio" element={<RedirecionaParaOFechamento />} />
+                  <Route path="/financas/relatorio/:ano/:mes" element={<RedirecionaParaOFechamento />} />
                   <Route path="/financas/auditoria-anexos" element={<FinancasAuditoriaAnexos />} />
                   <Route path="/financas/documentos" element={<FinancasCentralDocumentos />} />
                   <Route path="/financas/estoque" element={<FinancasEstoque />} />

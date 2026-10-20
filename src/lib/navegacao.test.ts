@@ -14,7 +14,7 @@ describe("o registro cobre o app inteiro", () => {
   const app = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
   const dentroDoLayout = app.slice(app.indexOf("<AppLayout />"), app.indexOf('<Route path="*"'));
   const rotas = [...dentroDoLayout.matchAll(/<Route\s+path="([^"]+)"\s+element=\{<(\w+)/g)]
-    .filter(m => m[2] !== "Navigate" && m[1] !== "/")
+    .filter(m => !(m[2] === "Navigate" || m[2].startsWith("Redireciona")) && m[1] !== "/")
     .map(m => m[1]);
 
   it("encontrou as rotas do App.tsx (sanidade do próprio teste)", () => {

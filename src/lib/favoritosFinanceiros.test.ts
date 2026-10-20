@@ -7,7 +7,7 @@ import { destinoDaRota, ehFixavel, telasFixaveis, tipoDoFavorito } from "./favor
 const rotasFinanceirasDoApp = (() => {
   const app = readFileSync("src/App.tsx", "utf8");
   const dentro = app.slice(app.indexOf("<AppLayout />"), app.indexOf('<Route path="*"'));
-  return [...dentro.matchAll(/<Route\s+path="([^"]+)"\s+element=\{<(\w+)/g)].filter(m => m[2] !== "Navigate").map(m => m[1])
+  return [...dentro.matchAll(/<Route\s+path="([^"]+)"\s+element=\{<(\w+)/g)].filter(m => !(m[2] === "Navigate" || m[2].startsWith("Redireciona"))).map(m => m[1])
     .filter(r => r.startsWith("/financas") || r === "/painel-tesouraria");
 })();
 
@@ -20,7 +20,7 @@ describe("telas fixáveis do Financeiro", () => {
   });
 
   it("outras telas recentes ou de apoio também são fixáveis (Malote, Central de Documentos, Fiscal, Auditoria do extrato, Reuniões, Conta de Sustento, Insights, Recorrências)", () => {
-    for (const r of ["/financas/relatorio", "/financas/documentos", "/financas/fiscal", "/financas/auditoria-extrato", "/financas/reunioes", "/financas/sustento", "/financas/insights", "/financas/recorrencias"]) expect(rotas).toContain(r);
+    for (const r of ["/financas/documentos", "/financas/fiscal", "/financas/auditoria-extrato", "/financas/reunioes", "/financas/sustento", "/financas/insights", "/financas/recorrencias"]) expect(rotas).toContain(r);
   });
 
   it("fica de fora o que tem parâmetro (não se escolhe numa lista), a própria Mesa e o que tem motivo técnico registrado", () => {

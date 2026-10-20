@@ -373,7 +373,6 @@ export function FechamentoMensal({ onConciliar }: Props) {
         <Link to="/financas/fiscal" className="underline underline-offset-2">Módulo Fiscal</Link>{" · "}
         <Link to="/financas/prestacao-de-contas" className="underline underline-offset-2">Prestação de Contas</Link>{" · "}
         <Link to="/financas/extrato-de-obrigacoes" className="underline underline-offset-2">Extrato de Obrigações</Link>{" · "}
-        <Link to={`/financas/relatorio/${ano}/${mes}`} className="underline underline-offset-2">Movimento do mês (relatório e CSV)</Link>{" · "}
         <Link to="/financas/reunioes" className="underline underline-offset-2">Reuniões Financeiras</Link>
       </p>
 

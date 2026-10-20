@@ -137,7 +137,7 @@ describe("Fechamento do mês — a casa do mês", () => {
     expect(links).toContainEqual(["Anexar em lote", "/financas/documentos"]);
     expect(links.some(([t, h]) => /Tela cheia/.test(String(t)) && /^\/financas\/auditoria-anexos\?mes=\d{4}-\d{2}$/.test(String(h)))).toBe(true);
     expect(links.filter(([, h]) => String(h).startsWith("/financas/auditoria-anexos"))).toHaveLength(1);
-    expect(links.some(([t, h]) => /Movimento do mês/.test(String(t)) && /^\/financas\/relatorio\/\d{4}\/\d{1,2}$/.test(String(h)))).toBe(true);
+    expect(links.some(([t]) => /Movimento do mês/.test(String(t)))).toBe(false);      // o relatório "Movimento do mês" (e o CSV) deixou de existir
   });
 
   it("?mes=AAAA-MM abre o mês pedido (se estiver entre os últimos 13)", async () => {
