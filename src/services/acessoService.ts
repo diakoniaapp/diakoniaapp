@@ -9,19 +9,10 @@
 //   • O telefone da Pessoa vira o login (email: {tel}@app.diakonia)
 //   • Toda ação sensível é registrada em audit_logs via RPC
 
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { gerarSenha, enviarWhatsApp } from "@/services/userService";
 import type { AppRole } from "@/hooks/useAuth";
-
-// ─── Cliente isolado para signUp (não afeta sessão do admin) ─────────────────
-
-const supabaseSignup = createClient(
-  import.meta.env.VITE_SUPABASE_URL      as string,
-  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-  { auth: { autoRefreshToken: false, persistSession: false, storageKey: "diakonia_acesso_tmp" } }
-);
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -215,10 +206,11 @@ export async function getResumoAcessos(): Promise<ResumoAcessos> {
  *
  * Fluxo:
  *   1. Valida telefone único
- *   2. signUp isolado (não afeta sessão do admin)
- *   3. Upsert em profiles com pessoa_id
- *   4. Log de auditoria
- *   5. Retorna senha para envio via WhatsApp
+ *   2. RPC `admin_criar_acesso` (20/10/2026): cria a conta, o papel e o perfil ligado à ficha NO BANCO, só para administrador.
+ *      Antes era `auth.signUp` pelo endpoint PÚBLICO do Auth — o mesmo que qualquer estranho podia usar; trocar por esta função
+ *      é o que permite desligar o cadastro público do Auth sem quebrar "Novo acesso".
+ *   3. Log de auditoria
+ *   4. Retorna senha para envio via WhatsApp
  */
 export async function criarAcessoPessoa(params: {
   pessoaId:     string;
@@ -239,65 +231,13 @@ export async function criarAcessoPessoa(params: {
   }
 
   try {
-    // 1. Criar no Auth (cliente isolado)
-    const { data: authData, error: authError } = await supabaseSignup.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        data: { must_change_password: true, nome: params.nomeCompleto },
-      },
-    });
+    const { data, error } = await supabase.rpc("admin_criar_acesso", { p_pessoa_id: params.pessoaId, p_role: params.role, p_senha: senha });
+    if (error) return { ok: false, erro: `Erro ao criar acesso: ${error.message}` };
+    const r = (Array.isArray(data) ? data[0] : data) as { ok: boolean; erro: string | null; telefone: string | null; user_id: string | null } | null;
+    if (!r?.ok || !r.user_id) return { ok: false, erro: r?.erro ?? "Não foi possível criar o acesso. Tente novamente." };
+    const uid = r.user_id;
 
-    if (authError) {
-      return {
-        ok:   false,
-        erro: authError.message.includes("already registered")
-          ? "Este telefone já possui acesso ao sistema."
-          : `Erro ao criar acesso: ${authError.message}`,
-      };
-    }
-
-    const uid = authData.user?.id;
-    if (!uid) return { ok: false, erro: "Falha ao obter ID do usuário. Tente novamente." };
-
-    // 2. Salvar profile vinculado à pessoa
-    //
-    // O `.select()` cobre o ramo de UPDATE do upsert (perfil ja existia): ali a
-    // politica de `profiles` — admin, ou o proprio dono — pode barrar sem erro
-    // nenhum, so zero linhas. Sem conferir, o acesso sairia como criado e a
-    // pessoa ficaria sem vinculo com a ficha.
-    const perfil = await supabaseSignup
-      .from("profiles")
-      .upsert(
-        {
-          id:              uid,
-          pessoa_id:       params.pessoaId,
-          nome:            params.nomeCompleto,
-          telefone:        tel,
-          role:            params.role,
-          primeiro_acesso: true,
-        },
-        { onConflict: "id" }
-      )
-      .select("id");
-    const { error: profileError } = perfil;
-
-    if (profileError) {
-      return {
-        ok:   false,
-        erro: `Acesso criado no Auth, mas falha ao salvar perfil: ${profileError.message}`,
-        senha,
-        tel,
-      };
-    }
-
-    const rPerfil = conferir(perfil, "O perfil");
-    if (!rPerfil.ok) {
-      // A senha ja existe: volta junto com o aviso, para nao se perder.
-      return { ok: false, erro: `Acesso criado no Auth, mas ${rPerfil.erro}`, senha, tel };
-    }
-
-    // 3. Registrar log
+    // Registrar log
     // .maybeSingle() em RPC void trava o cliente — usar promise simples com catch.
     supabase.rpc("registrar_audit_log", {
       p_tipo_evento: "acesso_criado",
