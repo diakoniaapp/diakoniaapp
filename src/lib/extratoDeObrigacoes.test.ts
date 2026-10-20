@@ -272,3 +272,34 @@ describe("redesenho de 20/10/2026: selos, dias, conta e observação", () => {
     expect(ex[0]).toMatchObject({ anexos: 3, grau: "Formal", saldoAReembolsar: 1500, reembolsoAPagar: true });
   });
 });
+
+describe("situação documental no extrato (regra única de lib/documentacaoExigida)", () => {
+  const comTipos = (linhas: LinhaDeObrigacao[], tipos: Record<string, string[]>, quitacoes: [string, QuitacaoDoExtrato][] = [], contaTipo = "banco") =>
+    montarExtratoDeObrigacoes({
+      linhas: linhas.map(x => ({ conta_id: "k1", ...x })), quitacoes: new Map(quitacoes),
+      nomes: { ...nomes, contas: new Map([["k1", "Bradesco"]]), contaTipos: new Map([["k1", contaTipo]]) },
+      hoje: "2026-10-16", tiposDeAnexo: new Map(Object.entries(tipos)),
+    });
+
+  it("sem os tipos lidos, a situação documental fica nula (não se afirma o que não se sabe)", () => {
+    expect(montar([l({ id: "a", status: "realizado" })])[0].documentacao).toBeNull();
+  });
+  it("paga no banco: NF + comprovante = completa; só o comprovante = parcial; nada = sem documentos", () => {
+    const r = comTipos([l({ id: "a", status: "realizado" }), l({ id: "b", status: "realizado" }), l({ id: "c", status: "realizado" })], { a: ["nota_fiscal", "comprovante"], b: ["comprovante"] });
+    expect(Object.fromEntries(r.map(x => [x.obrigacaoId, x.documentacao]))).toEqual({ a: "completa", b: "parcial", c: "sem" });
+  });
+  it("na Caixinha (conta sem comprovante bancário) a NF basta", () => {
+    expect(comTipos([l({ id: "a", status: "realizado" })], { a: ["nota_fiscal"] }, [], "caixa")[0].documentacao).toBe("completa");
+  });
+  it("em aberto: só o documento de origem conta (ainda não há comprovante a exigir)", () => {
+    expect(comTipos([l({ id: "a", status: "previsto" })], { a: ["boleto", "nota_fiscal"] })[0].documentacao).toBe("completa");
+  });
+  it("quitada por terceiro: NF + Declaração do Terceiro, sem comprovante da igreja", () => {
+    const q: [string, QuitacaoDoExtrato][] = [["a", { responsavel: "empresa", responsavelNome: "Mercado Bom", intencao: "oferta" }]];
+    expect(comTipos([l({ id: "a", status: "quitado_terceiro" })], { a: ["nota_fiscal", "declaracao_terceiro"] }, q)[0].documentacao).toBe("completa");
+    expect(comTipos([l({ id: "a", status: "quitado_terceiro" })], { a: ["nota_fiscal"] }, q)[0].documentacao).toBe("parcial");
+  });
+  it("cancelada não tem situação documental", () => {
+    expect(comTipos([l({ id: "a", status: "cancelado" })], {})[0].documentacao).toBeNull();
+  });
+});

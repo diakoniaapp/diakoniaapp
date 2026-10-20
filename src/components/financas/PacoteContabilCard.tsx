@@ -43,7 +43,7 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
       if (r.falhas.length > 0) {
         toast.warning(`Pacote gerado, mas ${r.falhas.length} arquivo(s) não puderam ser baixados ou mesclados — veja ERROS.txt dentro do ZIP.`);
       } else if (r.pendencias > 0) {
-        toast.warning(`Pacote gerado com ${r.pendencias} saída(s) sem documento — a lista está em PENDENCIAS.csv.`);
+        toast.warning(`Pacote gerado com ${r.pendencias} saída(s) de documentação incompleta — a lista está em PENDENCIAS.csv.`);
       } else {
         toast.success("Pacote contábil gerado e baixado");
       }
@@ -88,10 +88,10 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
         <>
           <p className="text-sm tabular-nums">
             <strong>{plano.totalSaidas}</strong> saídas pagas ·{" "}
-            <strong>{plano.comAnexo}</strong> com documento ·{" "}
+            <strong>{Math.max(0, plano.totalSaidas - pendencias.length - plano.dispensam)}</strong> com documentação completa ·{" "}
             <strong className={pendencias.length ? "text-warning-text" : "text-success-text"}>
               {pendencias.length}
-            </strong>{" "}sem documento
+            </strong>{" "}com documentação incompleta
             {plano.dispensam > 0 && (
               <span className="text-muted-foreground"> · {plano.dispensam} dispensam (tarifas bancárias)</span>
             )}

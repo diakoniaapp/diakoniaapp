@@ -12,7 +12,7 @@
 import { useEffect, useState } from "react";
 import { ClipboardCheck, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { resumirAuditoria } from "@/lib/pacoteContabil";
+import { resumirProntidao } from "@/lib/documentacaoExigida";
 import {
   COBERTURA_LINHA_DE_BASE, COBERTURA_META, COBERTURA_META_IDEAL,
   faltaParaOProximo, formatarPercentual, marcosDaTrilha, percentualCobertura,
@@ -35,8 +35,9 @@ export function CoberturaDocumentalCard({ ano = new Date().getFullYear(), atuali
     auditarPeriodo(`${ano}-01-01`, `${ano}-12-31`)
       .then(linhas => {
         if (!vivo) return;
-        const r = resumirAuditoria(linhas);
-        setDados({ com: r.com, exigem: r.com + r.sem });
+        // regra ÚNICA (lib/documentacaoExigida.ts, 20/10/2026): "documentado" = documentação COMPLETA, não "tem algum anexo"; a linha de base de 03/10 (0,3%) foi medida pela régua antiga
+        const r = resumirProntidao(linhas.map(l => l.documentacao));
+        setDados({ com: r.completas, exigem: r.total - r.dispensam });
       })
       .catch(e => vivo && setErro(e?.message ?? "Erro ao medir a cobertura"));
     return () => { vivo = false; };

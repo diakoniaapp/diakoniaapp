@@ -7,7 +7,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {}, supabaseRel: {}
 
 import {
   auditarAnexos, csvPtBr, dataPasta, diaDoPagamento, dispensaDocumento, indiceCsv, nomeSeguro,
-  observacaoDeAvisoDeReembolso, observacaoDeOferta, pendenciasCsv, pendenciasDeQuitacaoCsv, planejarPacote, resumirAuditoria,
+  observacaoDeAvisoDeReembolso, observacaoDeOferta, pendenciasCsv, pendenciasDeQuitacaoCsv, planejarPacote,
   type AnexoPacote, type RotuloDoPacote,
 } from "./pacoteContabil";
 import type { FinLancamentoExtenso } from "@/services/finService";
@@ -285,33 +285,44 @@ describe("tarifa bancária dispensa documento", () => {
   });
 });
 
-describe("auditoria de anexos", () => {
-  it("toda saída cai em exatamente uma situação: total = com + sem + dispensa", () => {
-    const comNf = saida({ fornecedor_nome: "A" });
-    const comDois = saida({ fornecedor_nome: "B" });
-    const sem = saida({ fornecedor_nome: "C" });
-    const t = saida({ fornecedor_nome: "Banco", categoria_nome: "Tarifas Bancárias" });
-    const linhas = auditarAnexos([comNf, comDois, sem, t], [
-      anexo(comNf, "nota_fiscal"), anexo(comDois, "nota_fiscal"), anexo(comDois, "boleto"),
-    ]);
-    const r = resumirAuditoria(linhas);
-    expect(r).toMatchObject({ total: 4, com: 2, sem: 1, dispensa: 1 });
-    expect(r.com + r.sem + r.dispensa).toBe(r.total);
+describe("auditoria de anexos — pela regra única de completude", () => {
+  const ctx = { contaTipo: new Map([["conta-1", "banco"]]) };
+  const comConta = (o: Parameters<typeof saida>[0]) => saida({ conta_id: "conta-1", ...o });
+
+  it("toda saída cai em exatamente uma situação: total = completas + parciais + sem + dispensam", () => {
+    const completa = comConta({ fornecedor_nome: "A" });
+    const parcial = comConta({ fornecedor_nome: "B" });
+    const sem = comConta({ fornecedor_nome: "C" });
+    const t = comConta({ fornecedor_nome: "Banco", categoria_nome: "Tarifas Bancárias" });
+    const linhas = auditarAnexos([completa, parcial, sem, t], [
+      anexo(completa, "nota_fiscal"), anexo(completa, "comprovante"), anexo(parcial, "comprovante"),
+    ], ctx);
+    expect(linhas.map(l => l.situacao)).toEqual(["completa", "parcial", "sem", "dispensa"]);
+    expect(linhas[1].documentacao.faltam).toEqual(["Nota Fiscal ou Fatura"]);
   });
 
-  it("por tipo: saída com nota e boleto conta nos dois; dois anexos do mesmo tipo contam uma vez", () => {
-    const a = saida({}); const b = saida({});
-    const r = resumirAuditoria(auditarAnexos([a, b], [
-      anexo(a, "nota_fiscal"), anexo(a, "nota_fiscal"), anexo(a, "boleto"), anexo(b, "nota_fiscal"),
-    ]));
-    expect(r.porTipo.nota_fiscal).toBe(2);
-    expect(r.porTipo.boleto).toBe(1);
-    expect(r.porTipo.comprovante).toBe(0);
-    expect(r.porTipo.xml).toBe(0);
+  it("um comprovante sozinho NÃO é mais 'com documento' (o defeito que motivou a regra)", () => {
+    const a = comConta({});
+    expect(auditarAnexos([a], [anexo(a, "comprovante")], ctx)[0].situacao).toBe("parcial");
+  });
+
+  it("sem o tipo da conta no contexto, o comprovante não é exigido (não há como saber que o banco o emite)", () => {
+    const a = saida({});
+    expect(auditarAnexos([a], [anexo(a, "nota_fiscal")])[0].situacao).toBe("completa");
+  });
+
+  it("marca os avisos de reembolso e usa a Quitação por terceiros", () => {
+    const r = comConta({ status: "previsto" as never, obrigacao_id: "obr-1" });
+    const linha = auditarAnexos([r], [anexo(r, "nota_fiscal"), anexo(r, "declaracao_terceiro")], {
+      ...ctx, quitacao: new Map([["obr-1", { intencao: "reembolso", terceiroQuitou: true }]]), avisos: new Set([r.id]),
+    })[0];
+    expect(linha.aviso).toBe(true);
+    expect(linha.documentacao.modelo).toBe("reembolso");
+    expect(linha.documentacao.faltam).toEqual(["Comprovante do PIX da igreja"]);
   });
 
   it("recorte vazio não quebra", () => {
-    expect(resumirAuditoria([])).toMatchObject({ total: 0, com: 0, sem: 0, dispensa: 0 });
+    expect(auditarAnexos([], [])).toEqual([]);
   });
 });
 
@@ -368,5 +379,19 @@ describe("a Política de compras por terceiros no pacote (Fase 1C-b)", () => {
     const l = oferta();
     const p = planejarPacote(2026, 9, [l], [], new Map([rotuloOferta(l)]));
     expect(p.pendencias).toHaveLength(1);
+  });
+});
+
+describe("PENDENCIAS.csv com a documentação incompleta (regra única)", () => {
+  it("sem as faltas calculadas, o CSV sai no formato de sempre; com elas, ganha Situação e Documento faltante", () => {
+    const a = saida({ fornecedor_nome: "Sem Doc" }), b = saida({ fornecedor_nome: "Parcial" });
+    const p = planejarPacote(2026, 9, [a, b], []);
+    expect(pendenciasCsv(p)).not.toContain("Documento faltante");
+    p.pendencias = [a, b];
+    p.faltas = new Map([[a.id, { situacao: "sem", faltam: ["Nota Fiscal ou Fatura", "Comprovante de pagamento"] }], [b.id, { situacao: "parcial", faltam: ["Nota Fiscal ou Fatura"] }]]);
+    const csv = pendenciasCsv(p);
+    expect(csv).toContain('"Situação";"Documento faltante"');
+    expect(csv).toContain('"Sem documentos";"Nota Fiscal ou Fatura; Comprovante de pagamento"');
+    expect(csv).toContain('"Documentação parcial";"Nota Fiscal ou Fatura"');
   });
 });

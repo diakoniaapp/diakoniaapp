@@ -20,7 +20,7 @@ export const CAMPOS_DE_IMPRESSAO: { campo: CampoDeImpressao; rotulo: string; soE
   { campo: "categoria", rotulo: "Categoria" }, { campo: "centro", rotulo: "Centro de custo" }, { campo: "projeto", rotulo: "Projeto" },
   { campo: "conta", rotulo: "Conta" }, { campo: "responsavel", rotulo: "Responsável pela quitação", soExcecao: true }, { campo: "intencao", rotulo: "Intenção", soExcecao: true },
   { campo: "grau", rotulo: "Grau de prova", soExcecao: true }, { campo: "diasAtraso", rotulo: "Dias em atraso" }, { campo: "observacoes", rotulo: "Observações" },
-  { campo: "anexos", rotulo: "Documentos anexados (quantidade)" }, { campo: "totalDoDia", rotulo: "Total do dia" }, { campo: "assinaturas", rotulo: "Assinaturas (Tesouraria e Conselho Fiscal)" },
+  { campo: "anexos", rotulo: "Documentos anexados (quantidade e situação)" }, { campo: "totalDoDia", rotulo: "Total do dia" }, { campo: "assinaturas", rotulo: "Assinaturas (Tesouraria e Conselho Fiscal)" },
 ];
 
 const TODOS_FALSOS = Object.fromEntries(CAMPOS_DE_IMPRESSAO.map(c => [c.campo, false])) as Record<CampoDeImpressao, boolean>;

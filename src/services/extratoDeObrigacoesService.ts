@@ -79,17 +79,24 @@ async function quitacoesDe(chaves: string[]): Promise<QuitacaoBruta[]> {
 }
 
 /** Quantos documentos cada obrigação tem anexados (todas as parcelas somadas; a chave é o id da raiz). Falha de leitura = 0: o contador é só informação. */
-async function anexosPorObrigacao(linhas: LinhaDeObrigacao[]): Promise<Map<string, number>> {
+/** Por obrigação (chave = id da raiz): quantos anexos e de quais TIPOS (todas as parcelas) — a situação documental precisa dos tipos. */
+async function anexosPorObrigacao(linhas: LinhaDeObrigacao[]): Promise<{ contagem: Map<string, number>; tipos: Map<string, string[]> }> {
   const chaveDaLinha = new Map(linhas.map(l => [l.id, l.obrigacao_id ?? l.id]));
   const contagem = new Map<string, number>();
+  const tipos = new Map<string, string[]>();
   for (const grupo of lotes(lotes([...chaveDaLinha.keys()], 100), 6)) {
-    const respostas = await Promise.all(grupo.map(ids => supabase.from("fin_lancamento_anexos").select("lancamento_id").in("lancamento_id", ids)));
+    const respostas = await Promise.all(grupo.map(ids => supabase.from("fin_lancamento_anexos").select("lancamento_id, tipo").in("lancamento_id", ids)));
     for (const r of respostas) {
       if (r.error) continue;
-      for (const x of (r.data ?? []) as { lancamento_id: string }[]) { const k = chaveDaLinha.get(x.lancamento_id); if (k) contagem.set(k, (contagem.get(k) ?? 0) + 1); }
+      for (const x of (r.data ?? []) as { lancamento_id: string; tipo: string }[]) {
+        const k = chaveDaLinha.get(x.lancamento_id);
+        if (!k) continue;
+        contagem.set(k, (contagem.get(k) ?? 0) + 1);
+        const t = tipos.get(k) ?? []; if (!t.includes(x.tipo)) t.push(x.tipo); tipos.set(k, t);
+      }
     }
   }
-  return contagem;
+  return { contagem, tipos };
 }
 
 async function nomesPor(tabela: "fin_fornecedores" | "membros", coluna: "nome" | "nome_completo", ids: string[]): Promise<Map<string, string>> {
@@ -123,6 +130,7 @@ export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<
     fornecedores, pessoas,
     categorias: new Map(categorias.map(c => [c.id, c.nome])), centros: new Map(centros.map(c => [c.id, c.nome])), projetos: new Map(projetos.map(p => [p.id, p.nome])),
     contas: new Map(contas.map(c => [c.id, c.nome] as [string, string])),
+    contaTipos: new Map(contas.map(c => [c.id, String(c.tipo)] as [string, string])),
   };
-  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos });
+  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos: anexos.contagem, tiposDeAnexo: anexos.tipos });
 }

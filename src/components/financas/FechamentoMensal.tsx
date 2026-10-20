@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, CircleDashed, Download, FileStack, Loader2, RefreshCw, Send, Wrench,
+  AlertTriangle, CheckCircle2, CircleDashed, ClipboardCheck, Download, FileStack, Loader2, RefreshCw, Send, Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -102,7 +102,7 @@ export function FechamentoMensal({ onConciliar }: Props) {
       const r = await baixarPacoteContabil(plano, (f, t) => setGerando([f, t]));
       setGerouAgora(true);
       if (r.falhas.length > 0) toast.warning(`Malote gerado, mas ${r.falhas.length} arquivo(s) não entraram — veja ERROS.txt no ZIP.`);
-      else if (r.pendencias > 0) toast.warning(`Malote gerado com ${r.pendencias} saída(s) sem documento — a lista está em PENDENCIAS.csv.`);
+      else if (r.pendencias > 0) toast.warning(`Malote gerado com ${r.pendencias} saída(s) de documentação incompleta — a lista está em PENDENCIAS.csv.`);
       else toast.success("Malote gerado e baixado");
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao gerar o malote");
@@ -246,12 +246,16 @@ export function FechamentoMensal({ onConciliar }: Props) {
       {/* ── 3. documentação (só o resumo; o trabalho é na Central) ──────── */}
       <Etapa n={3} titulo="Documentação" parte={doc}
         situacao={doc.estado === "ok" ? (doc.dados.pendencias > 0 ? "atencao" : "ok") : undefined}
-        acao={<Button asChild size="sm" className="h-8 gap-1.5"><Link to="/financas/documentos"><FileStack className="w-3.5 h-3.5" /> Abrir Central de Documentos</Link></Button>}>
+        acao={<div className="flex flex-wrap gap-2">
+          <Button asChild size="sm" className="h-8 gap-1.5"><Link to={`/financas/auditoria-anexos?mes=${ano}-${String(mes).padStart(2, "0")}`}><ClipboardCheck className="w-3.5 h-3.5" /> Pendências do malote</Link></Button>
+          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5"><Link to="/financas/documentos"><FileStack className="w-3.5 h-3.5" /> Central de Documentos</Link></Button>
+        </div>}>
         {doc.estado === "ok" && <>
-          <Numero rotulo="Cobertura documental" valor={formatarPercentual(doc.dados.cobertura)} />
-          <Numero rotulo="Pendências" valor={String(doc.dados.pendencias)} atencao={doc.dados.pendencias > 0} />
+          <Numero rotulo="Prontidão do malote" valor={`${formatarPercentual(doc.dados.prontidao)}%`} />
+          <Numero rotulo="Sem documentação" valor={String(doc.dados.sem)} alerta={doc.dados.sem > 0} />
+          <Numero rotulo="Parciais" valor={String(doc.dados.parciais)} atencao={doc.dados.parciais > 0} />
           <p className="basis-full text-[11px] text-muted-foreground">
-            {doc.dados.comDocumento} de {doc.dados.exigem} saídas com documento em {rotulo}. Faltar documento não impede gerar o malote (vai em PENDENCIAS.csv).
+            {doc.dados.prontas} de {doc.dados.total} obrigações prontas em {rotulo} (documentação completa ou dispensada). Faltar documento não impede gerar o malote: o painel informa e a lista vai em PENDENCIAS.csv.
           </p>
         </>}
         {ciclo.estado === "ok" && ciclo.dados.total > 0 && <>
@@ -289,7 +293,7 @@ export function FechamentoMensal({ onConciliar }: Props) {
         {pacote.estado === "ok" && <>
           <Numero rotulo="Período" valor={rotulo} />
           <Numero rotulo="Documentos (dossiês)" valor={String(pacote.dados.dossies)} />
-          <Numero rotulo="Saídas sem documento" valor={String(pacote.dados.pendencias)} atencao={pacote.dados.pendencias > 0} />
+          <Numero rotulo="Saídas com documentação incompleta" valor={String(pacote.dados.pendencias)} atencao={pacote.dados.pendencias > 0} />
           {docsFech.estado === "ok" && docsFech.dados.disponivel && <Numero rotulo="Documentos do fechamento" valor={String(docsFech.dados.documentos)} atencao={!docsFech.dados.completo} />}
           {a && !a.pronto && <p className="basis-full text-[11px] text-warning-text">Há pendências que impedem o fechamento (acima) — o malote sai mesmo assim, mas o ideal é resolvê-las antes.</p>}
         </>}

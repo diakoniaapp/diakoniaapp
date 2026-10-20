@@ -2,6 +2,7 @@
 // Regras puras (sem banco, sem React). Uma OBRIGAÇÃO é uma despesa (saída, que não é transferência) e pode ter mais de uma linha em `fin_lancamentos`: no pagamento parcial a raiz vira
 // "realizada" e nasce uma parcela `previsto` com o saldo (mesma `obrigacao_id`). Aqui as linhas do grupo viram UMA linha do extrato.
 // A "Situação" é a pergunta que o relatório responde: a obrigação está em aberto, foi paga pela igreja, é um reembolso, foi quitada por um terceiro ou foi cancelada?
+import { documentacaoDaSaida, type SituacaoDocumental } from "@/lib/documentacaoExigida";
 import { CONTA_NAO_APLICAVEL_ID, ROTULO_INTENCAO, ROTULO_RESPONSAVEL, ehTerceiro, type Intencao, type ResponsavelTipo } from "@/lib/quitacao";
 
 export type SituacaoDaObrigacao = "em_aberto" | "paga_parcialmente" | "paga" | "reembolso" | "quitada_por_terceiro" | "cancelada";
@@ -63,6 +64,8 @@ export interface NomesDoExtrato {
   fornecedores: Map<string, string>; pessoas: Map<string, string>; categorias: Map<string, string>; centros: Map<string, string>; projetos: Map<string, string>;
   /** id da conta financeira → nome (a conta estrutural das compras pagas por terceiros entra como "Sem conta financeira") */
   contas?: Map<string, string>;
+  /** id da conta → tipo (`banco`, `caixa`, `cartao`…): só o banco emite comprovante, e a regra de documentação precisa saber */
+  contaTipos?: Map<string, string>;
 }
 
 /** O nome que o extrato dá à conta estrutural das compras pagas por terceiros: ela não é conta financeira. */
@@ -95,6 +98,8 @@ export interface LinhaDoExtrato {
   observacoes: string;
   /** quantos documentos estão anexados à obrigação (todas as parcelas) */
   anexos: number;
+  /** a situação documental pela regra ÚNICA (`lib/documentacaoExigida.ts`): sem documentos / parcial / completa / dispensa. Nula quando não se sabe (anexos não lidos) ou a obrigação está cancelada. */
+  documentacao: SituacaoDocumental | null;
   /** grau de prova da quitação ("Formal", "Relatado", "Nenhum"); nulo sem quitação */
   grau: string | null;
 }
@@ -171,6 +176,8 @@ export function montarExtratoDeObrigacoes(entrada: {
   linhas: LinhaDeObrigacao[]; quitacoes: Map<string, QuitacaoDoExtrato>; nomes: NomesDoExtrato; hoje: string;
   /** documentos anexados por obrigação (chave = id da raiz); sem o mapa, 0 */
   anexos?: Map<string, number>;
+  /** os TIPOS de anexo de cada obrigação (todas as parcelas, comprovante incluído); sem o mapa, a situação documental fica nula */
+  tiposDeAnexo?: Map<string, string[]>;
 }): LinhaDoExtrato[] {
   const { linhas, quitacoes, nomes, hoje } = entrada;
   const saida: LinhaDoExtrato[] = [];
@@ -210,6 +217,13 @@ export function montarExtratoDeObrigacoes(entrada: {
       conta: raiz.conta_id ? (raiz.conta_id === CONTA_NAO_APLICAVEL_ID ? ROTULO_SEM_CONTA : nomes.contas?.get(raiz.conta_id) ?? "") : "",
       observacoes: observacaoLegivel(raiz.observacoes),
       anexos: entrada.anexos?.get(chave) ?? 0,
+      documentacao: situacao === "cancelada" || !entrada.tiposDeAnexo ? null : documentacaoDaSaida({
+        categoriaNome: (raiz.categoria_id && nomes.categorias.get(raiz.categoria_id)) || "", contaTipo: raiz.conta_id ? nomes.contaTipos?.get(raiz.conta_id) ?? null : null,
+        // a obrigação ainda não paga (ou só em parte) não tem comprovante a exigir; o reembolso a pagar é "previsto" (o PIX só existe depois)
+        status: situacao === "quitada_por_terceiro" ? "quitado_terceiro" : situacao === "paga" || (situacao === "reembolso" && !reembolsoAPagar) ? "conciliado" : "previsto",
+        tipos: entrada.tiposDeAnexo.get(chave) ?? [], intencao: q?.intencao ?? null, terceiroQuitou: !!q && ehTerceiro(q.responsavel),
+        temCategoria: !!raiz.categoria_id, temCentro: !!raiz.centro_custo_id, documentoNumero: raiz.documento_numero,
+      }).situacao,
       grau: q?.grau ?? null,
     });
   }

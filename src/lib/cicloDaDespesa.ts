@@ -56,6 +56,11 @@ export interface EntradaDoCiclo {
   origem?: string | null;
   /** categorias que não têm documento (tarifas bancárias, IOF, juros): ver `dispensaDocumento` */
   dispensaDocumento: boolean;
+  /**
+   * A REGRA ÚNICA de completude documental (`documentacaoDaSaida`, decisão de 20/10/2026): quando vem, ela manda nas etapas "Documento" e "Comprovante" — o documento CERTO para o tipo da
+   * despesa, e o comprovante só onde o banco o emite. Sem ela (quem ainda não a calcula), vale a leitura antiga: qualquer documento original + qualquer comprovante.
+   */
+  documentacao?: { documentosOk: boolean; comprovanteOk: boolean; exigeComprovante: boolean; faltam: string[] };
   /** Fase 1A da Quitação: um TERCEIRO (Pessoa, Empresa ou Entidade) já pagou o fornecedor — não há mais "a vencer": a despesa fica Em aberto, aguardando a decisão sobre o terceiro, e a igreja NÃO paga o fornecedor */
   terceiroQuitou?: boolean;
   /** quando alguém conferiu à mão (conferido_em): é o que confirma uma obrigação QUITADA POR TERCEIRO, que não tem extrato nem banco */
@@ -109,17 +114,17 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
   const dataDoPagamento = (e.data_pagamento ?? e.data).slice(0, 10);
 
   const etapas: EtapaDoCiclo[] = [
-    { chave: "documento", rotulo: "Documento original", feita: e.temDocumento || e.dispensaDocumento, naoSeAplica: !e.temDocumento && e.dispensaDocumento, detalhe: !e.temDocumento && e.dispensaDocumento ? "esta categoria não exige documento" : null },
+    { chave: "documento", rotulo: "Documento original", feita: e.documentacao ? e.documentacao.documentosOk : e.temDocumento || e.dispensaDocumento, naoSeAplica: !e.temDocumento && e.dispensaDocumento, detalhe: !e.temDocumento && e.dispensaDocumento ? "esta categoria não exige documento" : null },
     { chave: "pagamento", rotulo: "Pagamento", feita: paga, naoSeAplica: false, detalhe: quitado ? "quitada por um terceiro (oferta): sem banco, sem caixa" : paga ? dataDoPagamento : null },
     { chave: "ofx", rotulo: "OFX vinculado", feita: quitado || !!fitid || !temExtrato || conferencia === "historico", naoSeAplica: quitado || !temExtrato || conferencia === "historico", detalhe: quitado ? "não passou pelo banco" : fitid ?? (!temExtrato ? "conta sem extrato bancário" : conferencia === "historico" ? "histórico anterior ao extrato" : null) },
     { chave: "conciliacao", rotulo: quitado || !temExtrato ? "Conferência" : "Conciliação", feita: conciliada, naoSeAplica: false,
       detalhe: conferencia === "historico" ? "Conferida (Histórico)" : conferencia === "manual" ? (temExtrato && !quitado ? "Conferida (sem vínculo bancário)" : "Conferida") : quitado ? "não há extrato: conferir a quitação à mão" : !temExtrato ? "conta sem extrato bancário: conferir à mão" : null },
-    { chave: "comprovante", rotulo: "Comprovante de pagamento", feita: quitado || e.temComprovante || e.dispensaDocumento, naoSeAplica: quitado || (!e.temComprovante && e.dispensaDocumento), detalhe: quitado ? "a igreja não pagou: a prova está na quitação" : !e.temComprovante && e.dispensaDocumento ? "o extrato é o comprovante" : null },
+    { chave: "comprovante", rotulo: "Comprovante de pagamento", feita: quitado || (e.documentacao ? e.documentacao.comprovanteOk : e.temComprovante || e.dispensaDocumento), naoSeAplica: quitado || (e.documentacao ? !e.documentacao.exigeComprovante : !e.temComprovante && e.dispensaDocumento), detalhe: quitado ? "a igreja não pagou: a prova está na quitação" : e.documentacao && !e.documentacao.exigeComprovante ? "esta conta não emite comprovante bancário: a nota/fatura (ou a fatura do cartão) é a prova" : !e.temComprovante && e.dispensaDocumento ? "o extrato é o comprovante" : null },
     { chave: "classificacao", rotulo: "Categoria e centro de custo", feita: e.temCategoria && e.temCentro, naoSeAplica: false, detalhe: null },
   ];
   const faltam = (...chaves: EtapaDoCiclo["chave"][]) => chaves.filter(k => !etapas.find(x => x.chave === k)!.feita);
   const NOME: Record<EtapaDoCiclo["chave"], string> = {
-    documento: "anexar o documento original (boleto, fatura, guia…)", pagamento: "pagar", ofx: "vincular a linha do extrato (importar o OFX)",
+    documento: e.documentacao ? "anexar o documento exigido para este tipo de despesa (nota, fatura, guia, RPA, RSP, DPS…)" : "anexar o documento original (boleto, fatura, guia…)", pagamento: "pagar", ofx: "vincular a linha do extrato (importar o OFX)",
     conciliacao: quitado ? "conferir a quitação por terceiro (não há extrato)" : temExtrato ? "conciliar com o extrato" : "conferir o pagamento (conta sem extrato)", comprovante: "anexar o comprovante de pagamento", classificacao: "classificar (categoria e centro de custo)",
   };
 

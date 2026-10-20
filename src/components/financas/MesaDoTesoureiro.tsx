@@ -427,7 +427,7 @@ function ResumoDeDocumentos({ rotulo, r }: { rotulo: string; r: { exigem: number
         <>
           <p className="text-xl font-extrabold tabular-nums leading-tight">{r.cobertura.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</p>
           <p className="text-xs text-muted-foreground">
-            {r.comDocumento} de {r.exigem} com documento
+            {r.comDocumento} de {r.exigem} com documentação completa
             {r.pendencias > 0 && <> · <b className="text-warning-text">{r.pendencias} faltando</b></>}
           </p>
         </>

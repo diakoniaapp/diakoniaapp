@@ -48,6 +48,7 @@ import {
 } from "@/lib/documentos/dossie";
 import { lerNomeDeArquivo } from "@/lib/documentos/nomeArquivo";
 import type { DocumentoDoPacote } from "@/lib/fechamentoDocumentos";
+import { categoriaDispensaDocumento, documentacaoDaSaida, type DocumentacaoDaSaida, type EntradaDocumental, type SituacaoDocumental } from "@/lib/documentacaoExigida";
 
 /** Onde uma linha da Política vai no pacote e o que o escritório precisa ler sobre ela. Só as obrigações com quitação por terceiro têm. */
 export interface RotuloDoPacote {
@@ -146,7 +147,10 @@ export interface PlanoPacote {
   totalArquivos: number;
   totalXml: number;
   indice: LinhaIndice[];
+  /** As saídas que o escritório ainda não consegue trabalhar. `planejarPacote` entrega as que não têm NENHUM anexo; o serviço as substitui pelas de documentação INCOMPLETA pela regra única (sem + parcial). */
   pendencias: FinLancamentoExtenso[];
+  /** Por id de lançamento: a situação documental e o que falta (preenchido pelo serviço; vazio ⇒ o CSV sai no formato de sempre). */
+  faltas: Map<string, { situacao: SituacaoDocumental; faltam: string[] }>;
   /** Quantas linhas são compras ofertadas e quantas são avisos de reembolso (já contadas em totalSaidas). */
   ofertadas: number;
   avisos: number;
@@ -190,14 +194,9 @@ export interface PlanoPacote {
  * migration); quebra se a categoria for renomeada. A saída robusta é essa
  * coluna + um interruptor na tela de categorias — não feita ainda.
  */
-const CATEGORIAS_SEM_DOCUMENTO = new Set([
-  "tarifas bancarias", "tarifa bancaria", "iof", "juros", "encargos bancarios",
-]);
-
+// A lista de categorias que dispensam mora em `lib/documentacaoExigida.ts` (a regra única de completude documental): aqui só a porta de sempre.
 export function dispensaDocumento(l: { categoria_nome?: string | null }): boolean {
-  const nome = (l.categoria_nome ?? "")
-    .normalize("NFD").replace(/[̀-ͯ]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
-  return CATEGORIAS_SEM_DOCUMENTO.has(nome);
+  return categoriaDispensaDocumento(l.categoria_nome);
 }
 
 // ─── datas ───────────────────────────────────────────────────────────────
@@ -316,36 +315,51 @@ export function indiceCsv(
 }
 
 export function pendenciasCsv(plano: PlanoPacote): string {
-  const linhas = plano.pendencias.map(l => [
-    l.conta_nome ?? "", dataBr(diaDoPagamento(l)), nomeExtrato(l).principal,
-    l.descricao ?? "", l.categoria_nome ?? "", valorBr(l.valor), l.documento_numero ?? "",
-  ]);
+  const comFaltas = plano.faltas.size > 0;
+  const linhas = plano.pendencias.map(l => {
+    const f = plano.faltas.get(l.id);
+    return [
+      l.conta_nome ?? "", dataBr(diaDoPagamento(l)), nomeExtrato(l).principal, l.descricao ?? "", l.categoria_nome ?? "", valorBr(l.valor), l.documento_numero ?? "",
+      ...(comFaltas ? [f?.situacao === "parcial" ? "Documentação parcial" : "Sem documentos", (f?.faltam ?? []).join("; ")] : []),
+    ];
+  });
   return csvPtBr([
-    ["Conta", "Data do pagamento", "Fornecedor", "Descrição", "Categoria", "Valor (R$)", "Documento nº"],
+    ["Conta", "Data do pagamento", "Fornecedor", "Descrição", "Categoria", "Valor (R$)", "Documento nº", ...(comFaltas ? ["Situação", "Documento faltante"] : [])],
     ...linhas,
   ]);
 }
 
-// ─── auditoria de anexos ─────────────────────────────────────────────────
+// ─── auditoria: a documentação de cada saída, pela regra ÚNICA ───────────────
 //
-// A conferência da tela de auditoria usa a MESMA classificação do pacote:
-// toda saída cai em exatamente uma de três situações, então
-// `total = com + sem + dispensa` sempre fecha.
-//   · com      — tem pelo menos um anexo (de qualquer tipo);
-//   · dispensa — sem anexo e de categoria que não exige (tarifa bancária);
-//   · sem      — sem anexo e exige: é a lista de trabalho antes do ZIP.
-
-export type SituacaoDocumento = "com" | "sem" | "dispensa";
+// Decisão dela (20/10/2026): a Auditoria deixou de perguntar "existe algum anexo?" e passou a perguntar "esta despesa está pronta para a contabilidade?". Quem decide é
+// `documentacaoDaSaida` (lib/documentacaoExigida.ts) — a MESMA chamada da Pronta para Malote, do Fechamento e do Ciclo da despesa. Cada saída cai em exatamente uma situação:
+//   · completa — todos os documentos que a regra exige para o tipo dela estão anexados;
+//   · parcial  — há anexo, mas falta algum que a regra exige (comprovante sem NF, NF sem comprovante…);
+//   · sem      — nenhum anexo e a regra exige;
+//   · dispensa — nenhum anexo e a categoria não exige (tarifa bancária).
+// `total = completas + parciais + sem + dispensam` sempre fecha.
 
 export interface LinhaAuditoria {
   lancamento: FinLancamentoExtenso;
-  /** Tipos distintos de anexo que o lançamento tem. */
+  /** Tipos distintos de anexo que o lançamento tem (os da obrigação e os do pagamento). */
   tipos: FinAnexoTipo[];
   qtd: number;
-  situacao: SituacaoDocumento;
+  situacao: SituacaoDocumental;
+  documentacao: DocumentacaoDaSaida;
+  /** Reembolso aprovado e ainda NÃO pago: entra na medição do mês (faz parte do malote), mas o dinheiro ainda não saiu. */
+  aviso?: boolean;
 }
 
-export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[]): LinhaAuditoria[] {
+/** O que a regra precisa saber além do lançamento e dos anexos: o tipo da conta (só o banco emite comprovante) e a Quitação por terceiros. */
+export interface ContextoDocumental {
+  contaTipo?: ReadonlyMap<string, string>;
+  /** por id da OBRIGAÇÃO: a intenção registrada e se quem pagou é um terceiro */
+  quitacao?: ReadonlyMap<string, { intencao: string; terceiroQuitou: boolean }>;
+  /** ids dos avisos de reembolso (aprovados, ainda não pagos) */
+  avisos?: ReadonlySet<string>;
+}
+
+export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[], contexto: ContextoDocumental = {}): LinhaAuditoria[] {
   const porLanc = new Map<string, AnexoPacote[]>();
   for (const a of anexos) {
     const lista = porLanc.get(a.lancamento_id) ?? [];
@@ -354,33 +368,16 @@ export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacot
   }
   return saidas.map(l => {
     const lista = porLanc.get(l.id) ?? [];
-    const situacao: SituacaoDocumento = lista.length > 0 ? "com" : dispensaDocumento(l) ? "dispensa" : "sem";
-    return { lancamento: l, tipos: [...new Set(lista.map(a => a.tipo))], qtd: lista.length, situacao };
+    const tipos = [...new Set(lista.map(a => a.tipo))];
+    const q = contexto.quitacao?.get(l.obrigacao_id ?? l.id);
+    const entrada: EntradaDocumental = {
+      categoriaNome: l.categoria_nome, status: String(l.status), contaTipo: contexto.contaTipo?.get(l.conta_id) ?? null, tipos,
+      intencao: q?.intencao ?? null, terceiroQuitou: q?.terceiroQuitou ?? false,
+      temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: (l as { documento_numero?: string | null }).documento_numero ?? null,
+    };
+    const documentacao = documentacaoDaSaida(entrada);
+    return { lancamento: l, tipos, qtd: lista.length, situacao: documentacao.situacao, documentacao, ...(contexto.avisos?.has(l.id) ? { aviso: true } : {}) };
   });
-}
-
-export interface ResumoAuditoria {
-  total: number;
-  com: number;
-  sem: number;
-  dispensa: number;
-  /** Quantas saídas têm pelo menos um anexo DE CADA TIPO (uma saída com NF e
-   *  boleto conta nos dois — por isso a soma pode passar de `com`). */
-  porTipo: Record<FinAnexoTipo, number>;
-}
-
-export function resumirAuditoria(linhas: LinhaAuditoria[]): ResumoAuditoria {
-  const porTipo = Object.fromEntries(
-    (Object.keys(FIN_ANEXO_TIPO_LABEL) as FinAnexoTipo[]).map(t => [t, 0]),
-  ) as Record<FinAnexoTipo, number>;
-  let com = 0, sem = 0, dispensa = 0;
-  for (const l of linhas) {
-    if (l.situacao === "com") com += 1;
-    else if (l.situacao === "sem") sem += 1;
-    else dispensa += 1;
-    for (const t of l.tipos) porTipo[t] += 1;
-  }
-  return { total: linhas.length, com, sem, dispensa, porTipo };
 }
 
 // ─── o plano ─────────────────────────────────────────────────────────────
@@ -551,7 +548,7 @@ export function planejarPacote(
 
   return {
     ano, mes, raiz, totalSaidas: ordenadas.length, comAnexo, dispensam,
-    nomesAjustados, nomesComId, dossies, totalArquivos, totalXml, indice, pendencias,
+    nomesAjustados, nomesComId, dossies, totalArquivos, totalXml, indice, pendencias, faltas: new Map(),
     ofertadas: ordenadas.filter(l => rotulos.get(l.id)?.tipo === "ofertada").length,
     avisos: ordenadas.filter(l => rotulos.get(l.id)?.tipo === "aviso_reembolso").length,
     quitacoesPendentes: [],

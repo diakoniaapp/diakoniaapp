@@ -36,7 +36,8 @@ import {
 import { hojeLocal } from "@/lib/data";
 import { PASTA_DOCUMENTOS_DO_FECHAMENTO, caminhoNoPacote, indiceDosDocumentosCsv } from "@/lib/fechamentoDocumentos";
 import { baixarBytesDoDocumento, documentosParaOPacote } from "@/services/fechamentoDocumentosService";
-import { ROTULO_INTENCAO } from "@/lib/quitacao";
+import { ANEXOS_DA_QUITACAO, ROTULO_INTENCAO, ehTerceiro } from "@/lib/quitacao";
+import type { ContextoDocumental } from "@/lib/pacoteContabil";
 
 const BUCKET = "fin-comprovantes";
 // Mesmo motivo de `emLotes` em finService: `.in()` vira query string, e
@@ -122,9 +123,13 @@ const paraOPacote = (q: QuitacaoDaObrigacao, aprovadoPor?: string | null, aprova
  * não está em `saidasDoPeriodo`. Entra só como informação, pelo dia da nota. Quando for pago, entra no mês do pagamento (como saída comum, com o comprovante).
  */
 async function avisosDeReembolsoDoMes(ano: number, mes: number, contaId?: string): Promise<{ lancamentos: FinLancamentoExtenso[]; rotulos: Map<string, RotuloDoPacote> }> {
+  return avisosDeReembolsoDoPeriodo(`${ano}-${String(mes).padStart(2, "0")}-01`, toYmd(new Date(ano, mes, 0)), contaId, true);
+}
+
+/** O mesmo, para qualquer período; `comRotulos = false` pula a leitura das aprovações (a Auditoria só precisa das linhas). */
+async function avisosDeReembolsoDoPeriodo(ini: string, fim: string, contaId?: string, comRotulos = false): Promise<{ lancamentos: FinLancamentoExtenso[]; rotulos: Map<string, RotuloDoPacote> }> {
   const vazio = { lancamentos: [] as FinLancamentoExtenso[], rotulos: new Map<string, RotuloDoPacote>() };
   if (!(await quitacaoDisponivel())) return vazio;
-  const ini = `${ano}-${String(mes).padStart(2, "0")}-01`, fim = toYmd(new Date(ano, mes, 0));
   const { data, error } = await supabase.from("vw_fin_quitacao" as never).select("obrigacao_id, quitacao_id")
     .eq("resultado" as never, "divida_com_terceiro" as never).eq("reembolsado" as never, 0 as never)
     .gte("data_despesa" as never, ini as never).lte("data_despesa" as never, fim as never);
@@ -137,6 +142,7 @@ async function avisosDeReembolsoDoMes(ano: number, mes: number, contaId?: string
   const { data: lancs, error: e2 } = await q;
   if (e2) throw e2;
   const lancamentos = await enriquecerLancamentos((lancs ?? []) as unknown as FinLancamento[]);
+  if (!comRotulos) return { lancamentos, rotulos: new Map<string, RotuloDoPacote>() };
   const quitacoes = await quitacoesDasObrigacoes(lancamentos.map(l => l.id));
   const rotulos = new Map<string, RotuloDoPacote>();
   for (const l of lancamentos) {
@@ -179,19 +185,57 @@ export async function prepararPacoteContabil(ano: number, mes: number, contaId?:
   const saidas = [...pagas, ...avisos.lancamentos];
   const anexos = saidas.length ? await anexosDe(saidas) : [];
   const plano = planejarPacote(ano, mes, saidas, anexos, rotulos);
+  // A MESMA régua da Auditoria (lib/documentacaoExigida.ts): o que o escritório ainda não consegue trabalhar não é só "sem nenhum anexo" — é a documentação incompleta (sem + parcial).
+  const incompletas = (await auditarSaidas(saidas, anexos, new Set(avisos.lancamentos.map(l => l.id)))).filter(x => x.situacao === "sem" || x.situacao === "parcial");
+  plano.pendencias = incompletas.map(x => x.lancamento);
+  plano.faltas = new Map(incompletas.map(x => [x.lancamento.id, { situacao: x.situacao, faltam: x.documentacao.faltam }]));
   plano.quitacoesPendentes = await quitacoesPendentesDoPacote();
   plano.documentosDoFechamento = await documentosParaOPacote(ano, mes, contaId);
   return plano;
 }
 
-/** Auditoria de anexos de QUALQUER período: cada saída paga com sua situação
- *  (com documento / sem / dispensa) e os tipos que tem. Os filtros de conta,
- *  centro de custo e fornecedor são aplicados pela tela, em memória — o
- *  período (que decide o volume) é o único filtro que vai ao banco. */
+/**
+ * A documentação de QUALQUER período, pela regra ÚNICA (`lib/documentacaoExigida.ts`): cada saída do malote com sua situação (completa / parcial / sem / dispensa), o que falta e as
+ * pendências administrativas. Entram as saídas pagas, as compras ofertadas (`quitado_terceiro`) e os AVISOS de reembolso (aprovados, ainda não pagos) — tudo o que faz parte do malote faz
+ * parte da medição. Os filtros de conta, centro de custo e fornecedor são aplicados pela tela, em memória: o período (que decide o volume) é o único filtro que vai ao banco.
+ */
 export async function auditarPeriodo(ini: string, fim: string): Promise<LinhaAuditoria[]> {
-  const saidas = await saidasDoPeriodo(ini, fim);
-  const anexos = saidas.length ? await anexosDe(saidas) : [];
-  return auditarAnexos(saidas, anexos);
+  const pagas = await saidasDoPeriodo(ini, fim);
+  const avisos = await avisosDeReembolsoDoPeriodo(ini, fim);
+  const saidas = [...pagas, ...avisos.lancamentos];
+  if (saidas.length === 0) return [];
+  return auditarSaidas(saidas, await anexosDe(saidas), new Set(avisos.lancamentos.map(l => l.id)));
+}
+
+/** A regra única aplicada a saídas JÁ lidas (com seus anexos): lê só o que falta — o tipo das contas e as Quitações por terceiros. */
+async function auditarSaidas(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[], avisos: ReadonlySet<string>): Promise<LinhaAuditoria[]> {
+  const [contas, quitacoes] = await Promise.all([
+    supabase.from("fin_contas").select("id, tipo"),
+    quitacoesDasObrigacoes([...new Set(saidas.map(l => l.obrigacao_id ?? l.id))]),
+  ]);
+  const contexto: ContextoDocumental = {
+    contaTipo: new Map((contas.data ?? []).map(c => [String(c.id), String(c.tipo)])),
+    quitacao: new Map([...quitacoes].map(([id, q]) => [id, { intencao: q.intencao, terceiroQuitou: ehTerceiro(q.responsavel) }])),
+    avisos,
+  };
+  // a declaração e as provas da quitação ficam na obrigação-raiz: a linha que foi PAGA (uma irmã) as herda, como herda o documento original
+  const extras = await anexosDaQuitacaoDasIrmas(saidas, quitacoes);
+  return auditarAnexos(saidas, [...anexos, ...extras], contexto);
+}
+
+/** Para as linhas de obrigações com Quitação que não são a própria raiz: as provas da quitação (declaração, pedido de reembolso, prova do terceiro) anexadas à raiz. */
+async function anexosDaQuitacaoDasIrmas(saidas: FinLancamentoExtenso[], quitacoes: Map<string, QuitacaoDaObrigacao>): Promise<AnexoPacote[]> {
+  const filhas = saidas.filter(l => l.obrigacao_id && l.obrigacao_id !== l.id && quitacoes.has(l.obrigacao_id));
+  if (filhas.length === 0) return [];
+  const raizes = [...new Set(filhas.map(l => l.obrigacao_id as string))];
+  const docs: { lancamento_id: string; tipo: string; url: string; nome: string | null; enviado_em: string | null }[] = [];
+  for (let i = 0; i < raizes.length; i += TAMANHO_LOTE) {
+    const { data, error } = await supabase.from("fin_lancamento_anexos").select("lancamento_id, tipo, url, nome, enviado_em")
+      .in("lancamento_id", raizes.slice(i, i + TAMANHO_LOTE)).in("tipo", [...ANEXOS_DA_QUITACAO]);
+    if (error) throw error;
+    docs.push(...((data ?? []) as typeof docs));
+  }
+  return filhas.flatMap(l => docs.filter(d => d.lancamento_id === l.obrigacao_id).map(d => ({ lancamento_id: l.id, tipo: d.tipo, url: d.url, nome: d.nome, enviado_em: d.enviado_em } as AnexoPacote)));
 }
 
 export interface ResultadoPacote {

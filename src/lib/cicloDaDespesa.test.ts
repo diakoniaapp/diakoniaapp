@@ -203,3 +203,30 @@ describe("quitada por terceiro — a oferta (Fase 1B)", () => {
     expect(quitada({ conferidoEm: "2026-10-18T10:00:00Z", envio: { ano: 2026, mes: 10, periodoAprovado: true } }).estado).toBe("arquivada");
   });
 });
+
+describe("a regra única de completude documental manda nas etapas Documento e Comprovante (20/10/2026)", () => {
+  const paga = { status: "conciliado", data_pagamento: "2026-10-05", observacoes: "[ofx:123]", hoje: "2026-10-20" } as const;
+  const doc = (o: Partial<NonNullable<EntradaDoCiclo["documentacao"]>>) => ({ documentosOk: true, comprovanteOk: true, exigeComprovante: true, faltam: [], ...o });
+
+  it("sem a regra, vale a leitura antiga: qualquer documento + qualquer comprovante", () => {
+    const c = ciclo({ ...paga, temDocumento: true, temComprovante: true });
+    expect(c.estado).toBe("pronta_para_malote");
+  });
+  it("com a regra: um comprovante sozinho NÃO deixa a despesa Pronta — falta o documento certo", () => {
+    const c = ciclo({ ...paga, temDocumento: false, temComprovante: true, documentacao: doc({ documentosOk: false, faltam: ["Nota Fiscal ou Fatura"] }) });
+    expect(c.estado).not.toBe("pronta_para_malote");
+    expect(c.pendencias.join(" ")).toMatch(/documento exigido/);
+  });
+  it("conta que não emite comprovante bancário (Caixinha, Cartão, Envelopes): a NF basta — a etapa Comprovante não se aplica", () => {
+    const c = ciclo({ ...paga, contaTipo: "caixa", observacoes: null, conferidoEm: "2026-10-06", temDocumento: true, temComprovante: false, documentacao: doc({ exigeComprovante: false }) });
+    const etapa = c.etapas.find(e => e.chave === "comprovante")!;
+    expect(etapa).toMatchObject({ feita: true, naoSeAplica: true });
+    expect(etapa.detalhe).toMatch(/não emite comprovante bancário/);
+    expect(c.estado).toBe("pronta_para_malote");
+  });
+  it("a NF certa mas sem o comprovante do banco continua pendente", () => {
+    const c = ciclo({ ...paga, temDocumento: true, temComprovante: false, documentacao: doc({ comprovanteOk: false }) });
+    expect(c.estado).not.toBe("pronta_para_malote");
+    expect(c.pendencias.join(" ")).toMatch(/comprovante de pagamento/);
+  });
+});

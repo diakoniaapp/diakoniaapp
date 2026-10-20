@@ -11,7 +11,7 @@ import type { LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
 const linha = (o: Partial<LinhaDoExtrato> & { obrigacaoId: string }): LinhaDoExtrato => ({
   data: "2026-09-10", fornecedor: "Papelaria Central", documento: "NF 10", descricao: "Resmas de papel", categoria: "Material de Consumo", centro: "Ministério Pastoral", projeto: "",
   valor: 100, saldoEmAberto: 0, situacao: "paga", responsavel: "Igreja", intencao: "—", diasEmAtraso: null, idEmAberto: null, reembolsoAPagar: false, saldoAReembolsar: null,
-  contaId: "k1", conta: "Bradesco", observacoes: "", anexos: 0, grau: null, ...o,
+  contaId: "k1", conta: "Bradesco", observacoes: "", anexos: 0, documentacao: null, grau: null, ...o,
 });
 let dados: LinhaDoExtrato[] = [];
 const pedidos: { de: string; ate: string; fornecedorId?: string }[] = [];

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cicloDaDespesa, ofxVinculado, periodoAprovadoCobre, type CicloDaDespesa } from "@/lib/cicloDaDespesa";
 import { parcelasDoGrupo, raizDaObrigacao, type LinhaDoGrupo, type ParcelaDoGrupo } from "@/lib/grupoDaObrigacao";
 import { dispensaDocumento } from "@/lib/pacoteContabil";
+import { documentacaoDaSaida } from "@/lib/documentacaoExigida";
 import { ehDocumentoOriginal, ehTerceiro } from "@/lib/quitacao";
 import { quitacaoDaObrigacao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { hojeLocal } from "@/lib/data";
@@ -93,12 +94,19 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const temComprovante = !!l.comprovante_url || anexos.some(a => a.tipo === "comprovante" && a.lancamento_id === l.id);
   // as provas da quitação (declaração, pedido de reembolso, prova do pagamento do terceiro) NÃO são o documento original da despesa (a mesma regra de vw_fin_ciclo)
   const temDocumento = anexos.some(a => ehDocumentoOriginal(a.tipo));
+  // a REGRA ÚNICA de completude documental (20/10/2026): o documento certo para o tipo da despesa; o COMPROVANTE é do pagamento (só o desta linha), o resto é da obrigação inteira
+  const documentacao = documentacaoDaSaida({
+    categoriaNome: l.categoria_nome, status: String(l.status), contaTipo, temComprovanteAntigo: !!l.comprovante_url,
+    tipos: anexos.filter(a => a.tipo !== "comprovante" || a.lancamento_id === l.id).map(a => a.tipo),
+    intencao: quitacao?.intencao ?? null, terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
+    temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: l.documento_numero ?? null,
+  });
   const ciclo = cicloDaDespesa({
     tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, origem: l.origem, contaTipo,
     ultimoExtratoDaConta: ultimo ? String(ultimo.data_pagamento ?? ultimo.data).slice(0, 10) : null,
     envio: envio ? { ano: envio.ano, mes: envio.mes, periodoAprovado: envio.periodoAprovado } : null,
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento, temComprovante,
-    dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(),
+    dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(), documentacao,
     terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
     conferidoEm: (l as unknown as { conferido_em?: string | null }).conferido_em ?? null,
   });

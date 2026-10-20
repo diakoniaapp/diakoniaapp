@@ -5,6 +5,7 @@ import { memo, type ReactNode } from "react";
 import { brl } from "@/services/finService";
 import { dataDoExtrato, diaDaSemana, seloDaSituacao, type ChaveDoSelo, type DiaDoExtrato, type LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
 import type { CampoDeImpressao } from "@/lib/perfilDeImpressaoDoExtrato";
+import { DocumentacaoChip } from "@/components/financas/DocumentacaoChip";
 
 type Campos = Record<CampoDeImpressao, boolean>;
 
@@ -42,7 +43,9 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
   const l3 = [campos.categoria && l.categoria, campos.centro && l.centro].filter(Boolean).join(" › ");
   // o contador de documentos: na tela só quando há (zero em quase toda tarifa e débito automático seria ruído); no papel, quando pedido, mostra também o zero
   const mostraAnexos = campos.anexos && (l.anexos > 0 || !!anexosZero);
-  const marcas = (campos.projeto && l.projeto ? 1 : 0) + (campos.conta && l.conta ? 1 : 0) + (mostraAnexos ? 1 : 0);
+  // a situação documental (sem documentos / parcial / completa): vai junto do campo "documentos anexados"
+  const mostraDocumentacao = campos.anexos && !!l.documentacao;
+  const marcas = (campos.projeto && l.projeto ? 1 : 0) + (campos.conta && l.conta ? 1 : 0) + (mostraAnexos ? 1 : 0) + (mostraDocumentacao ? 1 : 0);
   const quemCampos = [
     campos.responsavel && `Pago por: ${l.responsavel}`, campos.intencao && l.intencao !== "—" && `Intenção: ${l.intencao}`, campos.grau && l.grau && `Prova: ${l.grau}`,
     reembolso && l.reembolsoAPagar && l.saldoAReembolsar !== null ? `Saldo a reembolsar: ${brl(l.saldoAReembolsar)}` : "",
@@ -65,6 +68,7 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
           {campos.projeto && l.projeto && <Chip tom="projeto">Projeto: {l.projeto}</Chip>}
           {campos.conta && l.conta && <Chip tom="conta">{l.conta}</Chip>}
           {mostraAnexos && <Chip tom="conta">{l.anexos} {l.anexos === 1 ? "documento" : "documentos"}</Chip>}
+          {mostraDocumentacao && l.documentacao && <span className="mr-1 inline-block align-middle"><DocumentacaoChip situacao={l.documentacao} /></span>}
         </div>
       )}
       <div className="col-start-2 row-start-2 row-span-2 self-start text-right"><SeloDaSituacaoChip l={l} comAtraso={campos.diasAtraso} /></div>

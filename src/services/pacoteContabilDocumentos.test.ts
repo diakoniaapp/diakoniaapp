@@ -20,7 +20,7 @@ import { baixarPacoteContabil } from "./pacoteContabilService";
 const lerZip = (b: Blob) => new Promise<ArrayBuffer>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as ArrayBuffer); r.onerror = rej; r.readAsArrayBuffer(b); }).then(buf => JSZip.loadAsync(buf));
 
 const plano = (docs: PlanoPacote["documentosDoFechamento"], totalSaidas = 0): PlanoPacote => ({
-  ano: 2026, mes: 9, raiz: "Pacote_Contabil_2026_09", totalSaidas, comAnexo: 0, dispensam: 0, nomesAjustados: 0, nomesComId: 0, dossies: [], totalArquivos: 0, totalXml: 0, indice: [], pendencias: [],
+  ano: 2026, mes: 9, raiz: "Pacote_Contabil_2026_09", totalSaidas, comAnexo: 0, dispensam: 0, nomesAjustados: 0, nomesComId: 0, dossies: [], totalArquivos: 0, totalXml: 0, indice: [], pendencias: [], faltas: new Map(),
   ofertadas: 0, avisos: 0, quitacoesPendentes: [], documentosDoFechamento: docs,
 });
 const d = (id: string, tipo: PlanoPacote["documentosDoFechamento"][number]["tipo"], arquivoNome: string, storagePath: string) =>

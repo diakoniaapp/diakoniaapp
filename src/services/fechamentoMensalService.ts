@@ -16,7 +16,7 @@ import {
 import { listarFilasDeQuitacao, ofertaDisponivel, quitacaoDisponivel } from "@/services/quitacaoService";
 import { hojeLocal } from "@/lib/data";
 import { auditarPeriodo, prepararPacoteContabil } from "@/services/pacoteContabilService";
-import { resumirAuditoria, type ResumoAuditoria } from "@/lib/pacoteContabil";
+import { resumirProntidao, type ResumoDaProntidao } from "@/lib/documentacaoExigida";
 import { percentualCobertura } from "@/lib/documentos/cobertura";
 
 const PAGINA = 1000;
@@ -104,27 +104,38 @@ async function carregarQuitacoesPendentes(): Promise<QuitacaoDoMes[]> {
 // ── documentação e pacote (só o resumo; o trabalho é na Central) ─────────────
 
 export interface ResumoDocumentacao {
-  /** Saídas pagas que exigem documento. */
+  /** Saídas do malote (pagas, ofertadas e avisos de reembolso) que EXIGEM documentação — as que dispensam ficam de fora. */
   exigem: number;
+  /** Com a documentação COMPLETA pela regra do tipo (não "com algum anexo"). */
   comDocumento: number;
-  /** Saídas que exigem e ainda não têm nenhum anexo. */
+  /** Incompletas: parciais + sem documentação. */
   pendencias: number;
   dispensam: number;
-  /** 0–100, com uma casa decimal. */
+  /** 0–100, com uma casa decimal: completas ÷ as que exigem. */
   cobertura: number;
+  /** Prontidão do malote (decisão de 20/10/2026): completas + dispensam ÷ total, e as três contagens. */
+  total: number;
+  completas: number;
+  parciais: number;
+  sem: number;
+  prontas: number;
+  prontidao: number;
+  /** documentação completa, mas com pendência operacional (categoria, centro, nº, conferência) */
+  administrativas: number;
 }
 
-export function resumoDeDocumentacao(r: ResumoAuditoria): ResumoDocumentacao {
-  const exigem = r.com + r.sem;
+export function resumoDeDocumentacao(r: ResumoDaProntidao): ResumoDocumentacao {
+  const exigem = r.total - r.dispensam;
   return {
-    exigem, comDocumento: r.com, pendencias: r.sem, dispensam: r.dispensa,
-    cobertura: percentualCobertura(r.com, exigem),
+    exigem, comDocumento: r.completas, pendencias: r.parciais + r.sem, dispensam: r.dispensam,
+    cobertura: percentualCobertura(r.completas, exigem),
+    total: r.total, completas: r.completas, parciais: r.parciais, sem: r.sem, prontas: r.prontas, prontidao: r.percentual, administrativas: r.administrativas,
   };
 }
 
 export async function documentacaoDoMes(ano: number, mes: number): Promise<ResumoDocumentacao> {
   const { ini, fim } = limitesDoMes(ano, mes);
-  return resumoDeDocumentacao(resumirAuditoria(await auditarPeriodo(ini, fim)));
+  return resumoDeDocumentacao(resumirProntidao((await auditarPeriodo(ini, fim)).map(l => l.documentacao)));
 }
 
 export interface ResumoPacote { dossies: number; pendencias: number; totalSaidas: number }
