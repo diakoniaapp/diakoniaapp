@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,8 +29,11 @@ import {
   type ResultadoCLT, type ResultadoRPA, type ResultadoMEI, type ResultadoPrebenda,
 } from "@/services/folhaService";
 import { ContratadoForm } from "@/components/financas/ContratadoForm";
+import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros";
 
 export default function FinancasFolha() {
+  // ?aba=contratados: o atalho de Cadastros abre direto na lista (as calculadoras continuam sendo a aba padrão)
+  const [searchParams] = useSearchParams();
   const [contratados, setContratados] = useState<FinContratado[]>([]);
   const [loading, setLoading] = useState(true);
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -93,7 +96,9 @@ export default function FinancasFolha() {
         </div>
       </div>
 
-      <Tabs defaultValue="calc">
+      <AbasDeCadastros ativa="contratados" />
+
+      <Tabs defaultValue={searchParams.get("aba") === "contratados" ? "contratados" : "calc"}>
         <TabsList>
           <TabsTrigger value="calc" className="gap-1.5">
             <Calculator className="w-3.5 h-3.5" /> Calculadoras

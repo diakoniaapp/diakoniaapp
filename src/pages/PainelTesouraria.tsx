@@ -94,12 +94,6 @@ import {
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
-import { FornecedoresDrawer } from "@/components/financas/FornecedoresDrawer";
-import { RecorrenciasDrawer } from "@/components/financas/RecorrenciasDrawer";
-import { EstoqueDrawer } from "@/components/financas/EstoqueDrawer";
-import { ProjetosDrawer } from "@/components/financas/ProjetosDrawer";
-import { ContratadosDrawer } from "@/components/financas/ContratadosDrawer";
-import { OrcamentoDrawer } from "@/components/financas/OrcamentoDrawer";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { FixarFavoritoDialog } from "@/components/financas/FixarFavoritoDialog";
@@ -209,16 +203,6 @@ export default function PainelTesouraria() {
   // mesmo diálogo que já existe no extrato de conta (Fase 9).
   const acoes = useAcoesLancamento(carregar);
   const [anexosPara, setAnexosPara] = useState<PendenciaLancamento | null>(null);
-  // Fase 11b do Workspace Financeiro (23/09/2026): os dois primeiros
-  // atalhos de "Ir para" a virar drawer, provando o padrão antes de
-  // estender pros outros nove do mapa.
-  const [fornecedoresAberto, setFornecedoresAberto] = useState(false);
-  const [recorrenciasAberto, setRecorrenciasAberto] = useState(false);
-  // Fase 11d: os últimos quatro atalhos de "Ir para" a virar drawer.
-  const [estoqueAberto, setEstoqueAberto] = useState(false);
-  const [projetosAberto, setProjetosAberto] = useState(false);
-  const [contratadosAberto, setContratadosAberto] = useState(false);
-  const [orcamentoAberto, setOrcamentoAberto] = useState(false);
 
   // Fase 12, ajuste 2 (23/09/2026): as 4 áreas viram abas de verdade —
   // troca de `aba` decide o que renderiza, nunca `scrollIntoView`. Meu
@@ -712,7 +696,7 @@ export default function PainelTesouraria() {
               onAnexo={(a) => setAnexosVencimento(a)}
               onNovaSaida={() => setNovoLancamentoAberto("saida")}
               onImportarExtrato={abrirImportacao}
-              onRecorrencias={() => setRecorrenciasAberto(true)}
+              onRecorrencias={() => navigate("/financas/recorrencias")}
             />
           </section>
           <section id="liquidacoes" className="scroll-mt-[220px]">
@@ -783,12 +767,8 @@ export default function PainelTesouraria() {
           <section id="projetos" className="scroll-mt-[220px]">
             <TituloDaSecao
               icone={FolderKanban} tom="violeta" contagem={projetos.length}
-              // Fase 11d (23/09/2026): "Abrir Projetos" agora abre o
-              // ProjetosDrawer (ver todos, inclusive encerrados, e
-              // gerenciar o cadastro) em vez de navegar pra
-              // /financas/projetos — a lista com progresso continua sendo
-              // esta seção, o drawer não a duplica.
-              acao={<button type="button" onClick={() => setProjetosAberto(true)} className="text-sm text-primary hover:underline">Abrir Projetos</button>}
+              // Fase E (20/10/2026): a gaveta de Projetos saiu; "Abrir Projetos" leva à página (que lista todos, inclusive os encerrados).
+              acao={<Link to="/financas/projetos" className="text-sm text-primary hover:underline">Abrir Projetos</Link>}
             >
               Projetos em andamento
             </TituloDaSecao>
@@ -1121,18 +1101,14 @@ export default function PainelTesouraria() {
               links={[
                 { to: "/financas/admin", label: "Contas Financeiras", icone: Wallet },
                 { to: "/financas/admin?aba=categorias", label: "Categorias", icone: DollarSign },
-                // Fase 11b (23/09/2026), achado ao migrar: Centros de
-                // Custo é ranking de gasto de 90 dias com duas abas e
-                // alertas — mais perto de relatório (página) do que de
-                // lista simples. Fica de fora do drawer de propósito.
                 { to: "/financas/centros", label: "Centros de Custo", icone: Layers },
-                { onClick: () => setFornecedoresAberto(true), label: "Favorecidos", icone: Building2 },
-                // Fase 11d: EstoqueDrawer e OrcamentoDrawer, mesmo
-                // conteúdo de /financas/estoque e /financas/orcamento.
-                { onClick: () => setEstoqueAberto(true), label: "Estoque", icone: Package },
-                { onClick: () => setOrcamentoAberto(true), label: "Planejar Orçamento", icone: Target },
-                { onClick: () => setRecorrenciasAberto(true), label: "Recorrências", icone: RotateCw },
-                { onClick: () => setContratadosAberto(true), label: "Contratados", icone: Briefcase },
+                { to: "/financas/favorecidos", label: "Favorecidos", icone: Building2 },
+                { to: "/financas/recorrencias", label: "Recorrências", icone: RotateCw },
+                { to: "/financas/projetos", label: "Projetos", icone: FolderKanban },
+                { to: "/financas/folha?aba=contratados", label: "Contratados", icone: Briefcase },
+                // Estoque e Orçamento seguem como páginas (sem uso ainda: 0 registros); a decisão de tirá-los do menu é da Fase F
+                { to: "/financas/estoque", label: "Estoque", icone: Package },
+                { to: "/financas/orcamento", label: "Planejar Orçamento", icone: Target },
                 { to: "/financas/folha", label: "Calculadoras (Folha)", icone: Briefcase },
                 ...(hasRole(ROLES_DOADORES) ? [{ to: "/financas/doadores", label: "Doadores", icone: Users }] : []),
                 // Conta Corrente de Sustento (Fase 1, 08/10/2026): remuneração pastoral, só admin + tesouraria.
@@ -1165,12 +1141,6 @@ export default function PainelTesouraria() {
           onChange={carregar}
         />
       )}
-      <FornecedoresDrawer open={fornecedoresAberto} onOpenChange={setFornecedoresAberto} />
-      <RecorrenciasDrawer open={recorrenciasAberto} onOpenChange={setRecorrenciasAberto} />
-      <EstoqueDrawer open={estoqueAberto} onOpenChange={setEstoqueAberto} />
-      <ProjetosDrawer open={projetosAberto} onOpenChange={setProjetosAberto} onChange={carregar} />
-      <ContratadosDrawer open={contratadosAberto} onOpenChange={setContratadosAberto} />
-      <OrcamentoDrawer open={orcamentoAberto} onOpenChange={setOrcamentoAberto} />
 
       {/* Fase 12 (Workspace Financeiro) — Meu Trabalho e Favoritos. */}
       <LancamentoForm

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  ArrowLeft, Building2, User, Plus, Search, ChevronRight, PowerOff, RotateCcw,
+  Building2, User, Plus, Search, ChevronRight, Pencil, PowerOff, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -25,6 +25,7 @@ import {
 } from "@/services/finService";
 import { FornecedorForm } from "@/components/financas/FornecedorForm";
 import { PaginaSkeleton } from "@/components/ListState";
+import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros";
 
 // Mesmo bug e mesma correção de `FinancasDoadores.tsx` (achado ao vivo pela
 // Telma em 15/09/2026 naquela tela): buscar "jose" sem acento não batia com
@@ -115,6 +116,8 @@ export default function FinancasFornecedores() {
         </Button>
       </div>
 
+      <AbasDeCadastros ativa="favorecidos" />
+
       <Card>
         <CardContent className="py-2.5 px-3 flex items-center gap-2">
           <div className="relative flex-1">
@@ -158,6 +161,10 @@ export default function FinancasFornecedores() {
                 </div>
               </Link>
               <div className="flex items-center gap-0.5 shrink-0">
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Editar ${f.nome}`}
+                  onClick={() => { setEditando(f); setFormOpen(true); }} title="Editar">
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
                 <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                   onClick={() => setAlternando(f)} title={f.ativo ? "Inativar" : "Reativar"}>
                   {f.ativo ? <PowerOff className="w-3.5 h-3.5 text-warning-text" /> : <RotateCcw className="w-3.5 h-3.5 text-success-text" />}

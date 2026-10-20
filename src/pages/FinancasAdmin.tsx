@@ -30,6 +30,7 @@ import { CategoriaForm } from "@/components/financas/CategoriaForm";
 import { CentroCustoForm } from "@/components/financas/CentroCustoForm";
 import { PaginaSkeleton } from "@/components/ListState";
 import { iconeConta } from "@/pages/Financas";
+import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros";
 
 export default function FinancasAdmin() {
   // "estruturar_financeiro": criar centro de custo à mão e excluir
@@ -234,6 +235,8 @@ export default function FinancasAdmin() {
           </p>
         </div>
       </div>
+
+      <AbasDeCadastros ativa="contas" />
 
       <Tabs defaultValue={searchParams.get("aba") === "categorias" || searchParams.get("aba") === "centros" ? searchParams.get("aba")! : "contas"}>
         <TabsList>

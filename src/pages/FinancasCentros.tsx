@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
+import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros";
 import {
   listarCentrosComResumo, seedCentrosCusto, alertasCentros,
   brl, VINCULO_LABEL, VINCULO_COR,
@@ -104,6 +105,8 @@ export default function FinancasCentros() {
           <Sparkles className="w-3.5 h-3.5" /> {seedBusy ? "..." : "Sincronizar com ministérios"}
         </Button>
       </div>
+
+      <AbasDeCadastros ativa="centros" />
 
       {/* Alertas */}
       {alertas.length > 0 && (

@@ -22,6 +22,7 @@ import { ROTULO_LIQUIDACAO, normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { ResumoDaRecorrencia } from "@/components/financas/ResumoDaRecorrencia";
 import { avisoDeJaPagas, gerarTodasAsRecorrencias } from "@/services/recorrenciaService";
 import { PaginaSkeleton } from "@/components/ListState";
+import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros";
 
 export default function FinancasRecorrencias() {
   const [recs, setRecs] = useState<FinRecorrencia[]>([]);
@@ -94,6 +95,8 @@ export default function FinancasRecorrencias() {
           <Plus className="w-4 h-4" /> Nova
         </Button>
       </div>
+
+      <AbasDeCadastros ativa="recorrencias" />
 
       {recs.length === 0 ? (
         <Card className="border-dashed">

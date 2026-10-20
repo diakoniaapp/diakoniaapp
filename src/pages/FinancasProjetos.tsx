@@ -29,6 +29,7 @@ import {
 } from "@/services/finService";
 import { ProjetoForm } from "@/components/financas/ProjetoForm";
 import { PaginaSkeleton } from "@/components/ListState";
+import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros";
 
 // Mesmo bug e mesma correção de `FinancasFornecedores.tsx`/`FinancasDoadores.tsx`:
 // buscar "jose" sem acento não bate com "José" gravado com acento.
@@ -114,6 +115,8 @@ export default function FinancasProjetos() {
           <Plus className="w-4 h-4" /> Novo
         </Button>
       </div>
+
+      <AbasDeCadastros ativa="projetos" />
 
       <Card>
         <CardContent className="py-2.5 px-3 flex items-center gap-2">
