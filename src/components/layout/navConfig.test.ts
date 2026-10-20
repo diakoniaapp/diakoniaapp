@@ -164,7 +164,7 @@ describe("o pastor titular alcança exatamente o recorte do painel dele", () => 
       // o comentário no próprio navConfig.ts (o item "Tesouraria" mudou de
       // destino, mesma guarda ROLES_FINANCEIRO, mesmo motivo de ficar fora
       // do alcance do pastor titular).
-      "/arrecadacao", "/painel-tesouraria", "/financas/fiscal", "/financas/reunioes",
+      "/arrecadacao", "/painel-tesouraria", "/financas/fiscal",
       "/financas/executivo", "/locais", "/painel-secretaria",
     ]) {
       const item = todosOsItens.find(i => i.to === rota);

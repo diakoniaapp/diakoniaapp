@@ -61,6 +61,7 @@ import { carregarDadosDeMissoes, type DadosDeMissoes } from "@/services/missoesS
 import { categoriaPadraoDeRepasse, ehCategoriaDeRepasse, fundoAcumulado } from "@/lib/indicadoresMissionarios";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { enderecoDaAba } from "@/components/financas/contas/AbasDaConta";
+import { AnalisesDoPeriodo } from "@/components/financas/gestao/AnalisesDoPeriodo";
 import { renovarRecorrenciasSemFim } from "@/services/recorrenciaService";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
@@ -922,7 +923,10 @@ export default function PainelTesouraria() {
             />
           </section>
 
-          {/* ── Orçamento ──────────────────────────────────────────────── */}
+          {/* ── Orçamento ────────────────────────────────────────────────
+              Fase F (20/10/2026): só aparece quando há centro fora do orçamento. Sem orçamento cadastrado (0 registros) a seção só dizia "nada"; o módulo segue em
+              /financas/orcamento (Ctrl+K) e a Visão Executiva mostra o orçamento × realizado quando houver. */}
+          {alertasOrc.length > 0 && (
           <section id="orcamento" className="scroll-mt-[220px]">
             <TituloDaSecao
               icone={Target} tom="violeta" contagem={alertasOrc.length}
@@ -930,11 +934,6 @@ export default function PainelTesouraria() {
             >
               Orçamento
             </TituloDaSecao>
-            {alertasOrc.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Nenhum centro de custo fora do orçamento.
-              </p>
-            ) : (
               <ul className="divide-y rounded-md border bg-card">
                 {alertasOrc.map(a => (
                   <li key={a.centro_id} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
@@ -947,8 +946,8 @@ export default function PainelTesouraria() {
                   </li>
                 ))}
               </ul>
-            )}
           </section>
+          )}
 
           {/* ── Alertas ────────────────────────────────────────────────── */}
           <section id="alertas" className="scroll-mt-[220px]">
@@ -1015,6 +1014,11 @@ export default function PainelTesouraria() {
             )}
           </section>
 
+          {/* ── Análises do período (era a página "Insights"; Fase F, 20/10/2026) ── */}
+          <section id="analises" className="scroll-mt-[220px]">
+            <AnalisesDoPeriodo abertaInicial={new URLSearchParams(location.search).get("analises") === "1"} />
+          </section>
+
           {/* ── Atalhos, por assunto de gestão diária ────────────────────────
               Refeito em 22/09/2026, pedido dela: "o que foi construído no
               módulo financeiro é robusto e bom demais para ficar lá embaixo
@@ -1029,7 +1033,6 @@ export default function PainelTesouraria() {
               icone={LineChart} titulo="Leitura estratégica"
               descricao="Análise, não operação do dia a dia."
               links={[
-                { to: "/financas/insights", label: "Insights", icone: Sparkles },
                 ...(hasRole(ROLES_PASTORAL_SEM_TITULAR) ? [
                   { to: "/financas/executivo", label: "Visão Executiva", icone: LineChart },
                   { to: "/financas/dre", label: "DRE Eclesiástica", icone: ScrollText },
@@ -1106,9 +1109,6 @@ export default function PainelTesouraria() {
                 { to: "/financas/recorrencias", label: "Recorrências", icone: RotateCw },
                 { to: "/financas/projetos", label: "Projetos", icone: FolderKanban },
                 { to: "/financas/folha?aba=contratados", label: "Contratados", icone: Briefcase },
-                // Estoque e Orçamento seguem como páginas (sem uso ainda: 0 registros); a decisão de tirá-los do menu é da Fase F
-                { to: "/financas/estoque", label: "Estoque", icone: Package },
-                { to: "/financas/orcamento", label: "Planejar Orçamento", icone: Target },
                 { to: "/financas/folha", label: "Calculadoras (Folha)", icone: Briefcase },
                 ...(hasRole(ROLES_DOADORES) ? [{ to: "/financas/doadores", label: "Doadores", icone: Users }] : []),
                 // Conta Corrente de Sustento (Fase 1, 08/10/2026): remuneração pastoral, só admin + tesouraria.

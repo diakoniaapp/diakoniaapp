@@ -1,100 +1,64 @@
+// ─── AnalisesDoPeriodo — previsão de caixa, últimos 6 meses, gasto por tipo de centro e maiores favorecidos ──────────────────────────────────────────
+// Fase F (20/10/2026): era a página "Insights Financeiros" (/financas/insights). Os alertas e as anomalias que ela repetia no topo já são o bloco "Alertas" do Painel de gestão
+// (mesma fonte: alertasFinanceiros + anomaliasMes) e saíram daqui; o que ficou é o que SÓ ela tinha. Mora como seção do Painel de gestão, carregada quando se abre (6 consultas que
+// não precisam rodar toda vez que a aba aparece). O endereço antigo redireciona para cá.
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ChevronDown, Sparkles, TrendingUp, Loader2, Calendar, Building2 } from "lucide-react";
 import {
-  ArrowLeft, Sparkles, TrendingUp, TrendingDown, AlertTriangle,
-  Loader2, Calendar, Building2, ChevronRight,
-} from "lucide-react";
-import {
-  anomaliasMes, previsaoCaixa, comparativoMeses, topFornecedores,
-  alertasFinanceiros, listarCentrosComResumo, brl,
-  type FinAnomalia, type FinPrevisaoCaixa, type FinComparativoMes,
-  type FinTopFornecedor, type FinAlertaFinanceiro, type FinCentroResumo,
+  previsaoCaixa, comparativoMeses, topFornecedores, listarCentrosComResumo, brl,
+  type FinPrevisaoCaixa, type FinComparativoMes, type FinTopFornecedor, type FinCentroResumo,
 } from "@/services/finService";
 import { DonutChart } from "@/components/financas/DonutChart";
-import { PaginaSkeleton } from "@/components/ListState";
 
-export default function FinancasInsights() {
+/** Seção recolhida do Painel de gestão. `abertaInicial`: o link antigo dos Insights chega já aberto. */
+export function AnalisesDoPeriodo({ abertaInicial = false }: { abertaInicial?: boolean }) {
+  const [aberta, setAberta] = useState(abertaInicial);
+  return (
+    <div className="rounded-md border bg-card" data-analises>
+      <button type="button" aria-expanded={aberta} onClick={() => setAberta(a => !a)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/30">
+        <Sparkles className="h-4 w-4 shrink-0 text-gold" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium">Análises do período</span>
+          <span className="block text-xs text-muted-foreground">Previsão de caixa, últimos 6 meses, gasto por tipo de centro e maiores favorecidos</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${aberta ? "rotate-180" : ""}`} />
+      </button>
+      {aberta && <div className="border-t p-3"><ConteudoDasAnalises /></div>}
+    </div>
+  );
+}
+
+function ConteudoDasAnalises() {
   const [previsao, setPrevisao] = useState<FinPrevisaoCaixa | null>(null);
-  const [anomalias, setAnomalias] = useState<FinAnomalia[]>([]);
   const [comparativo, setComparativo] = useState<FinComparativoMes[]>([]);
   const [topForns, setTopForns] = useState<FinTopFornecedor[]>([]);
-  const [alertas, setAlertas] = useState<FinAlertaFinanceiro[]>([]);
   const [centros, setCentros] = useState<FinCentroResumo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [p, a, c, t, al, ce] = await Promise.all([
+        const [p, c, t, ce] = await Promise.all([
           previsaoCaixa().catch(() => null),
-          anomaliasMes().catch(() => []),
           comparativoMeses(6).catch(() => []),
           topFornecedores(10, 90).catch(() => []),
-          alertasFinanceiros().catch(() => []),
           listarCentrosComResumo().catch(() => []),
         ]);
         setPrevisao(p);
-        setAnomalias(a);
         setComparativo(c);
         setTopForns(t);
-        setAlertas(al);
         setCentros(ce);
       } finally { setLoading(false); }
     })();
   }, []);
 
-  if (loading) return <PaginaSkeleton />;
+  if (loading) return <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</p>;
 
   const maxComparativo = Math.max(...comparativo.flatMap(c => [c.entradas, c.saidas]), 1);
 
-  // Filtra anomalias importantes
-  const anomaliasRelevantes = anomalias.filter(a =>
-    a.severidade === "critico" || a.severidade === "atencao"
-  ).slice(0, 8);
-
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <h1 className="font-serif text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-gold" /> Insights Financeiros
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Previsão de caixa, anomalias e padrões — decisões com dados.
-          </p>
-        </div>
-      </div>
-
-      {/* Alertas críticos no topo */}
-      {alertas.length > 0 && (
-        <div className="space-y-2">
-          {alertas.map((al, i) => (
-            <Card key={i} className={
-              al.severidade === "critico" ? "border-destructive-line bg-destructive-soft/30" :
-              al.severidade === "atencao" ? "border-warning-line bg-warning-soft/30" :
-              ""
-            }>
-              <CardContent className="py-2.5 px-3 flex items-center gap-2">
-                <AlertTriangle className={`w-4 h-4 shrink-0 ${al.severidade === "critico" ? "text-destructive-text" : "text-warning-text"}`} />
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-medium ${al.severidade === "critico" ? "text-destructive-text" : "text-warning-text"}`}>
-                    {al.titulo}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{al.descricao}</p>
-                </div>
-                {al.link && (
-                  <Button asChild size="sm" variant="ghost" className="h-7 text-xs"><Link to={al.link}>
-                      Ver <ChevronRight className="w-3 h-3 ml-1" />
-                    </Link></Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+    <div className="space-y-4">
 
       {/* Previsão de caixa */}
       {previsao && (
@@ -208,49 +172,8 @@ export default function FinancasInsights() {
         );
       })()}
 
-      {/* Anomalias detectadas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="py-3 space-y-2">
-            <h3 className="font-serif text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-warning-text" /> Anomalias do mês
-            </h3>
-            {anomaliasRelevantes.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic text-center py-3">
-                Nenhuma variação significativa detectada. Mês dentro do padrão. ✓
-              </p>
-            ) : (
-              <div className="space-y-1.5">
-                {anomaliasRelevantes.map(a => (
-                  <div key={a.categoria_id}
-                    className={`border rounded-md px-2.5 py-1.5 text-xs ${
-                      a.severidade === "critico" ? "border-destructive-line bg-destructive-soft/30"
-                      : a.severidade === "atencao" ? "border-warning-line bg-warning-soft/30"
-                      : "border-info-line bg-info-soft/30"
-                    }`}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium truncate">{a.categoria_nome}</span>
-                      {a.variacao_pct != null && (
-                        <Badge variant="outline" className={`text-xs ${
-                          Number(a.variacao_pct) > 0 ? "text-destructive-text border-destructive-line" : "text-success-text border-success-line"
-                        }`}>
-                          {Number(a.variacao_pct) > 0 ? "+" : ""}{Number(a.variacao_pct).toFixed(0)}%
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Este mês: <strong>{brl(Number(a.valor_mes))}</strong>
-                      {Number(a.media_6m) > 0 && (
-                        <> · Média 6m: {brl(Number(a.media_6m))}</>
-                      )}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
+      {/* Maiores favorecidos (as anomalias do mês estão no bloco "Alertas" do Painel de gestão) */}
+      <div className="grid grid-cols-1 gap-3">
         <Card>
           <CardContent className="py-3 space-y-2">
             <h3 className="font-serif text-base flex items-center gap-2">
@@ -279,9 +202,6 @@ export default function FinancasInsights() {
         </Card>
       </div>
 
-      <p className="text-xs text-muted-foreground text-center pt-2">
-        Diakonia Insights — análises atualizadas em tempo real conforme você lança os movimentos.
-      </p>
     </div>
   );
 }

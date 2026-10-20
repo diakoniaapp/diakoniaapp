@@ -297,6 +297,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // do "Ir para" do próprio Painel, ou pelo card de saldo de cada
       // conta.
       { to: "/painel-tesouraria",     label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      // Fase F (20/10/2026): "Contas" é uma das telas do Financeiro (saldos, extrato, conciliação, diagnóstico e importações de cada conta, desde a Fase D) e só se chegava a ela pela aba
+      // Cadastros do Painel. `end`: só acende em /financas — as páginas das contas têm a própria trilha.
+      { to: "/financas",              label: "Contas",              icon: Receipt,    allowedRoles: ROLES_FINANCEIRO, end: true },
       // Fase B (20/10/2026): "Malote Contábil" e "Central de Documentos" saíram do menu. O malote é a etapa 5 do FECHAMENTO do mês (aba 4 da Tesouraria) e a Central é a ferramenta
       // "Anexar em lote" da etapa Prontidão — uma tarefa, uma casa. As rotas continuam (links, favoritos e a busca Ctrl+K).
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },

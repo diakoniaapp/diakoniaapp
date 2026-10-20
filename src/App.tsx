@@ -58,7 +58,6 @@ import FinancasAuditoriaAnexos from "./pages/FinancasAuditoriaAnexos.tsx";
 import FinancasCentralDocumentos from "./pages/FinancasCentralDocumentos.tsx";
 import ContaComAbas from "./pages/ContaComAbas.tsx";
 import FinancasEstoque from "./pages/FinancasEstoque.tsx";
-import FinancasInsights from "./pages/FinancasInsights.tsx";
 import FinancasCentros from "./pages/FinancasCentros.tsx";
 import FinancasOrcamento from "./pages/FinancasOrcamento.tsx";
 import FinancasCentroDetalhe from "./pages/FinancasCentroDetalhe.tsx";
@@ -216,7 +215,8 @@ const App = () => (
                   <Route path="/financas/auditoria-anexos" element={<FinancasAuditoriaAnexos />} />
                   <Route path="/financas/documentos" element={<FinancasCentralDocumentos />} />
                   <Route path="/financas/estoque" element={<FinancasEstoque />} />
-                  <Route path="/financas/insights" element={<FinancasInsights />} />
+                  {/* Insights virou a seção "Análises do período" do Painel de gestão (Fase F, 20/10/2026) */}
+                  <Route path="/financas/insights" element={<Navigate to="/painel-tesouraria?analises=1#gestao" replace />} />
                   <Route path="/financas/centros" element={<FinancasCentros />} />
                   <Route path="/financas/orcamento" element={<FinancasOrcamento />} />
                   <Route path="/financas/centro/:centroId" element={<FinancasCentroDetalhe />} />

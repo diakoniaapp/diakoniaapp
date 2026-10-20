@@ -131,7 +131,6 @@ export const TELAS: Tela[] = [
   T("/financas/conta/:contaId/:aba", "Conta", "financeiro", { pai: "/financas/conta/:contaId" }),
   T("/financas/doacoes", "Doações", "financeiro", { secao: "operacoes" }),
   // Gestão
-  T("/financas/insights", "Insights", "financeiro", { secao: "gestao" }),
   T("/financas/executivo", "Visão Executiva", "financeiro", { secao: "gestao" }),
   T("/financas/dre", "DRE Eclesiástica", "financeiro", { secao: "gestao" }),
   T("/financas/dre/:ano", "DRE do ano", "financeiro", { pai: "/financas/dre" }),

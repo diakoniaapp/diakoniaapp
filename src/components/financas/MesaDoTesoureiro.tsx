@@ -155,7 +155,8 @@ export function MesaDoTesoureiro({
   const [dados, setDados] = useState<DadosDaMesa | null>(null);
   const [carregando, setCarregando] = useState(true);
   // LISTA (as janelas de sempre) ou CALENDÁRIO (o mês numa grade). O calendário substitui a Agenda Financeira (Fase A, 20/10/2026); `/financas/agenda` redireciona para cá com `?mesa=calendario`.
-  const [visao, setVisao] = useState<"fila" | "calendario">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") === "calendario" ? "calendario" : "fila"));
+  // Pedido dela (20/10/2026): a Mesa abre SEMPRE no Calendário (formato agenda); trocar de aba leva à Fila. `?mesa=fila` abre a Fila direto (link compartilhável); nada é lembrado entre visitas.
+  const [visao, setVisao] = useState<"fila" | "calendario">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") === "fila" ? "fila" : "calendario"));
   // a fila relê as quitações quando algo muda aqui (reembolso pago, detalhe fechado…)
   const [recargaDaFila, setRecargaDaFila] = useState(0);
   const { hasRole } = useAuth();
@@ -263,7 +264,7 @@ export function MesaDoTesoureiro({
           subtitulo={visao === "calendario" ? "O mês de uma vez: contas e débitos automáticos — clique num dia" : "O que pede você agora: contas, débitos e quitações — um vocabulário, uma ordem"}
           direita={<div className="flex flex-wrap justify-end gap-1.5">
             <div role="group" aria-label="Visão" className="inline-flex overflow-hidden rounded-md border">
-              {(["fila", "calendario"] as const).map(v => (
+              {(["calendario", "fila"] as const).map(v => (
                 <button key={v} type="button" aria-pressed={visao === v} onClick={() => setVisao(v)}
                   className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "fila" ? "Fila" : "Calendário"}</button>
               ))}

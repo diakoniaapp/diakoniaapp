@@ -19,8 +19,8 @@ describe("telas fixáveis do Financeiro", () => {
     for (const r of ["/financas/dre", "/financas/orcamento", "/financas/executivo", "/financas/prestacao-de-contas", "/financas/extrato-de-obrigacoes"]) expect(rotas).toContain(r);
   });
 
-  it("outras telas recentes ou de apoio também são fixáveis (Malote, Central de Documentos, Fiscal, Reuniões, Conta de Sustento, Insights, Recorrências)", () => {
-    for (const r of ["/financas/documentos", "/financas/fiscal", "/financas/reunioes", "/financas/sustento", "/financas/insights", "/financas/recorrencias"]) expect(rotas).toContain(r);
+  it("outras telas recentes ou de apoio também são fixáveis (Malote, Central de Documentos, Fiscal, Reuniões, Conta de Sustento, Recorrências)", () => {
+    for (const r of ["/financas/documentos", "/financas/fiscal", "/financas/reunioes", "/financas/sustento", "/financas/recorrencias"]) expect(rotas).toContain(r);
   });
 
   it("fica de fora o que tem parâmetro (não se escolhe numa lista), a própria Mesa e o que tem motivo técnico registrado", () => {
