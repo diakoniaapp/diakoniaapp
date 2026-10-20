@@ -8,7 +8,8 @@
 //   filtro de CONTA; "Em aberto" inclui os reembolsos a pagar; terceiros e reembolsos em destaque; impressão em RETRATO com modelos (Tesouraria, Contabilidade, Diretoria, Simplificado) escolhidos antes do PDF.
 //   Tela e papel usam a mesma peça de linha (`components/financas/extrato/DiasDoExtrato.tsx`); a tela mostra tudo e as ações, o papel só os campos do modelo e nenhum botão.
 // Leitura em `services/extratoDeObrigacoesService.ts`; regras em `lib/extratoDeObrigacoes.ts`; modelos de papel em `lib/perfilDeImpressaoDoExtrato.ts`; peças comuns de relatório em `relatorio/RelatorioKit.tsx`.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
 import { saveAs } from "file-saver";
 import { ArrowLeft, CheckCircle2, Download, Eye, FileSpreadsheet, Loader2, MoreHorizontal, Paperclip, Pencil, Printer, RefreshCw, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
@@ -121,6 +122,9 @@ function AcoesDaLinha({ l, podeOperar, ocupada, onVisualizar, onEditar, onPagar,
   );
 }
 
+/** Quantas obrigações a tela mostra de cada vez (dias inteiros). */
+const LOTE_NA_TELA = 150;
+
 function mesAtual(): { de: string; ate: string } {
   const [a, m] = hojeLocal().split("-").map(Number);
   return { de: `${a}-${String(m).padStart(2, "0")}-01`, ate: toYmd(new Date(a, m, 0)) };
@@ -155,6 +159,19 @@ export default function FinancasExtratoObrigacoes() {
   // impressão: o modelo e os campos, lembrados neste navegador
   const [perfil, setPerfil] = useState<PerfilDeImpressao>(() => perfilGuardado());
   const [imprimindo, setImprimindo] = useState(false);
+  // O PAPEL só existe enquanto se imprime (20/10/2026): manter as ~N linhas montadas duas vezes (tela + papel) dobrava o custo de cada re-render da página e deixava abrir/fechar diálogos lento
+  // em celular. Monta ao imprimir (botão "Gerar PDF", Ctrl+P ou o menu do navegador) e desmonta ao terminar.
+  const [papel, setPapel] = useState(false);
+  useEffect(() => {
+    const montar = () => flushSync(() => setPapel(true));
+    const desmontar = () => setPapel(false);
+    const mq = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
+    const aoMudar = (e: MediaQueryListEvent) => (e.matches ? montar() : desmontar());
+    window.addEventListener("beforeprint", montar);
+    window.addEventListener("afterprint", desmontar);
+    mq?.addEventListener?.("change", aoMudar);   // Safari não dispara beforeprint em todos os caminhos
+    return () => { window.removeEventListener("beforeprint", montar); window.removeEventListener("afterprint", desmontar); mq?.removeEventListener?.("change", aoMudar); };
+  }, []);
   // o cabeçalho do dia fica preso logo abaixo da barra de filtros: precisa saber a altura dela
   const barraRef = useRef<HTMLDivElement>(null);
   const [barraAltura, setBarraAltura] = useState(0);
@@ -237,6 +254,16 @@ export default function FinancasExtratoObrigacoes() {
     setCorrigindo({ alvo: { id: l.obrigacaoId, descricao: l.descricao || l.fornecedor || "Obrigação", valor: l.valor }, quitacao: q });
   });
 
+  // Funções ESTÁVEIS para as linhas (a lista é `memo`): os manipuladores acima são recriados a cada render e mudam o tempo todo; a linha chama sempre a versão mais recente pela referência.
+  const ultimos = useRef({ visualizar, documentacao, editar, pagarAgora, pagarReembolso, corrigirQuitacao });
+  ultimos.current = { visualizar, documentacao, editar, pagarAgora, pagarReembolso, corrigirQuitacao };
+  const abrirLinha = useCallback((l: LinhaDoExtrato) => void ultimos.current.visualizar(l), []);
+  const acoesDaLinha = useCallback((l: LinhaDoExtrato) => (
+    <AcoesDaLinha l={l} podeOperar={podeOperar} ocupada={ocupado === l.obrigacaoId}
+      onVisualizar={() => void ultimos.current.visualizar(l)} onEditar={() => void ultimos.current.editar(l)} onPagar={() => void ultimos.current.pagarAgora(l)}
+      onPagarReembolso={() => void ultimos.current.pagarReembolso(l)} onDocumentacao={() => void ultimos.current.documentacao(l)} onCorrigirQuitacao={() => void ultimos.current.corrigirQuitacao(l)} />
+  ), [podeOperar, ocupado]);
+
   function mudar(campos: Record<string, string>) {
     const p = new URLSearchParams(params);
     Object.entries(campos).forEach(([k, v]) => { if (v) p.set(k, v); else p.delete(k); });
@@ -248,6 +275,16 @@ export default function FinancasExtratoObrigacoes() {
   const visiveis = useMemo(() => filtrarPorConta(daSituacao, contaId), [daSituacao, contaId]);
   const resumo = useMemo(() => resumoDoExtrato(visiveis), [visiveis]);
   const dias = useMemo(() => agruparPorDia(visiveis), [visiveis]);
+  // NA TELA a lista vem por etapas (dias inteiros, ~150 obrigações de cada vez): um ano inteiro são mais de mil linhas, e cada nó a mais deixa abrir e fechar diálogos mais lento no celular. O resumo, o PDF,
+  // o CSV e o Excel usam SEMPRE tudo — só o que se rola na tela é fatiado.
+  const [limiteNaTela, setLimiteNaTela] = useState(LOTE_NA_TELA);
+  useEffect(() => { setLimiteNaTela(LOTE_NA_TELA); }, [visiveis]);
+  const diasNaTela = useMemo(() => {
+    const out: typeof dias = []; let n = 0;
+    for (const d of dias) { if (n >= limiteNaTela) break; out.push(d); n += d.linhas.length; }
+    return out;
+  }, [dias, limiteNaTela]);
+  const restantesNaTela = visiveis.length - diasNaTela.reduce((t, d) => t + d.linhas.length, 0);
   const porConta = useMemo(() => contagemPorConta(daSituacao), [daSituacao]);
 
   const itensDeConta = useMemo(() => [
@@ -320,7 +357,7 @@ export default function FinancasExtratoObrigacoes() {
   function gerarPdf() {
     guardarPerfil(perfil);
     setImprimindo(false);
-    window.setTimeout(() => window.print(), 150);
+    window.setTimeout(() => { flushSync(() => setPapel(true)); window.print(); }, 150);
   }
 
   const resumoPecas = [
@@ -434,23 +471,27 @@ export default function FinancasExtratoObrigacoes() {
             <>
               {/* NA TELA: todos os campos e as ações; o cabeçalho de cada dia fica preso abaixo da barra de filtros */}
               <div className="no-print" data-visao="tela">
-                {dias.map(d => (
-                  <DiaDoExtratoBloco key={d.data} dia={d} campos={CAMPOS_DA_TELA} topoFixo={barraAltura} onAbrir={l => void visualizar(l)}
-                    renderAcoes={l => (
-                      <AcoesDaLinha l={l} podeOperar={podeOperar} ocupada={ocupado === l.obrigacaoId}
-                        onVisualizar={() => void visualizar(l)} onEditar={() => void editar(l)} onPagar={() => void pagarAgora(l)}
-                        onPagarReembolso={() => void pagarReembolso(l)} onDocumentacao={() => void documentacao(l)} onCorrigirQuitacao={() => void corrigirQuitacao(l)} />
-                    )} />
+                {diasNaTela.map(d => (
+                  <DiaDoExtratoBloco key={d.data} dia={d} campos={CAMPOS_DA_TELA} topoFixo={barraAltura} onAbrir={abrirLinha} renderAcoes={acoesDaLinha} />
                 ))}
+                {restantesNaTela > 0 && (
+                  <div className="no-print py-3 text-center">
+                    <Button variant="outline" size="sm" onClick={() => setLimiteNaTela(l => l + LOTE_NA_TELA)}>
+                      Mostrar mais dias · restam {restantesNaTela} {restantesNaTela === 1 ? "obrigação" : "obrigações"} (o PDF e as exportações levam todas)
+                    </Button>
+                  </div>
+                )}
               </div>
               {/* NO PAPEL: só os campos do modelo escolhido, sem botão nenhum */}
-              <div className="so-impressao" data-visao="papel">
-                {dias.map(d => <DiaDoExtratoBloco key={d.data} dia={d} campos={perfil.campos} anexosZero />)}
-              </div>
+              {papel && (
+                <div className="so-impressao" data-visao="papel">
+                  {dias.map(d => <DiaDoExtratoBloco key={d.data} dia={d} campos={perfil.campos} anexosZero />)}
+                </div>
+              )}
               <div className="avoid-break mt-3 flex items-baseline justify-between border-t-2 border-gold-text bg-gold/5 px-2 py-1.5 font-bold" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
                 <span className="text-xs tracking-wide">TOTAL (sem canceladas)</span><span className="tabular-nums">{brl(resumo.valorTotal)}</span>
               </div>
-              {perfil.campos.assinaturas && <div className="so-impressao"><Assinaturas /></div>}
+              {papel && perfil.campos.assinaturas && <div className="so-impressao"><Assinaturas /></div>}
             </>
           )}
 

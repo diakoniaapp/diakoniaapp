@@ -1,7 +1,7 @@
 // ─── DiasDoExtrato — a lista do Extrato de Obrigações agrupada por dia, na tela e no papel ───────────────────────────────────────────────────────────────────
 // Redesenho de 20/10/2026. Uma obrigação ocupa 2 a 4 linhas (quem e quanto; o que é; classificação e marcas); a exceção (projeto, terceiro, atraso) é o que ganha destaque. Cada dia fecha com
 // "TOTAL DO DIA" — por VENCIMENTO, porque o extrato é de obrigações e não de pagamentos. A MESMA peça serve à tela (todos os campos + as ações) e ao papel (só os campos do modelo escolhido).
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { brl } from "@/services/finService";
 import { dataDoExtrato, diaDaSemana, seloDaSituacao, type ChaveDoSelo, type DiaDoExtrato, type LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
 import type { CampoDeImpressao } from "@/lib/perfilDeImpressaoDoExtrato";
@@ -79,7 +79,11 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
   );
 }
 
-export function DiaDoExtratoBloco({ dia, campos, renderAcoes, onAbrir, topoFixo, anexosZero }: {
+/**
+ * `memo` de propósito (20/10/2026): abrir ou fechar QUALQUER diálogo da página muda o estado do pai, e sem isto cada mudança re-renderizava todas as linhas — medido com 300 linhas e CPU 4× mais lenta
+ * (um celular médio): 1,1 s para abrir e 0,8 s para fechar o "Imprimir extrato", e o toque em Cancelar/X parecia não responder. Quem chama passa funções estáveis (`useCallback`).
+ */
+export const DiaDoExtratoBloco = memo(function DiaDoExtratoBloco({ dia, campos, renderAcoes, onAbrir, topoFixo, anexosZero }: {
   dia: DiaDoExtrato; campos: Campos; renderAcoes?: (l: LinhaDoExtrato) => ReactNode; onAbrir?: (l: LinhaDoExtrato) => void; anexosZero?: boolean;
   /** na tela, o cabeçalho do dia fica preso abaixo da barra de filtros enquanto o dia rola (px) */
   topoFixo?: number;
@@ -101,4 +105,4 @@ export function DiaDoExtratoBloco({ dia, campos, renderAcoes, onAbrir, topoFixo,
       )}
     </section>
   );
-}
+});

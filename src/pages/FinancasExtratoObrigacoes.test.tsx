@@ -149,6 +149,23 @@ describe("Extrato de Obrigações — leitura", () => {
   });
 });
 
+describe("Extrato de Obrigações — períodos grandes", () => {
+  it("na tela a lista vem por etapas (dias inteiros); o resumo conta TODAS e 'Mostrar mais dias' continua a lista", async () => {
+    // 300 obrigações em 100 dias (3 por dia): a tela começa com ~150 e oferece o resto
+    dados = Array.from({ length: 300 }, (_, i) => linha({ obrigacaoId: `o${i}`, data: `2026-09-${String(1 + (i % 28)).padStart(2, "0")}`, fornecedor: `Fornecedor ${i}` }));
+    const el = await abrir();
+    const naTela = () => tela(el).querySelectorAll("[data-obrigacao]").length;
+    expect(naTela()).toBeGreaterThanOrEqual(150);
+    expect(naTela()).toBeLessThan(300);
+    expect(el.textContent).toContain("300 obrigações");                                  // o resumo é de tudo
+    const mais = [...el.querySelectorAll("button")].find(b => b.textContent!.includes("Mostrar mais dias"))!;
+    expect(mais.textContent).toContain("o PDF e as exportações levam todas");
+    await act(async () => { (mais as HTMLButtonElement).click(); });
+    expect(naTela()).toBe(300);
+    expect([...el.querySelectorAll("button")].some(b => b.textContent!.includes("Mostrar mais dias"))).toBe(false);
+  });
+});
+
 describe("Extrato de Obrigações — filtros", () => {
   it("tem os filtros pedidos, e o de CONTA lista as contas do cadastro com a quantidade de cada uma e 'Sem conta financeira'", async () => {
     completo();
@@ -197,6 +214,9 @@ describe("Extrato de Obrigações — impressão", () => {
     await act(async () => { botao(el, "PDF / Imprimir").click(); });
     await act(async () => { await new Promise(r => setTimeout(r, 30)); });
   }
+  /** O papel só é montado enquanto se imprime (beforeprint) e sai ao terminar (afterprint) — manter as linhas montadas duas vezes deixava os diálogos lentos no celular. */
+  const entrarNoPapel = async () => { await act(async () => { window.dispatchEvent(new Event("beforeprint")); }); };
+  const sairDoPapel = async () => { await act(async () => { window.dispatchEvent(new Event("afterprint")); }); };
   const modelo = async (nome: string) => { await act(async () => { ([...document.querySelectorAll("[role=radio]")].find(b => b.textContent === nome) as HTMLElement).click(); }); };
 
   it("o papel é A4 em RETRATO, a coluna de ações e os botões NÃO saem, e o papel só existe na impressão", async () => {
@@ -206,7 +226,11 @@ describe("Extrato de Obrigações — impressão", () => {
     expect(css).toMatch(/size: A4 portrait/);
     expect(css).not.toMatch(/landscape/);
     expect(css).toMatch(/\.so-impressao \{ display: none; \}/);
+    expect(papel(el)).toBeNull();                                                  // na tela o papel NÃO está montado
+    await entrarNoPapel();
     expect(papel(el).querySelectorAll("button").length).toBe(0);                    // nenhum botão no papel
+    await sairDoPapel();
+    expect(papel(el)).toBeNull();                                                  // e sai de novo quando a impressão termina
     expect(tela(el).className).toContain("no-print");                              // a tela (com as ações) sai da impressão
     expect(tela(el).querySelectorAll("button").length).toBeGreaterThan(0);
   });
@@ -217,6 +241,7 @@ describe("Extrato de Obrigações — impressão", () => {
     const el = await abrir();
     await abrirDialogo(el);
     expect([...document.querySelectorAll("[role=radio]")].map(b => b.textContent)).toEqual(["Tesouraria", "Contabilidade", "Diretoria", "Simplificado"]);
+    await entrarNoPapel();
     // Tesouraria (padrão): categoria e centro saem no papel
     expect(papel(el).textContent).toContain("Material de Consumo › Ministério Pastoral");
     await modelo("Simplificado");
@@ -233,6 +258,7 @@ describe("Extrato de Obrigações — impressão", () => {
   it("a Diretoria leva as assinaturas; a Tesouraria, não; mexer num campo vira 'Personalizado'", async () => {
     completo();
     const el = await abrir();
+    await entrarNoPapel();
     expect(papel(el).parentElement!.textContent).not.toContain("Conselho Fiscal");
     await abrirDialogo(el);
     await modelo("Diretoria");
@@ -368,6 +394,7 @@ describe("ações por linha", () => {
     const el = await abrir();
     const cluster = linhaDe(el, "aberta").querySelector(".no-print.col-span-2")!;
     expect(cluster.className).toContain("md:col-start-3");
+    await act(async () => { window.dispatchEvent(new Event("beforeprint")); });
     expect(papel(el).querySelectorAll("button").length).toBe(0);
   });
 });
