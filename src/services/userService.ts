@@ -1,9 +1,25 @@
 // ─── userService.ts — Toda lógica de negócio do módulo de Usuários ───────────
 // Sem dependências de React. Pode ser testado de forma isolada.
 
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
-import type { Usuario, UserServiceResult } from "@/types/usuario";
+import type { Usuario, NovoUsuarioDados, UserServiceResult } from "@/types/usuario";
+
+// ─── Cliente isolado para signUp ──────────────────────────────────────────────
+// persistSession: false → não sobrescreve a sessão do admin logado.
+
+const supabaseSignup = createClient(
+  import.meta.env.VITE_SUPABASE_URL      as string,
+  import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession:  false,
+      storageKey:      "diakonia_signup_tmp",
+    },
+  }
+);
 
 // ─── Utilitários puros ────────────────────────────────────────────────────────
 
@@ -169,6 +185,73 @@ export async function listarUsuarios(): Promise<{
     return { usuarios: (data ?? []) as Usuario[], erro: null };
   } catch (e: unknown) {
     return { usuarios: [], erro: e instanceof Error ? e.message : "Erro inesperado." };
+  }
+}
+
+/**
+ * Cria um novo usuário via signUp isolado + upsert em profiles.
+ * Retorna a senha gerada para uso no WhatsApp.
+ */
+export async function criarUsuario(
+  dados: NovoUsuarioDados
+): Promise<UserServiceResult> {
+  const tel   = limparTelefone(dados.telefone);
+  const senha = gerarSenha();
+  const email = `${tel}@app.diakonia`;
+
+  try {
+    // 1. Criar no Auth com cliente isolado (não afeta sessão do admin)
+    const { data: authData, error: authError } = await supabaseSignup.auth.signUp({
+      email,
+      password: senha,
+      options: { data: { must_change_password: true, nome: dados.nome } },
+    });
+
+    if (authError) {
+      const mensagemAmigavel = authError.message.includes("already registered")
+        ? "Esse telefone já possui acesso. Use 'Reenviar' para enviar nova senha."
+        : `Erro ao criar acesso: ${authError.message}`;
+      return { ok: false, erro: mensagemAmigavel };
+    }
+
+    const uid = authData.user?.id;
+    if (!uid) return { ok: false, erro: "Falha ao obter ID do usuário. Tente novamente." };
+
+    // 2. Salvar profile com sessão do novo usuário (supabaseSignup tem a sessão)
+    //
+    // O `.select()` cobre o caso em que o upsert cai no ramo de UPDATE (perfil
+    // ja existia) e a politica de `profiles` — admin, ou o proprio dono —
+    // barra a linha: ali nao ha erro, so zero linhas. Sem conferir, o acesso
+    // seria dado como criado com um perfil que nao existe.
+    const perfil = await supabaseSignup
+      .from("profiles")
+      .upsert(
+        { id: uid, nome: dados.nome, telefone: tel, role: dados.role, primeiro_acesso: true },
+        { onConflict: "id" }
+      )
+      .select("id");
+    const { error: profileError } = perfil;
+
+    if (profileError) {
+      // Auth criado mas profile falhou — retorna senha para não perder
+      return {
+        ok:   false,
+        erro: `Acesso criado, mas falha ao salvar perfil: ${profileError.message}`,
+        senha,
+        tel,
+      };
+    }
+
+    const rPerfil = conferir(perfil, "O perfil");
+    if (!rPerfil.ok) {
+      // Mesma razao do bloco acima: a senha ja existe, entao ela volta junto
+      // com o aviso para nao se perder.
+      return { ok: false, erro: `Acesso criado, mas ${rPerfil.erro}`, senha, tel };
+    }
+
+    return { ok: true, senha, tel };
+  } catch (e: unknown) {
+    return { ok: false, erro: "Erro inesperado ao criar usuário." };
   }
 }
 

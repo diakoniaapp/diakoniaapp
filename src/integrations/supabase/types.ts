@@ -13060,16 +13060,6 @@ export type Database = {
       }
     }
     Functions: {
-      // à mão (20/10/2026), migration 20261020200000 — uma regeneração do arquivo a descarta: reconferir
-      admin_criar_acesso: {
-        Args: { p_pessoa_id: string; p_role: string; p_senha: string }
-        Returns: {
-          erro: string | null
-          ok: boolean
-          telefone: string | null
-          user_id: string | null
-        }[]
-      }
       aceitar_convite: {
         Args: { p_senha: string; p_token: string }
         Returns: {
