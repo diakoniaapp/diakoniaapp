@@ -19,8 +19,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, Clock, FileText, Landmark,
-  Loader2, Paperclip, Pencil, RefreshCw, RotateCw, Wallet,
+  Loader2, Paperclip, Pencil, RefreshCw, RotateCw, Send, Wallet,
 } from "lucide-react";
+import { PrepararEnvioDialog } from "@/components/financas/envio/PrepararEnvioDialog";
 import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
@@ -37,7 +38,7 @@ import { Button } from "@/components/ui/button";
 import { brl, nomeExtrato, type FinLancamentoExtenso, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
 import { parciaisEmAberto, type ParcialEmAberto } from "@/services/obrigacoesService";
-import { DIAS_DE_TOLERANCIA_DO_DEBITO, indicadoresDeDebitos, situacaoDoDebito } from "@/lib/formaLiquidacao";
+import { DIAS_DE_TOLERANCIA_DO_DEBITO, ehAutomatica, indicadoresDeDebitos, situacaoDoDebito } from "@/lib/formaLiquidacao";
 import { DebitoChip } from "@/components/financas/DebitoChip";
 import { CalendarioDeVencimentos } from "@/components/financas/mesa/CalendarioDeVencimentos";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
@@ -164,6 +165,8 @@ export function MesaDoTesoureiro({
   const [recargaDaFila, setRecargaDaFila] = useState(0);
   const { hasRole } = useAuth();
   const podeOperar = hasRole(ROLES_FINANCEIRO);
+  // "Preparar envio": os pagamentos que a Tesouraria manda aos tesoureiros por e-mail/WhatsApp (a Mesa passa só o que PODE ir: sem débito automático, sem o que um terceiro já quitou, até 7 dias)
+  const [envioAberto, setEnvioAberto] = useState(false);
   // contas pagas parcialmente (liquidação real): a linha do saldo diz quanto já foi pago; sem a migration, mapa vazio
   const [parciais, setParciais] = useState<Map<string, ParcialEmAberto>>(new Map());
   // Fase 1A da Quitação: as contas em que um terceiro já pagou o fornecedor (vazio até a migration ser aplicada) e o detalhe aberto a partir delas
@@ -294,6 +297,7 @@ export function MesaDoTesoureiro({
                   className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "fila" ? "Fila" : "Calendário"}</button>
               ))}
             </div>
+            {podeOperar && <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setEnvioAberto(true)}><Send className="w-3 h-3" /> Preparar envio</Button>}
             {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>
           </div>}>
@@ -418,6 +422,11 @@ export function MesaDoTesoureiro({
           <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} /> Atualizar a mesa
         </Button>
       </div>
+
+      <PrepararEnvioDialog aberto={envioAberto} onFechar={() => setEnvioAberto(false)} hojeYmd={hoje} onAbrirObrigacao={abrirObrigacao}
+        candidatas={envioAberto ? dados.vencimentos
+          .filter(v => !ehAutomatica(v.forma_liquidacao) && !obrigacoesComQuitacao.has(v.id) && v.dias_para_vencer <= 7)
+          .map(v => ({ v, valor: parciais.get(v.id)?.saldo ?? v.valor })) : []} />
 
       <DetalhesDoLancamento lancamento={detalhe} onFechar={() => { setDetalhe(null); setRecargaDaFila(n => n + 1); }} />
       <LancamentoForm open={!!editando} onOpenChange={v => { if (!v) setEditando(null); }} lancamento={editando} onSaved={() => { setEditando(null); void carregar(); }} />

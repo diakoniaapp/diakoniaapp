@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesa do Tesoureiro — distribuição visual</title>
+<style>
+  :root {
+    --fundo: #f6f2ec; --papel: #fffdf9; --tinta: #2b211c; --suave: #7a6d64; --linha: #e3d9cd;
+    --ouro: #b8893a; --ouro-fundo: #f3e7cf; --marrom: #5a3a2e;
+    --ruim: #b3382c; --ruim-fundo: #fbe9e6; --bom: #2f7d4f; --bom-fundo: #e6f3ea; --aviso: #a8741a; --aviso-fundo: #faf0d9; --info: #2f5f93; --info-fundo: #e8eff8;
+    --buraco: #fff4f1;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--tinta); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .pagina { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font: 600 28px/1.2 Georgia, "Times New Roman", serif; margin: 0 0 6px; }
+  h2 { font: 600 20px/1.3 Georgia, serif; margin: 40px 0 4px; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); margin: 0 0 8px; }
+  p { margin: 0 0 10px; }
+  .sub { color: var(--suave); max-width: 70ch; }
+  .achado { background: var(--papel); border: 1px solid var(--linha); border-left: 4px solid var(--ruim); border-radius: 8px; padding: 14px 16px; margin: 20px 0; }
+  .achado strong { color: var(--ruim); }
+  code { background: #efe7db; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+
+  /* moldura de cada modelo */
+  .modelo { margin-top: 14px; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-bottom: 8px; }
+  .legenda b { font: 600 17px Georgia, serif; }
+  .tag { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--ouro-fundo); color: var(--marrom); }
+  .tag.ok { background: var(--bom-fundo); color: var(--bom); } .tag.no { background: var(--ruim-fundo); color: var(--ruim); }
+  .tela { background: var(--fundo); border: 1px solid var(--linha); border-radius: 10px; padding: 12px; box-shadow: 0 1px 0 #fff inset; }
+
+  /* peças */
+  .card { background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  .card > .tit { font-weight: 700; font-size: 13px; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .card > .tit small { font-weight: 400; color: var(--suave); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+  .kpi { background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 8px 10px; }
+  .kpi i { display: block; font-style: normal; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); }
+  .kpi b { font-size: 19px; font-variant-numeric: tabular-nums; } .kpi small { display: block; font-size: 11px; color: var(--suave); }
+  .kpi.ruim b { color: var(--ruim); } .kpi.bom b { color: var(--bom); }
+  .linha { display: grid; grid-template-columns: 112px minmax(0,1fr) auto auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--linha); font-size: 12.5px; }
+  .linha:first-of-type { border-top: 0; }
+  .linha .q { min-width: 0; } .linha .q b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .linha .q span { display: block; color: var(--suave); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .linha .v { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+  .chip { font-size: 10.5px; padding: 1px 6px; border-radius: 4px; display: inline-block; white-space: nowrap; }
+  .chip.falha { background: var(--ruim-fundo); color: var(--ruim); } .chip.pagar { background: var(--bom-fundo); color: var(--bom); } .chip.reemb { background: var(--info-fundo); color: var(--info); }
+  .btn { font-size: 11px; border: 1px solid var(--linha); border-radius: 6px; padding: 3px 8px; background: #fff; white-space: nowrap; }
+  .btn.pag { background: #2c6b45; color: #fff; border-color: #2c6b45; }
+  .faixa-h { font-size: 11px; letter-spacing: .06em; color: var(--ruim); font-weight: 700; padding: 4px 0 0; display: flex; justify-content: space-between; }
+  .faixa-h.h { color: var(--aviso); } .faixa-h.b { color: var(--suave); }
+
+  .duas { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; align-items: start; }
+  .uma { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .meio { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .buraco { border: 2px dashed var(--ruim); background: var(--buraco); border-radius: 8px; min-height: 100%; display: grid; place-items: center; text-align: center; color: var(--ruim); font-size: 13px; padding: 16px; }
+  .buraco b { display: block; font-size: 15px; }
+  ul.check { list-style: none; margin: 0; padding: 0; font-size: 12.5px; } ul.check li { padding: 4px 0; display: flex; gap: 8px; align-items: baseline; }
+  ul.check small { color: var(--suave); display: block; font-size: 11px; }
+  .ponto { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 4px; } .ponto.r { background: var(--ruim); } .ponto.a { background: var(--aviso); } .ponto.v { background: var(--bom); } .ponto.i { background: var(--info); }
+
+  /* "Seu dia" no topo / compacto */
+  .seudia { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 7px 10px; margin-bottom: 10px; font-size: 12.5px; }
+  .seudia > b { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin-right: 4px; }
+  .pill { border: 1px solid var(--linha); border-radius: 99px; padding: 2px 10px; background: #fff; white-space: nowrap; }
+  .pill.r { background: var(--ruim-fundo); border-color: #efc4be; color: var(--ruim); } .pill.a { background: var(--aviso-fundo); border-color: #ecd9a8; color: var(--aviso); } .pill.i { background: var(--info-fundo); border-color: #c8d8ec; color: var(--info); }
+
+  /* recolhível */
+  .trilho { display: grid; place-items: start center; width: 42px; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 10px 0; font-size: 12px; color: var(--suave); }
+  .trilho .vert { writing-mode: vertical-rl; transform: rotate(180deg); margin-top: 6px; font-weight: 600; color: var(--tinta); }
+  .trilho .n { background: var(--ruim); color: #fff; border-radius: 99px; font-size: 11px; padding: 0 6px; }
+  .recolhida { display: grid; grid-template-columns: 1fr 42px; gap: 12px; align-items: start; }
+
+  /* medidor de largura */
+  .medidor { height: 10px; border-radius: 6px; background: #e9dfd2; overflow: hidden; margin: 6px 0 2px; }
+  .medidor i { display: block; height: 100%; background: var(--ouro); }
+
+  table { border-collapse: collapse; width: 100%; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { background: #efe7db; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); }
+  td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.rec td { background: var(--ouro-fundo); }
+  .overflow { overflow-x: auto; }
+  @media (max-width: 760px) { .duas, .meio { grid-template-columns: 1fr; } .kpis { grid-template-columns: 1fr 1fr; } .linha { grid-template-columns: 90px minmax(0,1fr) auto; } .linha .btn { display: none; } }
+</style>
+</head>
+<body>
+<div class="pagina">
+
+<h1>Mesa do Tesoureiro — revisão da distribuição visual</h1>
+<p class="sub">Prioridade dela: maximizar a área útil das obrigações. Abaixo, o modelo atual como ele realmente se comporta, as duas alternativas pedidas (Seu dia no topo e Seu dia recolhível) e a que eu recomendo. Os dados nas telas são os reais de 20/10/2026.</p>
+
+<div class="achado">
+  <p><strong>O espaço ocioso não é só o "Seu dia" na lateral — é um buraco de layout.</strong></p>
+  <p>A grade da Mesa tem três colunas: a Fila ocupa duas. O cartão <em>Saneamento de cadastros</em> (que também ocupa duas colunas) não cabe na coluna que sobra e vai para a linha de baixo — e o "Seu dia" vai atrás dele. Resultado: <b>a coluna da direita fica vazia durante toda a altura da Fila</b> (14 itens hoje), e o checklist do dia só aparece depois de rolar a Fila inteira. É exatamente o retângulo que você circulou. Por isso, qualquer modelo abaixo, mesmo o atual, precisa desse conserto.</p>
+  <p style="margin:0">Origem: <code>MesaDoTesoureiro.tsx</code> (grade <code>lg:grid-cols-3</code>) + <code>SaneamentoDeCadastros.tsx</code> (<code>lg:col-span-2</code>).</p>
+</div>
+
+<!-- ───────── 0 · ATUAL ───────── -->
+<h2>0 · Modelo atual</h2>
+<div class="modelo">
+  <div class="legenda"><b>Como está hoje</b><span class="tag no">Fila com ~2/3 da largura</span><span class="tag no">coluna da direita vazia no topo</span></div>
+  <div class="tela">
+    <div class="kpis">
+      <div class="kpi"><i>Caixa disponível</i><b>−R$ 15.566</b><small>+ R$ 3.755 em aplicações</small></div>
+      <div class="kpi ruim"><i>A pagar até 7 dias</i><b>R$ 23.030</b><small>inclui 4 atrasadas</small></div>
+      <div class="kpi ruim"><i>Falta para pagar</i><b>R$ 38.597</b><small>o caixa não cobre a semana</small></div>
+      <div class="kpi ruim"><i>Débitos a conferir</i><b>6</b><small>6 possíveis falhas no débito</small></div>
+    </div>
+    <div class="duas">
+      <div class="card">
+        <div class="tit">Fila do dia <small>Calendário · Fila · + Nova conta</small></div>
+        <div class="faixa-h"><span>AGORA · 9</span><span>R$ 13.344,98</span></div>
+        <div class="linha"><span><span class="chip falha">Possível falha</span> 15/09</span><span class="q"><b>Light Serviços de Eletricidade S.A</b><span>o banco não confirmou o débito de 15/09 · valor estim…</span></span><span class="v">R$ 1.473,10</span><span class="btn">Marcar debitado</span></div>
+        <div class="linha"><span><span class="chip falha">Possível falha</span> 08/10</span><span class="q"><b>Claro S.A.</b><span>o banco não confirmou o débito de 08/10 · valor estimado…</span></span><span class="v">R$ 257,96</span><span class="btn">Marcar debitado</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> há 7d</span><span class="q"><b>Flora Energia Renovável S.A.</b><span>Administração · Infraestrutura · valor estimado</span></span><span class="v">R$ 485,66</span><span class="btn pag">Pagar agora</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> há 5d</span><span class="q"><b>Lucio Paulo Paz Barreto</b><span>Prebenda · Pastoral · Sustento Pastoral</span></span><span class="v">R$ 8.000,00</span><span class="btn pag">Pagar agora</span></div>
+        <div class="faixa-h h"><span>HOJE · 6</span><span>R$ 11.282,70</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> hoje</span><span class="q"><b>Receita Federal do Brasil (RFB)</b><span>Encargos Trabalhistas · Administração · Pessoal</span></span><span class="v">R$ 8.376,43</span><span class="btn pag">Pagar agora</span></div>
+        <div class="linha"><span><span class="chip reemb">Pagar reembolso</span></span><span class="q"><b>Leandro Dias Gonçalves</b><span>Pessoa · Reembolso · o prazo vence em 4 dias</span></span><span class="v">R$ 1.500,00</span><span class="btn pag">Pagar</span></div>
+        <div class="faixa-h b"><span>… mais 7 itens</span><span></span></div>
+      </div>
+      <div class="buraco"><div><b>Área ociosa</b>altura de toda a Fila<br>(o "Seu dia" está lá embaixo)</div></div>
+    </div>
+    <div class="meio">
+      <div class="card"><div class="tit">Saneamento de cadastros · 42</div><small style="color:var(--suave)">Empresas sem CNPJ válido…</small></div>
+      <div class="card"><div class="tit">Seu dia <small>5 itens pedem sua atenção</small></div>
+        <ul class="check"><li><span class="ponto r"></span>Resolver contas atrasadas</li><li><span class="ponto a"></span>Pagar o que vence hoje</li><li><span class="ponto a"></span>Conferir débitos automáticos</li><li><span class="ponto i"></span>Anexar comprovantes</li><li><span class="ponto i"></span>Importar o extrato do banco</li></ul></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 1 · SEU DIA NO TOPO ───────── -->
+<h2>1 · "Seu dia" no topo</h2>
+<div class="modelo">
+  <div class="legenda"><b>Faixa horizontal sob os quatro números</b><span class="tag ok">Fila com 100% da largura</span><span class="tag">o checklist continua visível sem rolar</span></div>
+  <div class="tela">
+    <div class="kpis">
+      <div class="kpi"><i>Caixa disponível</i><b>−R$ 15.566</b><small>+ R$ 3.755 em aplicações</small></div>
+      <div class="kpi ruim"><i>A pagar até 7 dias</i><b>R$ 23.030</b><small>inclui 4 atrasadas</small></div>
+      <div class="kpi ruim"><i>Falta para pagar</i><b>R$ 38.597</b><small>o caixa não cobre a semana</small></div>
+      <div class="kpi ruim"><i>Débitos a conferir</i><b>6</b><small>6 possíveis falhas no débito</small></div>
+    </div>
+    <div class="seudia"><b>Seu dia</b><span class="pill r">4 contas atrasadas</span><span class="pill a">5 vencem hoje</span><span class="pill a">6 débitos ainda sem extrato</span><span class="pill i">importar extrato (último movimento há 7 dias)</span><span class="pill" style="color:var(--bom)">✓ comprovantes em dia</span></div>
+    <div class="uma">
+      <div class="card">
+        <div class="tit">Fila do dia <small>Calendário · Fila · + Nova conta</small></div>
+        <div class="faixa-h"><span>AGORA · 9</span><span>R$ 13.344,98</span></div>
+        <div class="linha"><span><span class="chip falha">Possível falha</span> 15/09</span><span class="q"><b>Light Serviços de Eletricidade S.A</b><span>o banco não confirmou o débito de 15/09 · valor estimado · Bradesco</span></span><span class="v">R$ 1.473,10</span><span class="btn">Marcar debitado</span></div>
+        <div class="linha"><span><span class="chip falha">Possível falha</span> 08/10</span><span class="q"><b>Claro S.A.</b><span>o banco não confirmou o débito de 08/10 · valor estimado · Bradesco</span></span><span class="v">R$ 257,96</span><span class="btn">Marcar debitado</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> há 7d</span><span class="q"><b>Flora Energia Renovável S.A.</b><span>Administração · Infraestrutura · valor estimado</span></span><span class="v">R$ 485,66</span><span class="btn pag">Pagar agora</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> há 5d</span><span class="q"><b>Lucio Paulo Paz Barreto</b><span>Prebenda · Pastoral · Sustento Pastoral</span></span><span class="v">R$ 8.000,00</span><span class="btn pag">Pagar agora</span></div>
+        <div class="faixa-h h"><span>HOJE · 6</span><span>R$ 11.282,70</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> hoje</span><span class="q"><b>Receita Federal do Brasil (RFB)</b><span>Encargos Trabalhistas · Administração · Pessoal · valor estimado</span></span><span class="v">R$ 8.376,43</span><span class="btn pag">Pagar agora</span></div>
+        <div class="linha"><span><span class="chip reemb">Pagar reembolso</span></span><span class="q"><b>Leandro Dias Gonçalves</b><span>Pessoa · Reembolso · o prazo vence em 4 dias</span></span><span class="v">R$ 1.500,00</span><span class="btn pag">Pagar</span></div>
+        <div class="faixa-h b"><span>… mais 7 itens</span><span></span></div>
+      </div>
+    </div>
+    <div class="meio">
+      <div class="card"><div class="tit">Pagamentos de hoje <small>nada pago ainda</small></div></div>
+      <div class="card"><div class="tit">Saneamento de cadastros · 42</div><small style="color:var(--suave)">recolhido por padrão</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 2 · RECOLHÍVEL ───────── -->
+<h2>2 · "Seu dia" recolhível</h2>
+<div class="modelo">
+  <div class="legenda"><b>Coluna lateral com botão de recolher</b><span class="tag">aberta: Fila com ~2/3</span><span class="tag ok">recolhida: Fila com ~96%</span></div>
+  <div class="tela">
+    <h3>Recolhida (o que eu sugeriria como padrão)</h3>
+    <div class="recolhida">
+      <div class="card">
+        <div class="tit">Fila do dia <small>Calendário · Fila · + Nova conta</small></div>
+        <div class="faixa-h"><span>AGORA · 9</span><span>R$ 13.344,98</span></div>
+        <div class="linha"><span><span class="chip falha">Possível falha</span> 15/09</span><span class="q"><b>Light Serviços de Eletricidade S.A</b><span>o banco não confirmou o débito de 15/09 · valor estimado · Bradesco</span></span><span class="v">R$ 1.473,10</span><span class="btn">Marcar debitado</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> há 7d</span><span class="q"><b>Flora Energia Renovável S.A.</b><span>Administração · Infraestrutura · valor estimado</span></span><span class="v">R$ 485,66</span><span class="btn pag">Pagar agora</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> hoje</span><span class="q"><b>Receita Federal do Brasil (RFB)</b><span>Encargos Trabalhistas · Administração · Pessoal · valor estimado</span></span><span class="v">R$ 8.376,43</span><span class="btn pag">Pagar agora</span></div>
+      </div>
+      <div class="trilho"><span class="n">5</span><span class="vert">Seu dia ›</span></div>
+    </div>
+    <h3 style="margin-top:14px">Aberta (clicando no trilho)</h3>
+    <div class="duas">
+      <div class="card"><div class="tit">Fila do dia</div><div class="linha"><span><span class="chip pagar">$ Pagar</span> hoje</span><span class="q"><b>Receita Federal do Brasil (RFB)</b><span>Encargos Trabalhistas · Administração…</span></span><span class="v">R$ 8.376,43</span><span class="btn pag">Pagar agora</span></div></div>
+      <div class="card"><div class="tit">Seu dia ‹ <small>5 itens</small></div>
+        <ul class="check"><li><span class="ponto r"></span>Resolver contas atrasadas</li><li><span class="ponto a"></span>Pagar o que vence hoje</li><li><span class="ponto a"></span>Conferir débitos automáticos</li></ul></div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 3 · RECOMENDADO ───────── -->
+<h2>3 · O que eu recomendo</h2>
+<div class="modelo">
+  <div class="legenda"><b>Faixa única: os quatro números viram o "Seu dia"</b><span class="tag ok">Fila com 100%</span><span class="tag ok">nada duplicado</span><span class="tag ok">sem estado escondido</span></div>
+  <div class="tela">
+    <div class="kpis">
+      <div class="kpi ruim"><i>▲ Atrasadas</i><b>4</b><small>R$ 10.161,66 · resolver →</small></div>
+      <div class="kpi"><i>Vencem hoje</i><b>5</b><small>R$ 9.782,70 · pagar →</small></div>
+      <div class="kpi ruim"><i>Débitos a conferir</i><b>6</b><small>6 possíveis falhas · conferir →</small></div>
+      <div class="kpi"><i>Caixa × semana</i><b style="color:var(--ruim)">−R$ 38.597</b><small>o caixa não cobre · −R$ 15.566 disponível</small></div>
+    </div>
+    <div class="seudia"><b>Também hoje</b><span class="pill i">importar extrato (último movimento há 7 dias)</span><span class="pill">Malote do mês: prontidão e pendências · ver no Fechamento →</span><span class="pill" style="color:var(--bom)">✓ comprovantes em dia (só aparece quando há pendência)</span></div>
+    <div class="uma">
+      <div class="card">
+        <div class="tit">Fila do dia <small>Calendário · Fila · + Nova conta</small></div>
+        <div class="faixa-h"><span>AGORA · 9</span><span>R$ 13.344,98</span></div>
+        <div class="linha"><span><span class="chip falha">Possível falha</span> 15/09</span><span class="q"><b>Light Serviços de Eletricidade S.A</b><span>o banco não confirmou o débito de 15/09 · valor estimado · Bradesco</span></span><span class="v">R$ 1.473,10</span><span class="btn">Marcar debitado</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> há 7d</span><span class="q"><b>Flora Energia Renovável S.A.</b><span>Administração · Infraestrutura · valor estimado</span></span><span class="v">R$ 485,66</span><span class="btn pag">Pagar agora</span></div>
+        <div class="linha"><span><span class="chip pagar">$ Pagar</span> hoje</span><span class="q"><b>Receita Federal do Brasil (RFB)</b><span>Encargos Trabalhistas · Administração · Pessoal · valor estimado</span></span><span class="v">R$ 8.376,43</span><span class="btn pag">Pagar agora</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:8px">Clicar num número filtra a Fila para aquele grupo (ex.: "4 atrasadas" mostra só o bloco AGORA das contas). "Pagamentos de hoje" e "Saneamento" descem para uma linha de dois cartões abaixo da Fila, ambos recolhidos quando vazios.</p>
+</div>
+
+<!-- ───────── COMPARAÇÃO ───────── -->
+<h2>Comparação</h2>
+<div class="overflow"><table>
+  <thead><tr><th>Critério</th><th>0 · Atual</th><th>1 · Seu dia no topo</th><th>2 · Recolhível</th><th>3 · Recomendado</th></tr></thead>
+  <tbody>
+    <tr><td>Largura da Fila (base 1.180 px)</td><td class="n">≈ 776 px (66%)</td><td class="n">1.180 px (100%)</td><td class="n">776 px aberta · 1.120 px recolhida</td><td class="n">1.180 px (100%)</td></tr>
+    <tr><td>Texto das linhas cortado</td><td>Sim ("valor estim…")</td><td>Não</td><td>Só quando aberta</td><td>Não</td></tr>
+    <tr><td>Checklist visível sem rolar</td><td>Não (fica após a Fila)</td><td>Sim</td><td>Só o número no trilho</td><td>Sim (os números são o checklist)</td></tr>
+    <tr><td>Informação duplicada</td><td>Seu dia repete 3 dos 4 números do topo</td><td>Continua repetindo (faixa + números)</td><td>Continua repetindo</td><td>Não: números e checklist viram um só</td></tr>
+    <tr><td>Estado a lembrar/explicar</td><td>—</td><td>—</td><td>Aberta/recolhida por usuário</td><td>—</td></tr>
+    <tr><td>Esforço / risco</td><td>—</td><td>Baixo (mover e reaproveitar)</td><td>Médio (estado + preferência)</td><td>Médio-baixo (reaproveita os mesmos itens)</td></tr>
+    <tr class="rec"><td><b>Veredito</b></td><td>Corrigir o buraco, no mínimo</td><td>Bom e seguro</td><td>Melhor só se a coluna ganhar conteúdo próprio</td><td><b>Maior área útil sem perder avisos</b></td></tr>
+  </tbody>
+</table></div>
+
+<h2>O espaço lateral serve para Prontidão, Débitos ou Indicadores?</h2>
+<div class="overflow"><table>
+  <thead><tr><th>Candidato</th><th>Ritmo</th><th>Já existe onde</th><th>Merece coluna fixa na Mesa?</th></tr></thead>
+  <tbody>
+    <tr><td>Prontidão do Malote</td><td>Mensal</td><td>Aba Fechamento; cartão "Documentos para a contabilidade" na Mesa</td><td><b>Não.</b> Uma linha com a % e o link para o Fechamento basta. O trabalho dela é do mês, não do dia.</td></tr>
+    <tr><td>Débitos Automáticos</td><td>Diário (só o que falhou)</td><td>Itens na Fila, número no topo e cartão próprio mais abaixo</td><td><b>Não.</b> O que exige ação já está na Fila. O cartão de baixo pode vir recolhido quando não há falha ou aguardando.</td></tr>
+    <tr><td>Indicadores rápidos</td><td>Diário</td><td>Os quatro números do topo</td><td><b>Não.</b> São a faixa do topo; a coluna só os repetiria.</td></tr>
+    <tr><td>Seu dia (checklist atual)</td><td>Diário</td><td>3 de 5 itens repetem os números do topo</td><td><b>Não como coluna:</b> dois itens são únicos (comprovantes e extrato) e cabem numa linha.</td></tr>
+  </tbody>
+</table></div>
+<p class="sub" style="margin-top:14px"><b>Conclusão:</b> nenhum dos quatro justifica tirar um terço da largura da Fila. Se algum dia surgir conteúdo que precise ficar sempre à vista junto da lista (por exemplo, o saldo projetado por conta), a coluna recolhível volta a fazer sentido — com conteúdo próprio.</p>
+
+</div>
+</body>
+</html>
