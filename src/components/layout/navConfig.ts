@@ -297,7 +297,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // do "Ir para" do próprio Painel, ou pelo card de saldo de cada
       // conta.
       { to: "/painel-tesouraria",     label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/agenda",       label: "Agenda Financeira",   icon: CalendarDays, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/relatorio",    label: "Malote Contábil",     icon: Receipt,       allowedRoles: ROLES_FINANCEIRO },
       // Central de Documentos (03/10/2026): até aqui só se chegava por dentro da
       // aba "4 Fechamento" do Painel da Tesouraria — ela perguntou "onde está esta

@@ -40,6 +40,9 @@ import { hojeLocal } from "@/lib/data";
 import { parciaisEmAberto, type ParcialEmAberto } from "@/services/obrigacoesService";
 import { DIAS_DE_TOLERANCIA_DO_DEBITO, indicadoresDeDebitos, situacaoDoDebito } from "@/lib/formaLiquidacao";
 import { DebitoChip } from "@/components/financas/DebitoChip";
+import { CalendarioDeVencimentos } from "@/components/financas/mesa/CalendarioDeVencimentos";
+import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
+import { useAuth } from "@/hooks/useAuth";
 import {
   agruparVencimentos, coberturaDoCaixa, diasEntreDatas, montarChecklist, pendenciasDoChecklist,
   resumoDoCaixa, soma, totalAPagar, type ItemDoChecklist,
@@ -64,12 +67,12 @@ function Cartao({ id, titulo, subtitulo, direita, children, className = "" }: {
 }) {
   return (
     <section id={id} className={`rounded-lg border bg-card scroll-mt-[220px] ${className}`}>
-      <header className="flex items-start justify-between gap-3 px-4 pt-3 pb-2">
-        <div className="min-w-0">
+      <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-3 pb-2">
+        <div className="min-w-0 flex-1 basis-56">
           <h2 className="text-sm font-bold">{titulo}</h2>
           {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
         </div>
-        {direita && <div className="shrink-0 text-right">{direita}</div>}
+        {direita && <div className="min-w-0 max-w-full text-right">{direita}</div>}
       </header>
       <div className="px-4 pb-3">{children}</div>
     </section>
@@ -150,6 +153,10 @@ export function MesaDoTesoureiro({
   const [dados, setDados] = useState<DadosDaMesa | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [mostrar30, setMostrar30] = useState(false);
+  // LISTA (as janelas de sempre) ou CALENDÁRIO (o mês numa grade). O calendário substitui a Agenda Financeira (Fase A, 20/10/2026); `/financas/agenda` redireciona para cá com `?mesa=calendario`.
+  const [visao, setVisao] = useState<"lista" | "calendario">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") === "calendario" ? "calendario" : "lista"));
+  const { hasRole } = useAuth();
+  const podeOperar = hasRole(ROLES_FINANCEIRO);
   // contas pagas parcialmente (liquidação real): a linha do saldo diz quanto já foi pago; sem a migration, mapa vazio
   const [parciais, setParciais] = useState<Map<string, ParcialEmAberto>>(new Map());
   // Fase 1A da Quitação: as contas em que um terceiro já pagou o fornecedor (vazio até a migration ser aplicada) e o detalhe aberto a partir delas
@@ -250,14 +257,23 @@ export function MesaDoTesoureiro({
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
         {/* 2 · contas a pagar */}
-        <Cartao id="mesa-contas" className="lg:col-span-2" titulo="Contas a pagar"
-          subtitulo="Boletos, faturas e pagamentos manuais — o que depende de você"
+        <Cartao id="mesa-contas" className="lg:col-span-2" titulo={visao === "calendario" ? "Calendário de vencimentos" : "Contas a pagar"}
+          subtitulo={visao === "calendario" ? "O mês de uma vez: contas e débitos automáticos — clique num dia" : "Boletos, faturas e pagamentos manuais — o que depende de você"}
           direita={<div className="flex flex-wrap justify-end gap-1.5">
+            <div role="group" aria-label="Visão" className="inline-flex overflow-hidden rounded-md border">
+              {(["lista", "calendario"] as const).map(v => (
+                <button key={v} type="button" aria-pressed={visao === v} onClick={() => setVisao(v)}
+                  className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "lista" ? "Lista" : "Calendário"}</button>
+              ))}
+            </div>
             {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
             <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>
           </div>}>
+          {visao === "calendario" ? (
+            <CalendarioDeVencimentos hoje={hoje} podeOperar={podeOperar} chaveDeAtualizacao={chaveDeAtualizacao} onMudou={carregar} />
+          ) : <>
           {/* conta aberta que já tem pagamento no extrato (criada depois dele, ou a linha entrou como lançamento comum): um registro só */}
           <ContasJaPagas chave={chaveDeAtualizacao} onMudou={carregar} />
           {nadaAPagar ? (
@@ -285,6 +301,7 @@ export function MesaDoTesoureiro({
               )}
             </>
           )}
+          </>}
         </Cartao>
 
         {/* 2b · Quitações a resolver (Política de Compras por Terceiros): só aparece depois da migration e quando há algo nas filas */}

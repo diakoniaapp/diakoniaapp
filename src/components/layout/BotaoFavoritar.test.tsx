@@ -50,8 +50,8 @@ describe("★ Favoritar na barra de contexto", () => {
     expect(favoritos).toHaveLength(0);
   });
 
-  it("outras telas do Financeiro também (Prestação de Contas, DRE, Agenda)", async () => {
-    for (const c of ["/financas/prestacao-de-contas", "/financas/dre", "/financas/agenda"]) {
+  it("outras telas do Financeiro também (Prestação de Contas, DRE, Extrato de Obrigações)", async () => {
+    for (const c of ["/financas/prestacao-de-contas", "/financas/dre", "/financas/extrato-de-obrigacoes"]) {
       const el = await abrir(c);
       expect(estrela(el), c).toBeTruthy();
       act(() => raiz?.unmount()); document.body.innerHTML = "";

@@ -16,7 +16,7 @@ describe("telas fixáveis do Financeiro", () => {
   const rotas = lista.map(t => t.rota);
 
   it("as seis que já eram fixáveis continuam, e as novas entram sozinhas (Prestação de Contas, Extrato de Obrigações)", () => {
-    for (const r of ["/financas/dre", "/financas/orcamento", "/financas/executivo", "/financas/prestacao-de-contas", "/financas/agenda", "/financas/extrato-de-obrigacoes"]) expect(rotas).toContain(r);
+    for (const r of ["/financas/dre", "/financas/orcamento", "/financas/executivo", "/financas/prestacao-de-contas", "/financas/extrato-de-obrigacoes"]) expect(rotas).toContain(r);
   });
 
   it("outras telas recentes ou de apoio também são fixáveis (Malote, Central de Documentos, Fiscal, Auditoria do extrato, Reuniões, Conta de Sustento, Insights, Recorrências)", () => {

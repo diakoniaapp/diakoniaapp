@@ -129,7 +129,6 @@ export const TELAS: Tela[] = [
   T("/financas", "Contas correntes", "financeiro", { secao: "operacoes" }),
   T("/financas/conta/:contaId", "Conta", "financeiro", { pai: "/financas" }),
   T("/financas/relatorio-contas", "Relatório de contas", "financeiro", { pai: "/financas", naoFixavel: "só abre com as contas escolhidas na URL (?contas=…); sem elas mostra \"nenhuma conta selecionada\"" }),
-  T("/financas/agenda", "Agenda financeira", "financeiro", { secao: "operacoes" }),
   T("/financas/doacoes", "Doações", "financeiro", { secao: "operacoes" }),
   // Gestão
   T("/financas/insights", "Insights", "financeiro", { secao: "gestao" }),

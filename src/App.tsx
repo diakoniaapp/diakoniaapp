@@ -53,7 +53,6 @@ import Financas from "./pages/Financas.tsx";
 import FinancasConta from "./pages/FinancasConta.tsx";
 import FinancasAdmin from "./pages/FinancasAdmin.tsx";
 import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
-import FinancasAgenda from "./pages/FinancasAgenda.tsx";
 import FinancasRelatorio from "./pages/FinancasRelatorio.tsx";
 import FinancasAuditoriaAnexos from "./pages/FinancasAuditoriaAnexos.tsx";
 import FinancasCentralDocumentos from "./pages/FinancasCentralDocumentos.tsx";
@@ -204,7 +203,8 @@ const App = () => (
                   <Route path="/financas/relatorio-contas" element={<FinancasRelatorioContas />} />
                   <Route path="/financas/admin" element={<FinancasAdmin />} />
                   <Route path="/financas/recorrencias" element={<FinancasRecorrencias />} />
-                  <Route path="/financas/agenda" element={<FinancasAgenda />} />
+                  {/* A Agenda Financeira virou o "Calendário" da Mesa (Fase A, 20/10/2026): links e favoritos antigos continuam funcionando */}
+                  <Route path="/financas/agenda" element={<Navigate to="/painel-tesouraria?mesa=calendario#operacoes" replace />} />
                   <Route path="/financas/doacoes" element={<FinancasDoacoes />} />
                   <Route path="/financas/doadores" element={<FinancasDoadores />} />
                   <Route path="/financas/doadores/:pessoaId" element={<FinancasDoadorDetalhe />} />
