@@ -71,6 +71,8 @@ export interface AcoesDaObrigacao {
   /** "normal": o Pagar de sempre · "reembolso": o pagamento do reembolso à pessoa · null: a igreja não paga (já foi paga, é de terceiro, ou foi cancelada) */
   pagar: "normal" | "reembolso" | null;
   corrigirQuitacao: boolean;
+  /** o painel com todos os documentos da obrigação: vale para qualquer situação (e é o centro da decisão nas de terceiro) */
+  documentacao: boolean;
 }
 
 /**
@@ -82,13 +84,13 @@ export interface AcoesDaObrigacao {
 export function acoesDaObrigacao(l: Pick<LinhaDoExtrato, "situacao" | "idEmAberto" | "reembolsoAPagar">): AcoesDaObrigacao {
   switch (l.situacao) {
     case "em_aberto": case "paga_parcialmente":
-      return { visualizar: true, editar: !!l.idEmAberto, pagar: l.idEmAberto ? "normal" : null, corrigirQuitacao: false };
+      return { visualizar: true, editar: !!l.idEmAberto, pagar: l.idEmAberto ? "normal" : null, corrigirQuitacao: false, documentacao: true };
     case "reembolso":
-      return { visualizar: true, editar: false, pagar: l.reembolsoAPagar ? "reembolso" : null, corrigirQuitacao: true };
+      return { visualizar: true, editar: false, pagar: l.reembolsoAPagar ? "reembolso" : null, corrigirQuitacao: true, documentacao: true };
     case "quitada_por_terceiro":
-      return { visualizar: true, editar: false, pagar: null, corrigirQuitacao: true };
+      return { visualizar: true, editar: false, pagar: null, corrigirQuitacao: true, documentacao: true };
     case "paga": case "cancelada":
-      return { visualizar: true, editar: false, pagar: null, corrigirQuitacao: false };
+      return { visualizar: true, editar: false, pagar: null, corrigirQuitacao: false, documentacao: true };
   }
 }
 

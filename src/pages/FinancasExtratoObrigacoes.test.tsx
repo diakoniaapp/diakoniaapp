@@ -27,6 +27,8 @@ vi.mock("@/hooks/useAcoesLancamento", () => ({ useAcoesLancamento: () => ({ paga
 vi.mock("@/components/financas/DetalhesDoLancamento", () => ({ DetalhesDoLancamento: ({ lancamento }: { lancamento: { id: string } | null }) => lancamento ? <div data-testid="detalhe">{lancamento.id}</div> : null }));
 vi.mock("@/components/financas/LancamentoForm", () => ({ LancamentoForm: ({ open, lancamento }: { open: boolean; lancamento?: { id: string } | null }) => open ? <div data-testid="form">{lancamento?.id}</div> : null }));
 vi.mock("@/components/financas/PagarReembolsoDialog", () => ({ PagarReembolsoDialog: ({ alvo }: { alvo: { obrigacaoId: string } | null }) => alvo ? <div data-testid="reembolso">{alvo.obrigacaoId}</div> : null }));
+vi.mock("@/components/financas/DocumentacaoDaObrigacao", () => ({ DocumentacaoDaObrigacao: ({ lancamento }: { lancamento: { id: string } | null }) => lancamento ? <div data-testid="documentacao">{lancamento.id}</div> : null }));
+vi.mock("@/components/financas/AnexosLancamentoDialog", () => ({ AnexosLancamentoDialog: () => null }));
 vi.mock("@/components/financas/QuitacaoDialog", () => ({ QuitacaoDialog: ({ alvo }: { alvo: { id: string } | null }) => alvo ? <div data-testid="quitacao">{alvo.id}</div> : null }));
 vi.mock("@/services/fechamentoMensalService", () => ({ buscarLancamentoParaEditar: async (id: string) => ({ id }) }));
 vi.mock("@/services/quitacaoService", () => ({ quitacaoDaObrigacao: async (id: string) => ({ quitacaoId: "q-" + id, obrigacaoId: id }) }));
@@ -164,18 +166,30 @@ describe("ações por linha", () => {
   it("cada situação mostra só as ações que lhe cabem (e quitada por terceiro nunca tem Pagar agora)", async () => {
     ações();
     const el = await abrir();
-    expect(rotulos(el, "aberta")).toEqual(["Pagar agora", "Editar", "Visualizar"]);
-    expect(rotulos(el, "paga")).toEqual(["Visualizar"]);
-    expect(rotulos(el, "terceiro")).toEqual(["Corrigir quitação", "Visualizar"]);
-    expect(rotulos(el, "reemb-pagar")).toEqual(["Pagar reembolso", "Corrigir quitação", "Visualizar"]);
-    expect(rotulos(el, "reemb-pago")).toEqual(["Corrigir quitação", "Visualizar"]);
-    expect(rotulos(el, "cancelada")).toEqual(["Visualizar"]);
+    // a ordem pedida: Visualizar · Editar · Pagar agora · Documentação (e Corrigir quitação por último)
+    expect(rotulos(el, "aberta")).toEqual(["Visualizar", "Editar", "Pagar agora", "Documentação"]);
+    expect(rotulos(el, "paga")).toEqual(["Visualizar", "Documentação"]);
+    expect(rotulos(el, "terceiro")).toEqual(["Visualizar", "Documentação", "Corrigir quitação"]);
+    expect(rotulos(el, "reemb-pagar")).toEqual(["Visualizar", "Pagar reembolso", "Documentação", "Corrigir quitação"]);
+    expect(rotulos(el, "reemb-pago")).toEqual(["Visualizar", "Documentação", "Corrigir quitação"]);
+    expect(rotulos(el, "cancelada")).toEqual(["Visualizar", "Documentação"]);
   });
 
-  it("quem não opera o dinheiro só visualiza", async () => {
+  it("quem não opera o dinheiro só consulta: Visualizar e Documentação (conferir documento não depende de poder pagar)", async () => {
     ações(); temPapel = false;
     const el = await abrir();
-    expect([...el.querySelectorAll("tbody button")].map(b => b.textContent!.trim()).every(t => t === "Visualizar")).toBe(true);
+    expect([...el.querySelectorAll("tbody button")].map(b => b.textContent!.trim()).every(t => t === "Visualizar" || t === "Documentação")).toBe(true);
+  });
+
+  it("Documentação abre o painel com TODOS os documentos da obrigação — inclusive na quitada por terceiro e na cancelada", async () => {
+    ações();
+    const el = await abrir();
+    for (const [nome, id] of [["Mercado Bom", "terceiro"], ["Gráfica", "cancelada"], ["Light", "aberta"]] as const) {
+      const tr = [...el.querySelectorAll("tbody tr")].find(t => t.textContent!.includes(nome))!;
+      await act(async () => { ([...tr.querySelectorAll("button")].find(b => b.textContent!.includes("Documentação")) as HTMLButtonElement).click(); });
+      await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+      expect(el.ownerDocument.querySelector("[data-testid=documentacao]")!.textContent, nome).toBe(id);
+    }
   });
 
   it("Pagar agora busca o vencimento da LINHA EM ABERTO e abre o fluxo de pagamento de sempre", async () => {

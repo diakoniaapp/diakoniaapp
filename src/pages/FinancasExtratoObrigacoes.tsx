@@ -9,14 +9,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { saveAs } from "file-saver";
-import { ArrowLeft, CheckCircle2, Download, Eye, FileSpreadsheet, Loader2, Pencil, Printer, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, Eye, FileSpreadsheet, Loader2, Paperclip, Pencil, Printer, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CampoData } from "@/components/CampoData";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import { PaginaSkeleton } from "@/components/ListState";
+import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
+import { DocumentacaoDaObrigacao } from "@/components/financas/DocumentacaoDaObrigacao";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
@@ -67,30 +69,36 @@ function Filtro({ rotulo, valor, onChange, itens, todos }: { rotulo: string; val
 }
 
 /** As ações da linha — o que aparece vem de `acoesDaObrigacao` (lib), que carrega a regra por situação. Fora da tela para não remontar a cada renderização. */
-function AcoesDaLinha({ l, podeOperar, ocupada, onVisualizar, onEditar, onPagar, onPagarReembolso, onCorrigirQuitacao }: {
+function AcoesDaLinha({ l, podeOperar, ocupada, onVisualizar, onEditar, onPagar, onPagarReembolso, onDocumentacao, onCorrigirQuitacao }: {
   l: LinhaDoExtrato; podeOperar: boolean; ocupada: boolean;
-  onVisualizar: () => void; onEditar: () => void; onPagar: () => void; onPagarReembolso: () => void; onCorrigirQuitacao: () => void;
+  onVisualizar: () => void; onEditar: () => void; onPagar: () => void; onPagarReembolso: () => void; onDocumentacao: () => void; onCorrigirQuitacao: () => void;
 }) {
   const a = acoesDaObrigacao(l);
   const btn = "h-6 px-1.5 text-[11px] gap-1 whitespace-nowrap";
+  // na obrigação de terceiro/reembolso a documentação é o centro da decisão (NF, declaração, evidências): o botão ganha destaque
+  const emDestaque = l.situacao === "quitada_por_terceiro" || l.situacao === "reembolso";
   return (
     <div className="flex flex-wrap gap-1">
+      {a.visualizar && (
+        <Button size="sm" variant="ghost" className={btn} disabled={ocupada} onClick={onVisualizar} aria-label={`Visualizar ${l.fornecedor || l.descricao || "obrigação"}`}>
+          {ocupada ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Visualizar
+        </Button>
+      )}
+      {a.editar && podeOperar && (
+        <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onEditar}><Pencil className="w-3 h-3" /> Editar</Button>
+      )}
       {a.pagar === "normal" && podeOperar && (
         <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagar}><CheckCircle2 className="w-3 h-3" /> Pagar agora</Button>
       )}
       {a.pagar === "reembolso" && podeOperar && (
         <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagarReembolso}><CheckCircle2 className="w-3 h-3" /> Pagar reembolso</Button>
       )}
-      {a.editar && podeOperar && (
-        <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onEditar}><Pencil className="w-3 h-3" /> Editar</Button>
+      {a.documentacao && (
+        <Button size="sm" variant={emDestaque ? "default" : "outline"} className={btn} disabled={ocupada} onClick={onDocumentacao}
+          aria-label={`Documentação de ${l.fornecedor || l.descricao || "obrigação"}`}><Paperclip className="w-3 h-3" /> Documentação</Button>
       )}
       {a.corrigirQuitacao && podeOperar && (
         <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onCorrigirQuitacao}><ShieldCheck className="w-3 h-3" /> Corrigir quitação</Button>
-      )}
-      {a.visualizar && (
-        <Button size="sm" variant="ghost" className={btn} disabled={ocupada} onClick={onVisualizar} aria-label={`Visualizar ${l.fornecedor || l.descricao || "obrigação"}`}>
-          {ocupada ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Visualizar
-        </Button>
       )}
     </div>
   );
@@ -130,6 +138,8 @@ export default function FinancasExtratoObrigacoes() {
   const [reembolso, setReembolso] = useState<QuitacaoDaObrigacao | null>(null);
   const [corrigindo, setCorrigindo] = useState<{ alvo: AlvoDaQuitacao; quitacao: QuitacaoDaObrigacao } | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [documentando, setDocumentando] = useState<Awaited<ReturnType<typeof buscarLancamentoParaEditar>>>(null);
+  const [anexando, setAnexando] = useState<{ id: string; descricao: string } | null>(null);
 
   useEffect(() => {
     Promise.all([listarFornecedores("", true), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos()])
@@ -162,6 +172,11 @@ export default function FinancasExtratoObrigacoes() {
     const x = await buscarLancamentoParaEditar(l.obrigacaoId);
     if (!x) throw new Error("Não encontrei esta obrigação — ela pode ter sido removida. Atualize a lista.");
     setDetalhe(x);
+  });
+  const documentacao = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
+    const x = await buscarLancamentoParaEditar(l.obrigacaoId);
+    if (!x) throw new Error("Não encontrei esta obrigação — ela pode ter sido removida. Atualize a lista.");
+    setDocumentando(x);
   });
   const editar = (l: LinhaDoExtrato) => naLinha(l.obrigacaoId, async () => {
     if (!l.idEmAberto) return;
@@ -361,12 +376,12 @@ export default function FinancasExtratoObrigacoes() {
               <table className="tabela-extrato w-full text-xs border-collapse min-w-[1100px] print:min-w-0">
                 <colgroup>
                   {[5, 10, 5, 13, 9, 9, 6, 7, 7, 7, 5, 3].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
-                  <col className="no-print" style={{ width: "210px" }} />
+                  <col className="no-print" style={{ width: "260px" }} />
                 </colgroup>
                 <thead>
                   <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
                     {CABECALHO_DO_EXTRATO.map((h, i) => <th key={h} className={`py-1.5 pr-2 font-semibold ${i === 7 || i === 11 ? "text-right" : i === 8 ? "pl-2" : ""}`}>{h}</th>)}
-                    <th className="no-print sticky right-0 z-[1] min-w-[215px] bg-white py-1.5 pl-2 font-semibold shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">Ações</th>
+                    <th className="no-print sticky right-0 z-[1] min-w-[260px] bg-white py-1.5 pl-2 font-semibold shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -386,10 +401,10 @@ export default function FinancasExtratoObrigacoes() {
                       <td className="py-1 pr-2">{l.responsavel}</td>
                       <td className="py-1 pr-2">{l.intencao}</td>
                       <td className={`py-1 text-right tabular-nums ${l.diasEmAtraso ? "text-destructive-text font-medium" : ""}`}>{l.diasEmAtraso ?? "—"}</td>
-                      <td className="no-print sticky right-0 z-[1] min-w-[215px] bg-white py-1 pl-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">
+                      <td className="no-print sticky right-0 z-[1] min-w-[260px] bg-white py-1 pl-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">
                         <AcoesDaLinha l={l} podeOperar={podeOperar} ocupada={ocupado === l.obrigacaoId}
                           onVisualizar={() => void visualizar(l)} onEditar={() => void editar(l)} onPagar={() => void pagarAgora(l)}
-                          onPagarReembolso={() => void pagarReembolso(l)} onCorrigirQuitacao={() => void corrigirQuitacao(l)} />
+                          onPagarReembolso={() => void pagarReembolso(l)} onDocumentacao={() => void documentacao(l)} onCorrigirQuitacao={() => void corrigirQuitacao(l)} />
                       </td>
                     </tr>
                   ))}
@@ -410,6 +425,15 @@ export default function FinancasExtratoObrigacoes() {
           <div className="no-print">
             {acoes.dialogs}
             <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
+            <DocumentacaoDaObrigacao lancamento={documentando} onFechar={() => setDocumentando(null)}
+              onAnexos={podeOperar ? (x => { setDocumentando(null); setAnexando({ id: x.id, descricao: x.descricao || x.fornecedor_nome || "Obrigação" }); }) : undefined} />
+            {anexando && (
+              <AnexosLancamentoDialog open onOpenChange={v => {
+                if (v) return;
+                const id = anexando.id; setAnexando(null); void carregar();
+                void buscarLancamentoParaEditar(id).then(x => { if (x) setDocumentando(x); }).catch(() => { /* só não reabre o painel */ });
+              }} lancamentoId={anexando.id} descricaoLancamento={anexando.descricao} />
+            )}
             <LancamentoForm open={!!editando} onOpenChange={v => { if (!v) setEditando(null); }} lancamento={editando} onSaved={() => { setEditando(null); void carregar(); }} />
             <PagarReembolsoDialog alvo={reembolso} onFechar={() => setReembolso(null)} onFeito={() => { setReembolso(null); void carregar(); }} />
             <QuitacaoDialog alvo={corrigindo?.alvo ?? null} quitacao={corrigindo?.quitacao ?? null} onFechar={() => setCorrigindo(null)} onFeito={() => { setCorrigindo(null); void carregar(); }} />

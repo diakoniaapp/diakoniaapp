@@ -157,18 +157,22 @@ describe("ações por linha (20/10/2026): o que o tesoureiro pode fazer sem sair
     acoesDaObrigacao({ situacao, idEmAberto: "x", reembolsoAPagar: false, ...extra });
 
   it("em aberto (e vencida: atraso é indicador, não estado) → Editar + Pagar agora", () => {
-    for (const s of ["em_aberto", "paga_parcialmente"] as const) expect(a(s)).toEqual({ visualizar: true, editar: true, pagar: "normal", corrigirQuitacao: false });
+    for (const s of ["em_aberto", "paga_parcialmente"] as const) expect(a(s)).toEqual({ visualizar: true, editar: true, pagar: "normal", corrigirQuitacao: false, documentacao: true });
   });
   it("paga → só Visualizar; cancelada → só Visualizar", () => {
-    for (const s of ["paga", "cancelada"] as const) expect(a(s)).toEqual({ visualizar: true, editar: false, pagar: null, corrigirQuitacao: false });
+    for (const s of ["paga", "cancelada"] as const) expect(a(s)).toEqual({ visualizar: true, editar: false, pagar: null, corrigirQuitacao: false, documentacao: true });
   });
   it("quitada por terceiro → Visualizar + Corrigir quitação, e NUNCA Pagar agora (a igreja não paga)", () => {
-    expect(a("quitada_por_terceiro")).toEqual({ visualizar: true, editar: false, pagar: null, corrigirQuitacao: true });
+    expect(a("quitada_por_terceiro")).toEqual({ visualizar: true, editar: false, pagar: null, corrigirQuitacao: true, documentacao: true });
   });
   it("reembolso a pagar → Pagar agora abre o pagamento do REEMBOLSO; reembolso já pago não tem pagar", () => {
     expect(a("reembolso", { reembolsoAPagar: true }).pagar).toBe("reembolso");
     expect(a("reembolso", { reembolsoAPagar: false }).pagar).toBeNull();
     expect(a("reembolso").corrigirQuitacao).toBe(true);
+  });
+  it("Documentação existe em TODA situação (inclusive cancelada e sem linha em aberto)", () => {
+    for (const s of ["em_aberto", "paga_parcialmente", "paga", "reembolso", "quitada_por_terceiro", "cancelada"] as const) expect(a(s).documentacao, s).toBe(true);
+    expect(a("em_aberto", { idEmAberto: null }).documentacao).toBe(true);
   });
   it("sem linha em aberto não há o que editar nem pagar, mesmo 'em aberto'", () => {
     expect(a("em_aberto", { idEmAberto: null })).toMatchObject({ editar: false, pagar: null });
