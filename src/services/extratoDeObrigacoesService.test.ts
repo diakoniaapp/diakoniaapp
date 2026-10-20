@@ -42,7 +42,7 @@ vi.mock("@/integrations/supabase/client", () => {
   return { supabase: { from: (t: string) => criar(t) } };
 });
 vi.mock("@/services/finService", () => ({
-  listarCategoriasTodas: async () => [{ id: "c1", nome: "Material de Consumo" }], listarCentrosCustoTodas: async () => [{ id: "ce1", nome: "Ministério Pastoral" }], listarProjetosTodos: async () => [],
+  listarCategoriasTodas: async () => [{ id: "c1", nome: "Material de Consumo" }], listarCentrosCustoTodas: async () => [{ id: "ce1", nome: "Ministério Pastoral" }], listarProjetosTodos: async () => [], listarContas: async () => [{ id: "cc1", nome: "Bradesco" }],
 }));
 
 import { carregarExtratoDeObrigacoes } from "./extratoDeObrigacoesService";

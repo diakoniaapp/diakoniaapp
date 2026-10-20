@@ -6,8 +6,8 @@ import { hojeLocal } from "@/lib/data";
 import {
   montarExtratoDeObrigacoes, type LinhaDeObrigacao, type LinhaDoExtrato, type NomesDoExtrato, type QuitacaoDoExtrato,
 } from "@/lib/extratoDeObrigacoes";
-import type { Intencao, ResponsavelTipo } from "@/lib/quitacao";
-import { listarCategoriasTodas, listarCentrosCustoTodas, listarProjetosTodos } from "@/services/finService";
+import { ROTULO_GRAU, type Grau, type Intencao, type ResponsavelTipo } from "@/lib/quitacao";
+import { listarCategoriasTodas, listarCentrosCustoTodas, listarContas, listarProjetosTodos } from "@/services/finService";
 
 export interface FiltrosDoExtrato {
   /** AAAA-MM-DD */
@@ -19,7 +19,7 @@ export interface FiltrosDoExtrato {
   projetoId?: string;
 }
 
-const COLUNAS = "id, obrigacao_id, data, status, valor, valor_original, descricao, documento_numero, fornecedor_id, pessoa_id, categoria_id, centro_custo_id, projeto_id";
+const COLUNAS = "id, obrigacao_id, data, status, valor, valor_original, descricao, documento_numero, fornecedor_id, pessoa_id, categoria_id, centro_custo_id, projeto_id, conta_id, observacoes";
 const PAGINA = 1000;
 const LOTE = 50;
 
@@ -30,6 +30,7 @@ const normalizar = (r: Record<string, unknown>): LinhaDeObrigacao => ({
   descricao: (r.descricao as string | null) ?? null, documento_numero: (r.documento_numero as string | null) ?? null,
   fornecedor_id: (r.fornecedor_id as string | null) ?? null, pessoa_id: (r.pessoa_id as string | null) ?? null, categoria_id: (r.categoria_id as string | null) ?? null,
   centro_custo_id: (r.centro_custo_id as string | null) ?? null, projeto_id: (r.projeto_id as string | null) ?? null,
+  conta_id: (r.conta_id as string | null) ?? null, observacoes: (r.observacoes as string | null) ?? null,
 });
 
 async function linhasDoPeriodo(f: FiltrosDoExtrato): Promise<LinhaDeObrigacao[]> {
@@ -63,18 +64,32 @@ async function linhasDoPeriodo(f: FiltrosDoExtrato): Promise<LinhaDeObrigacao[]>
 
 interface QuitacaoBruta {
   obrigacao_id: string; responsavel_tipo: ResponsavelTipo; responsavel_pessoa_id: string | null; responsavel_fornecedor_id: string | null; intencao: Intencao;
-  resultado?: string | null; fila?: string | null; saldo_a_reembolsar?: number | null;
+  resultado?: string | null; fila?: string | null; saldo_a_reembolsar?: number | null; grau_conjunto?: Grau | null;
 }
 
 async function quitacoesDe(chaves: string[]): Promise<QuitacaoBruta[]> {
   const brutas: QuitacaoBruta[] = [];
   for (const grupo of lotes(lotes(chaves, 100), 6)) {
     const respostas = await Promise.all(grupo.map(ks => supabase.from("vw_fin_quitacao" as never)
-      .select("obrigacao_id, responsavel_tipo, responsavel_pessoa_id, responsavel_fornecedor_id, intencao, resultado, fila, saldo_a_reembolsar").in("obrigacao_id" as never, ks as never)));
+      .select("obrigacao_id, responsavel_tipo, responsavel_pessoa_id, responsavel_fornecedor_id, intencao, resultado, fila, saldo_a_reembolsar, grau_conjunto").in("obrigacao_id" as never, ks as never)));
     // a Política de Quitação pode ainda não estar aplicada no banco: sem a visão, ninguém tem quitação registrada
     for (const r of respostas) if (!r.error) brutas.push(...((r.data ?? []) as unknown as typeof brutas));
   }
   return brutas;
+}
+
+/** Quantos documentos cada obrigação tem anexados (todas as parcelas somadas; a chave é o id da raiz). Falha de leitura = 0: o contador é só informação. */
+async function anexosPorObrigacao(linhas: LinhaDeObrigacao[]): Promise<Map<string, number>> {
+  const chaveDaLinha = new Map(linhas.map(l => [l.id, l.obrigacao_id ?? l.id]));
+  const contagem = new Map<string, number>();
+  for (const grupo of lotes(lotes([...chaveDaLinha.keys()], 100), 6)) {
+    const respostas = await Promise.all(grupo.map(ids => supabase.from("fin_lancamento_anexos").select("lancamento_id").in("lancamento_id", ids)));
+    for (const r of respostas) {
+      if (r.error) continue;
+      for (const x of (r.data ?? []) as { lancamento_id: string }[]) { const k = chaveDaLinha.get(x.lancamento_id); if (k) contagem.set(k, (contagem.get(k) ?? 0) + 1); }
+    }
+  }
+  return contagem;
 }
 
 async function nomesPor(tabela: "fin_fornecedores" | "membros", coluna: "nome" | "nome_completo", ids: string[]): Promise<Map<string, string>> {
@@ -89,7 +104,9 @@ async function nomesPor(tabela: "fin_fornecedores" | "membros", coluna: "nome" |
 export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<LinhaDoExtrato[]> {
   const linhas = await linhasDoPeriodo(f);
   const chaves = [...new Set(linhas.map(l => l.obrigacao_id ?? l.id))];
-  const [brutas, categorias, centros, projetos] = await Promise.all([quitacoesDe(chaves), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos()]);
+  const [brutas, categorias, centros, projetos, contas, anexos] = await Promise.all([
+    quitacoesDe(chaves), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos(), listarContas(true).catch(() => []), anexosPorObrigacao(linhas),
+  ]);
   const [fornecedores, pessoas] = await Promise.all([
     nomesPor("fin_fornecedores", "nome", [...linhas.map(l => l.fornecedor_id).filter((x): x is string => !!x), ...brutas.map(b => b.responsavel_fornecedor_id).filter((x): x is string => !!x)]),
     nomesPor("membros", "nome_completo", [...linhas.map(l => l.pessoa_id).filter((x): x is string => !!x), ...brutas.map(b => b.responsavel_pessoa_id).filter((x): x is string => !!x)]),
@@ -99,11 +116,13 @@ export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<
   brutas.forEach(b => quitacoes.set(b.obrigacao_id, {
     responsavel: b.responsavel_tipo, intencao: b.intencao ?? "nao_se_aplica", resultado: b.resultado ?? null, fila: b.fila ?? null,
     saldoAReembolsar: b.saldo_a_reembolsar === null || b.saldo_a_reembolsar === undefined ? null : Number(b.saldo_a_reembolsar),
+    grau: b.grau_conjunto ? ROTULO_GRAU[b.grau_conjunto] ?? null : null,
     responsavelNome: (b.responsavel_pessoa_id && pessoas.get(b.responsavel_pessoa_id)) || (b.responsavel_fornecedor_id && fornecedores.get(b.responsavel_fornecedor_id)) || null,
   }));
   const nomes: NomesDoExtrato = {
     fornecedores, pessoas,
     categorias: new Map(categorias.map(c => [c.id, c.nome])), centros: new Map(centros.map(c => [c.id, c.nome])), projetos: new Map(projetos.map(p => [p.id, p.nome])),
+    contas: new Map(contas.map(c => [c.id, c.nome] as [string, string])),
   };
-  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal() });
+  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos });
 }

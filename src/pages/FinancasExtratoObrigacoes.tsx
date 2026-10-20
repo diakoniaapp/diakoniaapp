@@ -1,20 +1,22 @@
 // ─── FinancasExtratoObrigacoes.tsx — "Extrato de Obrigações" ─────────────────────────────────────────────────────────────────────────────────────────
 //
 // Pedido (16/10/2026): ver TODAS as obrigações de um período, tenham sido pagas pela igreja, reembolsadas ou quitadas por terceiros. A quitada por terceiro aparece normalmente,
-// mesmo sem movimentação financeira (não há extrato de banco que a "prove"). Filtros: período, situação, fornecedor, categoria, centro de custo, projeto. Exporta Excel, PDF e CSV.
-// Leitura em `services/extratoDeObrigacoesService.ts`; regras (situação, resumo, atraso, AÇÕES de cada linha) em `lib/extratoDeObrigacoes.ts`.
-// Pedido de 20/10/2026: deixou de ser só consulta. Cada linha tem as ações que cabem à sua situação — Visualizar, Editar, Pagar agora (ou Pagar reembolso), Corrigir quitação — e TODAS reaproveitam o que a
-// Mesa já usa (`useAcoesLancamento`, `LancamentoForm`, `PagarReembolsoDialog`, `QuitacaoDialog`, `DetalhesDoLancamento`): o tesoureiro resolve sem sair daqui e a lista recarrega ao terminar. As ações não saem no papel.
-// Impressão: A4 em PAISAGEM — são 12 colunas; as demais telas de relatório com muitas colunas fazem o mesmo.
-import { useEffect, useMemo, useState } from "react";
+// mesmo sem movimentação financeira (não há extrato de banco que a "prove"). Exporta Excel, PDF e CSV.
+// 20/10/2026 (1): deixou de ser só consulta — cada linha tem as ações que cabem à sua situação (Visualizar, Editar, Pagar agora/Pagar reembolso, Documentação, Corrigir quitação), todas reaproveitando os
+//   fluxos que a Mesa já usa (`useAcoesLancamento`, `LancamentoForm`, `PagarReembolsoDialog`, `QuitacaoDialog`, `DetalhesDoLancamento`, `DocumentacaoDaObrigacao`).
+// 20/10/2026 (2): REDESENHO com a identidade da Prestação de Contas (proposta aprovada em 20/10): agrupado por DIA, com "TOTAL DO DIA"; resumo de 6 totais; selos de situação (cor + forma + palavra);
+//   filtro de CONTA; "Em aberto" inclui os reembolsos a pagar; terceiros e reembolsos em destaque; impressão em RETRATO com modelos (Tesouraria, Contabilidade, Diretoria, Simplificado) escolhidos antes do PDF.
+//   Tela e papel usam a mesma peça de linha (`components/financas/extrato/DiasDoExtrato.tsx`); a tela mostra tudo e as ações, o papel só os campos do modelo e nenhum botão.
+// Leitura em `services/extratoDeObrigacoesService.ts`; regras em `lib/extratoDeObrigacoes.ts`; modelos de papel em `lib/perfilDeImpressaoDoExtrato.ts`; peças comuns de relatório em `relatorio/RelatorioKit.tsx`.
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { saveAs } from "file-saver";
-import { ArrowLeft, CheckCircle2, Download, Eye, FileSpreadsheet, Loader2, Paperclip, Pencil, Printer, RefreshCw, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Download, Eye, FileSpreadsheet, Loader2, MoreHorizontal, Paperclip, Pencil, Printer, RefreshCw, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CampoData } from "@/components/CampoData";
-import logoDiakonia from "@/assets/logo-diakonia.png";
 import { PaginaSkeleton } from "@/components/ListState";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
@@ -22,20 +24,25 @@ import { DocumentacaoDaObrigacao } from "@/components/financas/DocumentacaoDaObr
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
+import { DiaDoExtratoBloco } from "@/components/financas/extrato/DiasDoExtrato";
+import { ImprimirExtratoDialog } from "@/components/financas/extrato/ImprimirExtratoDialog";
+import { Assinaturas, CabecalhoDeRelatorio, CaixaDeResumo, RodapeDeRelatorio, TituloDeRelatorio } from "@/components/financas/relatorio/RelatorioKit";
 import { useAcoesLancamento } from "@/hooks/useAcoesLancamento";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 import { mensagemErro } from "@/lib/erroRede";
+import { CONTA_NAO_APLICAVEL_ID } from "@/lib/quitacao";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { quitacaoDaObrigacao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import {
-  brl, buscarVencimentoPorId, downloadCSV, listarCategoriasTodas, listarCentrosCustoTodas, listarFornecedores, listarProjetosTodos,
-  type FinCategoria, type FinCentroCusto, type FinFornecedor, type FinProjeto,
+  brl, buscarVencimentoPorId, downloadCSV, listarCategoriasTodas, listarCentrosCustoTodas, listarContas, listarFornecedores, listarProjetosTodos,
+  type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor, type FinProjeto,
 } from "@/services/finService";
 import { carregarExtratoDeObrigacoes } from "@/services/extratoDeObrigacoesService";
 import {
-  CABECALHO_DO_EXTRATO, OPCOES_DE_SITUACAO, acoesDaObrigacao, ROTULO_SITUACAO, dataDoExtrato, filtrarPorSituacao, gerarCSVDoExtrato, resumoDoExtrato,
-  type FiltroDeSituacao, type LinhaDoExtrato, type SituacaoDaObrigacao,
+  CABECALHO_DO_EXTRATO, OPCOES_DE_SITUACAO, ROTULO_SEM_CONTA, acoesDaObrigacao, agruparPorDia, contagemPorConta, dataDoExtrato, filtrarPorConta, filtrarPorSituacao, gerarCSVDoExtrato,
+  resumoDoExtrato, seloDaSituacao, type FiltroDeSituacao, type LinhaDoExtrato,
 } from "@/lib/extratoDeObrigacoes";
+import { CAMPOS_DA_TELA, MODELOS_DE_IMPRESSAO, guardarPerfil, perfilGuardado, type PerfilDeImpressao } from "@/lib/perfilDeImpressaoDoExtrato";
 import { gerarXlsx, serialDoExcel, type Celula } from "@/lib/xlsxSimples";
 import { hojeLocal, toYmd } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,22 +50,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 const TODOS = "__todos__";
 
-const COR_DA_SITUACAO: Record<SituacaoDaObrigacao, string> = {
-  em_aberto: "border-warning-line bg-warning-soft text-warning-text",
-  paga_parcialmente: "border-warning-line bg-warning-soft text-warning-text",
-  paga: "border-success-line bg-success-soft text-success-text",
-  reembolso: "border-gold/50 bg-gold/10 text-foreground",
-  quitada_por_terceiro: "border-primary/40 bg-primary/10 text-foreground",
-  cancelada: "border-border bg-muted text-muted-foreground",
-};
-
 /** Um filtro "Todos/Todas ou um item". Declarado FORA da tela: dentro dela seria um componente novo a cada renderização e remontaria os seletores. */
-function Filtro({ rotulo, valor, onChange, itens, todos }: { rotulo: string; valor: string; onChange: (v: string) => void; itens: { id: string; nome: string }[]; todos: string }) {
+function Filtro({ rotulo, valor, onChange, itens, todos, destaque }: { rotulo: string; valor: string; onChange: (v: string) => void; itens: { id: string; nome: string }[]; todos: string; destaque?: boolean }) {
   return (
     <div className="min-w-0">
-      <p className="text-2xs text-muted-foreground mb-0.5">{rotulo}</p>
+      <p className={`text-2xs mb-0.5 ${destaque ? "font-bold text-gold-text" : "text-muted-foreground"}`}>{rotulo}</p>
       <Select value={valor || TODOS} onValueChange={v => onChange(v === TODOS ? "" : v)}>
-        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={todos} /></SelectTrigger>
+        <SelectTrigger className={`h-8 text-xs ${destaque ? "border-gold ring-2 ring-gold/15" : ""}`}><SelectValue placeholder={todos} /></SelectTrigger>
         <SelectContent className="max-h-72">
           <SelectItem value={TODOS}>{todos}</SelectItem>
           {itens.map(i => <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>)}
@@ -68,38 +66,57 @@ function Filtro({ rotulo, valor, onChange, itens, todos }: { rotulo: string; val
   );
 }
 
-/** As ações da linha — o que aparece vem de `acoesDaObrigacao` (lib), que carrega a regra por situação. Fora da tela para não remontar a cada renderização. */
+/**
+ * As ações da linha — o que existe vem de `acoesDaObrigacao` (lib), que carrega a regra por situação; AQUI só se decide o que fica à vista (revisão de 20/10/2026: os cinco botões
+ * disputavam o espaço com o que importa — fornecedor, valor, situação, atraso, projeto, quem pagou).
+ *   · à vista: o botão que mexe no dinheiro (Pagar agora / Pagar reembolso) e, onde a Documentação é o centro da decisão (terceiro e reembolso), ela também;
+ *   · "⋯ Mais ações": Visualizar, Editar, Documentação (quando não está à vista) e Corrigir quitação. O nome do fornecedor também abre o detalhe.
+ * Fora da tela para não remontar a cada renderização.
+ */
 function AcoesDaLinha({ l, podeOperar, ocupada, onVisualizar, onEditar, onPagar, onPagarReembolso, onDocumentacao, onCorrigirQuitacao }: {
   l: LinhaDoExtrato; podeOperar: boolean; ocupada: boolean;
   onVisualizar: () => void; onEditar: () => void; onPagar: () => void; onPagarReembolso: () => void; onDocumentacao: () => void; onCorrigirQuitacao: () => void;
 }) {
   const a = acoesDaObrigacao(l);
-  const btn = "h-6 px-1.5 text-[11px] gap-1 whitespace-nowrap";
-  // na obrigação de terceiro/reembolso a documentação é o centro da decisão (NF, declaração, evidências): o botão ganha destaque
-  const emDestaque = l.situacao === "quitada_por_terceiro" || l.situacao === "reembolso";
+  const quem = l.fornecedor || l.descricao || "obrigação";
+  const btn = "h-7 gap-1 px-2 text-xs whitespace-nowrap";
+  const centroDaDecisao = l.situacao === "quitada_por_terceiro" || l.situacao === "reembolso";
+  const pagarAgora = a.pagar === "normal" && podeOperar;
+  const pagarReembolso = a.pagar === "reembolso" && podeOperar;
+  // a Documentação fica à vista nas de terceiro/reembolso: com o rótulo quando é a ação principal (não há o que pagar), só o clipe quando ao lado do Pagar
+  const docComRotulo = centroDaDecisao && !pagarReembolso;
+  const docAVista = a.documentacao && centroDaDecisao;
   return (
-    <div className="flex flex-wrap gap-1">
-      {a.visualizar && (
-        <Button size="sm" variant="ghost" className={btn} disabled={ocupada} onClick={onVisualizar} aria-label={`Visualizar ${l.fornecedor || l.descricao || "obrigação"}`}>
-          {ocupada ? <Loader2 className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Visualizar
+    <div className="flex items-center gap-1">
+      {pagarAgora && (
+        <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagar} aria-label={`Pagar agora — ${quem}`} title="Pagar agora">
+          {ocupada ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}<span className="hidden lg:inline">Pagar agora</span>
         </Button>
       )}
-      {a.editar && podeOperar && (
-        <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onEditar}><Pencil className="w-3 h-3" /> Editar</Button>
+      {pagarReembolso && (
+        <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagarReembolso} aria-label={`Pagar reembolso — ${quem}`} title="Pagar reembolso">
+          {ocupada ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}<span className="hidden lg:inline">Pagar reembolso</span>
+        </Button>
       )}
-      {a.pagar === "normal" && podeOperar && (
-        <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagar}><CheckCircle2 className="w-3 h-3" /> Pagar agora</Button>
+      {docAVista && (
+        <Button size="sm" variant={docComRotulo ? "default" : "outline"} className={docComRotulo ? btn : "h-7 w-7 p-0"} disabled={ocupada} onClick={onDocumentacao}
+          aria-label={`Documentação de ${quem}`} title="Documentação">
+          <Paperclip className="w-3.5 h-3.5" />{docComRotulo && <span className="hidden lg:inline">Documentação</span>}
+        </Button>
       )}
-      {a.pagar === "reembolso" && podeOperar && (
-        <Button size="sm" variant="success" className={btn} disabled={ocupada} onClick={onPagarReembolso}><CheckCircle2 className="w-3 h-3" /> Pagar reembolso</Button>
-      )}
-      {a.documentacao && (
-        <Button size="sm" variant={emDestaque ? "default" : "outline"} className={btn} disabled={ocupada} onClick={onDocumentacao}
-          aria-label={`Documentação de ${l.fornecedor || l.descricao || "obrigação"}`}><Paperclip className="w-3 h-3" /> Documentação</Button>
-      )}
-      {a.corrigirQuitacao && podeOperar && (
-        <Button size="sm" variant="outline" className={btn} disabled={ocupada} onClick={onCorrigirQuitacao}><ShieldCheck className="w-3 h-3" /> Corrigir quitação</Button>
-      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" aria-label={`Mais ações de ${quem}`} title="Mais ações" disabled={ocupada}>
+            {ocupada && !pagarAgora && !pagarReembolso ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreHorizontal className="w-4 h-4" />}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[11rem]">
+          {a.visualizar && <DropdownMenuItem onSelect={onVisualizar}><Eye className="w-3.5 h-3.5" /> Visualizar</DropdownMenuItem>}
+          {a.editar && podeOperar && <DropdownMenuItem onSelect={onEditar}><Pencil className="w-3.5 h-3.5" /> Editar</DropdownMenuItem>}
+          {a.documentacao && !docAVista && <DropdownMenuItem onSelect={onDocumentacao}><Paperclip className="w-3.5 h-3.5" /> Documentação</DropdownMenuItem>}
+          {a.corrigirQuitacao && podeOperar && <DropdownMenuItem onSelect={onCorrigirQuitacao}><ShieldCheck className="w-3.5 h-3.5" /> Corrigir quitação</DropdownMenuItem>}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -118,6 +135,7 @@ export default function FinancasExtratoObrigacoes() {
   const de = params.get("inicio") || padrao.de;
   const ate = params.get("fim") || padrao.ate;
   const situacao = (params.get("situacao") as FiltroDeSituacao) || "todas";
+  const contaId = params.get("conta") || "";
   const fornecedorId = params.get("fornecedor") || "";
   const categoriaId = params.get("categoria") || "";
   const centroId = params.get("centro") || "";
@@ -131,6 +149,24 @@ export default function FinancasExtratoObrigacoes() {
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [projetos, setProjetos] = useState<FinProjeto[]>([]);
+  const [contas, setContas] = useState<FinConta[]>([]);
+  // celular: os filtros recolhem atrás de "Filtros" (a faixa de contas e os filtros ativos continuam à vista)
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  // impressão: o modelo e os campos, lembrados neste navegador
+  const [perfil, setPerfil] = useState<PerfilDeImpressao>(() => perfilGuardado());
+  const [imprimindo, setImprimindo] = useState(false);
+  // o cabeçalho do dia fica preso logo abaixo da barra de filtros: precisa saber a altura dela
+  const barraRef = useRef<HTMLDivElement>(null);
+  const [barraAltura, setBarraAltura] = useState(0);
+  useLayoutEffect(() => {
+    const medir = () => setBarraAltura(barraRef.current?.offsetHeight ?? 0);
+    medir();
+    const o = typeof ResizeObserver !== "undefined" && barraRef.current ? new ResizeObserver(medir) : null;
+    if (o && barraRef.current) o.observe(barraRef.current);
+    window.addEventListener("resize", medir);
+    return () => { o?.disconnect(); window.removeEventListener("resize", medir); };
+  }, []);
+
   // ações por linha
   const acoes = useAcoesLancamento(() => carregar());
   const [detalhe, setDetalhe] = useState<Awaited<ReturnType<typeof buscarLancamentoParaEditar>>>(null);
@@ -142,8 +178,8 @@ export default function FinancasExtratoObrigacoes() {
   const [anexando, setAnexando] = useState<{ id: string; descricao: string } | null>(null);
 
   useEffect(() => {
-    Promise.all([listarFornecedores("", true), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos()])
-      .then(([f, c, cc, p]) => { setFornecedores(f); setCategorias(c.filter(x => x.tipo === "saida")); setCentros(cc); setProjetos(p); })
+    Promise.all([listarFornecedores("", true), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos(), listarContas(true)])
+      .then(([f, c, cc, p, k]) => { setFornecedores(f); setCategorias(c.filter(x => x.tipo === "saida")); setCentros(cc); setProjetos(p); setContas(k); })
       .catch(() => { /* os filtros ficam sem opções; o relatório em si continua funcionando */ });
     if (user) supabase.from("profiles").select("nome").eq("id", user.id).maybeSingle().then(({ data }) => setEmitidoPor(data?.nome ?? user.email ?? "Sistema"));
     // só o id: o objeto `user` pode ser recriado a cada renovação da sessão, e as listas de filtro não devem recarregar por isso
@@ -207,17 +243,31 @@ export default function FinancasExtratoObrigacoes() {
     setParams(p, { replace: true });
   }
 
-  const visiveis = useMemo(() => filtrarPorSituacao(linhas, situacao), [linhas, situacao]);
+  // o filtro de Conta age sobre o que JÁ foi lido (e não no banco): assim o número ao lado de cada conta é verdadeiro mesmo com outra conta escolhida
+  const daSituacao = useMemo(() => filtrarPorSituacao(linhas, situacao), [linhas, situacao]);
+  const visiveis = useMemo(() => filtrarPorConta(daSituacao, contaId), [daSituacao, contaId]);
   const resumo = useMemo(() => resumoDoExtrato(visiveis), [visiveis]);
+  const dias = useMemo(() => agruparPorDia(visiveis), [visiveis]);
+  const porConta = useMemo(() => contagemPorConta(daSituacao), [daSituacao]);
+
+  const itensDeConta = useMemo(() => [
+    ...contas.filter(c => c.id !== CONTA_NAO_APLICAVEL_ID).map(c => ({ id: c.id, nome: `${c.nome} (${porConta.get(c.id) ?? 0})` })),
+    { id: CONTA_NAO_APLICAVEL_ID, nome: `${ROTULO_SEM_CONTA} — pagas por terceiros (${porConta.get(CONTA_NAO_APLICAVEL_ID) ?? 0})` },
+  ], [contas, porConta]);
+  const nomeDaConta = contaId === CONTA_NAO_APLICAVEL_ID ? ROTULO_SEM_CONTA : contas.find(c => c.id === contaId)?.nome ?? "";
 
   const nomeDe = <T extends { id: string; nome: string }>(lista: T[], id: string) => lista.find(x => x.id === id)?.nome ?? "";
-  const filtrosEmTexto = [
-    situacao !== "todas" ? `Situação: ${OPCOES_DE_SITUACAO.find(o => o.valor === situacao)?.rotulo}` : "",
-    fornecedorId ? `Fornecedor: ${nomeDe(fornecedores, fornecedorId)}` : "",
-    categoriaId ? `Categoria: ${nomeDe(categorias, categoriaId)}` : "",
-    centroId ? `Centro de custo: ${nomeDe(centros, centroId)}` : "",
-    projetoId ? `Projeto: ${nomeDe(projetos, projetoId)}` : "",
-  ].filter(Boolean);
+  const rotuloDaSituacao = OPCOES_DE_SITUACAO.find(o => o.valor === situacao)?.rotulo.trim() ?? "";
+  // os filtros ativos: viram chips na tela (cada um com ✕) e uma linha de texto no papel
+  const ativos: { chave: string; param: string; texto: string }[] = [
+    contaId && { chave: "conta", param: "conta", texto: `Conta: ${nomeDaConta}` },
+    situacao !== "todas" && { chave: "situacao", param: "situacao", texto: `Situação: ${rotuloDaSituacao}` },
+    fornecedorId && { chave: "fornecedor", param: "fornecedor", texto: `Fornecedor: ${nomeDe(fornecedores, fornecedorId)}` },
+    categoriaId && { chave: "categoria", param: "categoria", texto: `Categoria: ${nomeDe(categorias, categoriaId)}` },
+    centroId && { chave: "centro", param: "centro", texto: `Centro de custo: ${nomeDe(centros, centroId)}` },
+    projetoId && { chave: "projeto", param: "projeto", texto: `Projeto: ${nomeDe(projetos, projetoId)}` },
+  ].filter(Boolean) as { chave: string; param: string; texto: string }[];
+  const filtrosEmTexto = ativos.map(a => a.texto);
   const periodoEmTexto = `${dataDoExtrato(de)} a ${dataDoExtrato(ate)}`;
   const arquivo = (ext: string) => `QIBRJ_Extrato_de_Obrigacoes_${de}_a_${ate}.${ext}`;
 
@@ -231,7 +281,7 @@ export default function FinancasExtratoObrigacoes() {
       const cab = CABECALHO_DO_EXTRATO.map(h => ({ v: h as string, estilo: "cabecalho" as const }));
       const dados: Celula[][] = visiveis.map(l => [
         { v: serialDoExcel(l.data), estilo: "data" }, l.fornecedor, l.documento, l.descricao, l.categoria, l.centro, l.projeto, { v: l.valor, estilo: "moeda" },
-        ROTULO_SITUACAO[l.situacao], l.responsavel, l.intencao, l.diasEmAtraso === null ? null : { v: l.diasEmAtraso, estilo: "inteiro" },
+        seloDaSituacao(l).rotulo, l.responsavel, l.intencao, l.diasEmAtraso === null ? null : { v: l.diasEmAtraso, estilo: "inteiro" }, l.conta,
       ]);
       const total: Celula[] = [{ v: "Total (sem canceladas)", estilo: "negrito" }, null, null, null, null, null, null, { v: resumo.valorTotal, estilo: "moedaNegrito" }];
       const topo: Celula[][] = [
@@ -243,15 +293,18 @@ export default function FinancasExtratoObrigacoes() {
       ];
       const parte = (nome: string, q: number, v: number): Celula[] => [nome, { v: q, estilo: "inteiro" }, { v, estilo: "moeda" }];
       const blob = await gerarXlsx([
-        { nome: "Obrigações", linhas: [...topo, cab, ...dados, total], larguras: [11, 28, 14, 34, 22, 22, 18, 15, 20, 26, 18, 10], linhaDoCabecalho: topo.length },
+        { nome: "Obrigações", linhas: [...topo, cab, ...dados, total], larguras: [11, 28, 14, 34, 22, 22, 18, 15, 20, 26, 18, 10, 22], linhaDoCabecalho: topo.length },
         {
-          nome: "Resumo", larguras: [34, 12, 16],
+          nome: "Resumo", larguras: [38, 12, 16],
           linhas: [
             [{ v: "RESUMO", estilo: "titulo" }], [`Período: ${periodoEmTexto}`], [],
             [{ v: "Situação", estilo: "cabecalho" }, { v: "Quantidade", estilo: "cabecalho" }, { v: "Valor", estilo: "cabecalho" }],
             [{ v: "Total (valor sem canceladas)", estilo: "negrito" }, { v: resumo.quantidade, estilo: "inteiro" }, { v: resumo.valorTotal, estilo: "moedaNegrito" }],
-            parte("Em aberto (saldo a pagar)", resumo.emAberto.quantidade, resumo.emAberto.valor), parte("Pagas", resumo.pagas.quantidade, resumo.pagas.valor),
-            parte("Reembolsos", resumo.reembolsos.quantidade, resumo.reembolsos.valor), parte("Quitadas por terceiros", resumo.quitadasPorTerceiros.quantidade, resumo.quitadasPorTerceiros.valor),
+            parte("Pagas (inclui reembolsos pagos)", resumo.pagas.quantidade, resumo.pagas.valor),
+            parte("Em aberto (inclui reembolsos a pagar)", resumo.emAberto.quantidade, resumo.emAberto.valor),
+            parte("   das quais vencidas", resumo.vencidas.quantidade, resumo.vencidas.valor),
+            parte("   dos quais reembolsos a pagar", resumo.reembolsosPendentes.quantidade, resumo.reembolsosPendentes.valor),
+            parte("Quitadas por terceiros", resumo.quitadasPorTerceiros.quantidade, resumo.quitadasPorTerceiros.valor),
             parte("Canceladas", resumo.canceladas.quantidade, resumo.canceladas.valor),
           ],
         },
@@ -263,34 +316,36 @@ export default function FinancasExtratoObrigacoes() {
     }
   }
 
-  const hojeBr = new Date().toLocaleDateString("pt-BR");
-  const horaBr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const cartoes: { rotulo: string; q: number; v: number | null; destaque?: boolean }[] = [
-    { rotulo: "Obrigações", q: resumo.quantidade, v: resumo.valorTotal, destaque: true },
-    { rotulo: "Em aberto", q: resumo.emAberto.quantidade, v: resumo.emAberto.valor },
-    { rotulo: "Pagas", q: resumo.pagas.quantidade, v: resumo.pagas.valor },
-    { rotulo: "Reembolsos", q: resumo.reembolsos.quantidade, v: resumo.reembolsos.valor },
-    { rotulo: "Quitadas por terceiros", q: resumo.quitadasPorTerceiros.quantidade, v: resumo.quitadasPorTerceiros.valor },
-    { rotulo: "Canceladas", q: resumo.canceladas.quantidade, v: null },
-  ];
+  /** Escolhido o modelo no diálogo: guarda a escolha, fecha o diálogo e abre a impressão do navegador (o papel já está montado com os campos do modelo). */
+  function gerarPdf() {
+    guardarPerfil(perfil);
+    setImprimindo(false);
+    window.setTimeout(() => window.print(), 150);
+  }
 
+  const resumoPecas = [
+    { rotulo: "Total de obrigações", valor: resumo.quantidade, detalhe: brl(resumo.valorTotal) },
+    { rotulo: "Total pago", valor: brl(resumo.pagas.valor), detalhe: `${resumo.pagas.quantidade} ${resumo.pagas.quantidade === 1 ? "obrigação" : "obrigações"}`, tom: "sucesso" as const },
+    { rotulo: "Total em aberto", valor: brl(resumo.emAberto.valor), tom: "aviso" as const, destaque: resumo.emAberto.quantidade > 0,
+      detalhe: `${resumo.emAberto.quantidade} ${resumo.emAberto.quantidade === 1 ? "obrigação" : "obrigações"}${resumo.vencidas.quantidade > 0 ? ` · ${resumo.vencidas.quantidade} vencida${resumo.vencidas.quantidade === 1 ? "" : "s"} (${brl(resumo.vencidas.valor)})` : ""}` },
+    { rotulo: "Reembolsos pendentes", valor: brl(resumo.reembolsosPendentes.valor), detalhe: `${resumo.reembolsosPendentes.quantidade} a pagar`, tom: "reembolso" as const, destaque: resumo.reembolsosPendentes.quantidade > 0 },
+    { rotulo: "Quitadas por terceiros", valor: brl(resumo.quitadasPorTerceiros.valor), detalhe: `${resumo.quitadasPorTerceiros.quantidade} ${resumo.quitadasPorTerceiros.quantidade === 1 ? "compra" : "compras"}`, tom: "terceiro" as const },
+    { rotulo: "Canceladas", valor: resumo.canceladas.quantidade, detalhe: "não entram no valor total", tom: "mudo" as const },
+  ];
 
   return (
     <div className="bg-background min-h-screen">
       <style>{`
+        .so-impressao { display: none; }
         @media print {
-          @page { size: A4 landscape; margin: 1cm 1.2cm; }
-          .relatorio-page table { table-layout: fixed !important; }
-          .tabela-extrato, .tabela-extrato td, .tabela-extrato th { font-size: 8.5px !important; line-height: 1.25 !important; }
-          .tabela-extrato td, .tabela-extrato th { padding: 2px 3px !important; vertical-align: top; word-break: break-word; }
-          .tabela-extrato thead { display: table-header-group; }
-          .tabela-extrato tfoot { display: table-row-group; }
-          .resumo-extrato { gap: 4px !important; }
+          @page { size: A4 portrait; margin: 1.1cm 1.2cm 1.5cm; }
+          .so-impressao { display: block !important; }
+          .relatorio-page { font-size: 11px; }
         }
       `}</style>
 
       {/* Barra de controles e filtros */}
-      <div className="no-print sticky top-0 z-10 bg-card border-b">
+      <div ref={barraRef} className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 py-2 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
             <Button asChild variant="ghost" size="sm" className="gap-1.5 -ml-2"><Link to="/painel-tesouraria"><ArrowLeft className="w-3.5 h-3.5" /> Tesouraria</Link></Button>
@@ -305,123 +360,103 @@ export default function FinancasExtratoObrigacoes() {
               <Button onClick={exportarCSV} size="sm" variant="outline" disabled={carregando || visiveis.length === 0} className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> CSV
               </Button>
-              <Button variant="gold" onClick={() => window.print()} size="sm" disabled={carregando} className="gap-1.5">
+              <Button variant="gold" onClick={() => setImprimindo(true)} size="sm" disabled={carregando} className="gap-1.5">
                 <Printer className="w-3.5 h-3.5" /> PDF / Imprimir
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 items-end">
+          {/* celular: a faixa de contas fica sempre à vista (é o filtro mais usado) e o resto recolhe em "Filtros" */}
+          <div className="md:hidden">
+            <div role="group" aria-label="Conta" className="flex gap-1.5 overflow-x-auto pb-1">
+              {[{ id: "", nome: "Todas" }, ...contas.filter(c => c.id !== CONTA_NAO_APLICAVEL_ID).map(c => ({ id: c.id, nome: c.nome })), { id: CONTA_NAO_APLICAVEL_ID, nome: "Sem conta" }].map(c => (
+                <button key={c.id || "todas"} type="button" aria-pressed={contaId === c.id} onClick={() => mudar({ conta: c.id })}
+                  className={`shrink-0 rounded-full border px-3 py-1 text-xs ${contaId === c.id ? "border-gold bg-gold font-semibold text-gold-foreground" : "bg-card"}`}>{c.nome}</button>
+              ))}
+            </div>
+            <Button type="button" size="sm" variant="outline" className="mt-1 h-7 gap-1.5 text-xs" aria-expanded={filtrosAbertos} onClick={() => setFiltrosAbertos(a => !a)}>
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Filtros{ativos.length > 0 ? ` (${ativos.length})` : ""}
+            </Button>
+          </div>
+
+          <div className={`${filtrosAbertos ? "grid" : "hidden"} md:grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 items-end`}>
             <div className="min-w-0"><p className="text-2xs text-muted-foreground mb-0.5">Data inicial</p><CampoData value={de} onChange={v => v && mudar({ inicio: v })} /></div>
             <div className="min-w-0"><p className="text-2xs text-muted-foreground mb-0.5">Data final</p><CampoData value={ate} onChange={v => v && mudar({ fim: v })} /></div>
             <div className="min-w-0">
               <p className="text-2xs text-muted-foreground mb-0.5">Situação</p>
               <Select value={situacao} onValueChange={v => mudar({ situacao: v === "todas" ? "" : v })}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{OPCOES_DE_SITUACAO.map(o => <SelectItem key={o.valor} value={o.valor}>{o.rotulo}</SelectItem>)}</SelectContent>
+                <SelectContent>{OPCOES_DE_SITUACAO.map(o => <SelectItem key={o.valor} value={o.valor}><span className="whitespace-pre">{o.rotulo}</span></SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <Filtro rotulo="CONTA" destaque valor={contaId} onChange={v => mudar({ conta: v })} itens={itensDeConta} todos="Todas as contas" />
             <Filtro rotulo="Fornecedor" valor={fornecedorId} onChange={v => mudar({ fornecedor: v })} itens={fornecedores} todos="Todos" />
             <Filtro rotulo="Categoria" valor={categoriaId} onChange={v => mudar({ categoria: v })} itens={categorias} todos="Todas" />
             <Filtro rotulo="Centro de custo" valor={centroId} onChange={v => mudar({ centro: v })} itens={centros} todos="Todos" />
             <Filtro rotulo="Projeto" valor={projetoId} onChange={v => mudar({ projeto: v })} itens={projetos} todos="Todos" />
           </div>
+
+          {ativos.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5" aria-label="Filtros ativos">
+              {ativos.map(a => (
+                <span key={a.chave} className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-xs font-semibold text-gold-text">
+                  {a.texto}
+                  <button type="button" aria-label={`Remover o filtro ${a.texto}`} onClick={() => mudar({ [a.param]: "" })} className="rounded-full p-0.5 hover:bg-gold/20"><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+              <Button type="button" size="sm" variant="ghost" className="ml-auto h-6 px-2 text-xs" onClick={() => mudar({ conta: "", situacao: "", fornecedor: "", categoria: "", centro: "", projeto: "" })}>Limpar filtros</Button>
+            </div>
+          )}
         </div>
       </div>
 
       {carregando && linhas.length === 0 ? <PaginaSkeleton /> : (
-        <div className="relatorio-page max-w-7xl mx-auto bg-white text-foreground p-4 md:p-8 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
-          <header className="avoid-break flex items-start justify-between gap-4 pb-3 border-b-2 border-gold/30">
-            <div className="flex flex-col items-center gap-1">
-              <img src={logoDiakonia} alt="DIAKONIA" className="h-12 w-auto object-contain" style={{ filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35)) drop-shadow(0 1px 1px rgba(0,0,0,0.25))", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }} draggable={false} />
-              <div className="text-center">
-                <h2 className="font-serif text-base leading-tight">DiakoniaApp</h2>
-                <p className="text-2xs text-muted-foreground tracking-[0.12em] uppercase">Gestão Ministerial</p>
-              </div>
-            </div>
-            <div className="text-right text-xs text-muted-foreground space-y-0.5">
-              <p>Emitido em <strong className="text-foreground">{hojeBr}</strong> às {horaBr}</p>
-              <p>Por <strong className="text-foreground">{emitidoPor}</strong></p>
-            </div>
-          </header>
+        <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-4 md:p-8 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+          <CabecalhoDeRelatorio emitidoPor={emitidoPor} />
 
-          <div className="text-center my-4 avoid-break">
-            <p className="text-xs tracking-[0.25em] uppercase text-gold">Extrato de Obrigações</p>
-            <h1 className="font-serif text-2xl mt-1">{periodoEmTexto}</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              {resumo.quantidade} obrigaç{resumo.quantidade === 1 ? "ão" : "ões"} · pagas pela igreja, reembolsadas ou quitadas por terceiros
-              {filtrosEmTexto.length > 0 && <> · {filtrosEmTexto.join(" · ")}</>}
-            </p>
-          </div>
+          <TituloDeRelatorio rotulo="▤ Extrato de obrigações" titulo={periodoEmTexto}
+            subtitulo={<>{resumo.quantidade} obrigaç{resumo.quantidade === 1 ? "ão" : "ões"} · pagas pela igreja, reembolsadas ou quitadas por terceiros</>} />
 
           {erro && <p role="alert" className="no-print rounded-md border border-destructive-line bg-destructive-soft px-3 py-2 text-sm text-destructive-text mb-4">{erro}</p>}
 
-          <section aria-label="Resumo" className="resumo-extrato avoid-break grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 print:grid-cols-6 gap-2 mb-4">
-            {cartoes.map(c => (
-              <div key={c.rotulo} className={`rounded-md border px-3 py-2 ${c.destaque ? "border-gold/50 bg-gold/5" : "bg-card"}`}>
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground">{c.rotulo}</p>
-                <p className="text-lg font-semibold tabular-nums leading-tight">{c.q}</p>
-                {c.v !== null && <p className="text-xs tabular-nums text-muted-foreground">{brl(c.v)}</p>}
-              </div>
-            ))}
-          </section>
-          <p className="text-2xs text-muted-foreground -mt-2 mb-3">O valor total não inclui as canceladas; "Em aberto" é o que ainda falta pagar (inclui pagamentos parciais).</p>
+          <CaixaDeResumo rotulo="Resumo" pecas={resumoPecas} />
+          <p className="text-[11px] text-muted-foreground mb-1">O valor total não inclui as canceladas; "Em aberto" é o que ainda falta pagar (inclui pagamentos parciais e reembolsos a pagar). Os dias são pelo vencimento.</p>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            Conta: <b className="text-foreground">{nomeDaConta || "Todas"}</b>{filtrosEmTexto.filter(t => !t.startsWith("Conta:")).map(t => <span key={t}> · {t}</span>)} · Período: <b className="text-foreground">{periodoEmTexto}</b>
+            <span className="hidden print:inline"> · modelo <b className="text-foreground">{perfil.modelo === "personalizado" ? "Personalizado" : MODELOS_DE_IMPRESSAO[perfil.modelo].rotulo}</b></span>
+          </p>
 
           {visiveis.length === 0 ? (
             <p className="text-sm text-muted-foreground italic py-8 text-center">
               {carregando ? <Loader2 className="w-4 h-4 animate-spin inline" /> : "Nenhuma obrigação neste período, com estes filtros."}
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="tabela-extrato w-full text-xs border-collapse min-w-[1100px] print:min-w-0">
-                <colgroup>
-                  {[5, 10, 5, 13, 9, 9, 6, 7, 7, 7, 5, 3].map((w, i) => <col key={i} style={{ width: `${w}%` }} />)}
-                  <col className="no-print" style={{ width: "260px" }} />
-                </colgroup>
-                <thead>
-                  <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
-                    {CABECALHO_DO_EXTRATO.map((h, i) => <th key={h} className={`py-1.5 pr-2 font-semibold ${i === 7 || i === 11 ? "text-right" : i === 8 ? "pl-2" : ""}`}>{h}</th>)}
-                    <th className="no-print sticky right-0 z-[1] min-w-[260px] bg-white py-1.5 pl-2 font-semibold shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visiveis.map(l => (
-                    <tr key={l.obrigacaoId} data-obrigacao={l.obrigacaoId} className="border-b border-border/40 avoid-break align-top">
-                      <td className="py-1 pr-2 tabular-nums whitespace-nowrap">{dataDoExtrato(l.data)}</td>
-                      <td className="py-1 pr-2">{l.fornecedor || "—"}</td>
-                      <td className="py-1 pr-2">{l.documento || "—"}</td>
-                      <td className="py-1 pr-2">{l.descricao || "—"}</td>
-                      <td className="py-1 pr-2">{l.categoria || "—"}</td>
-                      <td className="py-1 pr-2">{l.centro || "—"}</td>
-                      <td className="py-1 pr-2">{l.projeto || "—"}</td>
-                      <td className="py-1 pr-2 text-right tabular-nums whitespace-nowrap">{brl(l.valor)}</td>
-                      <td className="py-1 pr-2 pl-2">
-                        <span className={`inline-block rounded-full border px-1.5 py-0.5 text-2xs leading-tight print:border-0 print:bg-transparent print:p-0 print:rounded-none print:text-[8.5px] ${COR_DA_SITUACAO[l.situacao]}`}>{ROTULO_SITUACAO[l.situacao]}</span>
-                      </td>
-                      <td className="py-1 pr-2">{l.responsavel}</td>
-                      <td className="py-1 pr-2">{l.intencao}</td>
-                      <td className={`py-1 text-right tabular-nums ${l.diasEmAtraso ? "text-destructive-text font-medium" : ""}`}>{l.diasEmAtraso ?? "—"}</td>
-                      <td className="no-print sticky right-0 z-[1] min-w-[260px] bg-white py-1 pl-2 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]">
-                        <AcoesDaLinha l={l} podeOperar={podeOperar} ocupada={ocupado === l.obrigacaoId}
-                          onVisualizar={() => void visualizar(l)} onEditar={() => void editar(l)} onPagar={() => void pagarAgora(l)}
-                          onPagarReembolso={() => void pagarReembolso(l)} onDocumentacao={() => void documentacao(l)} onCorrigirQuitacao={() => void corrigirQuitacao(l)} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gold/40 font-semibold bg-muted/40" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
-                    <td colSpan={7} className="py-1.5 uppercase tracking-wide">Total (sem canceladas)</td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap">{brl(resumo.valorTotal)}</td>
-                    <td colSpan={4} />
-                    <td className="no-print" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <>
+              {/* NA TELA: todos os campos e as ações; o cabeçalho de cada dia fica preso abaixo da barra de filtros */}
+              <div className="no-print" data-visao="tela">
+                {dias.map(d => (
+                  <DiaDoExtratoBloco key={d.data} dia={d} campos={CAMPOS_DA_TELA} topoFixo={barraAltura} onAbrir={l => void visualizar(l)}
+                    renderAcoes={l => (
+                      <AcoesDaLinha l={l} podeOperar={podeOperar} ocupada={ocupado === l.obrigacaoId}
+                        onVisualizar={() => void visualizar(l)} onEditar={() => void editar(l)} onPagar={() => void pagarAgora(l)}
+                        onPagarReembolso={() => void pagarReembolso(l)} onDocumentacao={() => void documentacao(l)} onCorrigirQuitacao={() => void corrigirQuitacao(l)} />
+                    )} />
+                ))}
+              </div>
+              {/* NO PAPEL: só os campos do modelo escolhido, sem botão nenhum */}
+              <div className="so-impressao" data-visao="papel">
+                {dias.map(d => <DiaDoExtratoBloco key={d.data} dia={d} campos={perfil.campos} anexosZero />)}
+              </div>
+              <div className="avoid-break mt-3 flex items-baseline justify-between border-t-2 border-gold-text bg-gold/5 px-2 py-1.5 font-bold" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+                <span className="text-xs tracking-wide">TOTAL (sem canceladas)</span><span className="tabular-nums">{brl(resumo.valorTotal)}</span>
+              </div>
+              {perfil.campos.assinaturas && <div className="so-impressao"><Assinaturas /></div>}
+            </>
           )}
 
-          {/* Os fluxos de sempre, montados uma vez: pagar (documento, Pix/QR, liquidação, comprovante) · detalhe · edição · pagar reembolso · corrigir quitação */}
+          <RodapeDeRelatorio />
+
+          {/* Os fluxos de sempre, montados uma vez: pagar (documento, Pix/QR, liquidação, comprovante) · detalhe · documentação · edição · pagar reembolso · corrigir quitação */}
           <div className="no-print">
             {acoes.dialogs}
             <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
@@ -437,12 +472,8 @@ export default function FinancasExtratoObrigacoes() {
             <LancamentoForm open={!!editando} onOpenChange={v => { if (!v) setEditando(null); }} lancamento={editando} onSaved={() => { setEditando(null); void carregar(); }} />
             <PagarReembolsoDialog alvo={reembolso} onFechar={() => setReembolso(null)} onFeito={() => { setReembolso(null); void carregar(); }} />
             <QuitacaoDialog alvo={corrigindo?.alvo ?? null} quitacao={corrigindo?.quitacao ?? null} onFechar={() => setCorrigindo(null)} onFeito={() => { setCorrigindo(null); void carregar(); }} />
+            <ImprimirExtratoDialog aberto={imprimindo} onFechar={() => setImprimindo(false)} perfil={perfil} onMudar={setPerfil} onImprimir={gerarPdf} />
           </div>
-
-          <footer className="avoid-break mt-6 pt-3 border-t border-gold/30 text-center">
-            <p className="text-xs italic text-muted-foreground font-serif">"Tudo, porém, deve ser feito com decência e ordem."</p>
-            <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
-          </footer>
         </div>
       )}
     </div>
