@@ -2,6 +2,7 @@
 // Regras puras (sem banco, sem React). Uma OBRIGAÇÃO é uma despesa (saída, que não é transferência) e pode ter mais de uma linha em `fin_lancamentos`: no pagamento parcial a raiz vira
 // "realizada" e nasce uma parcela `previsto` com o saldo (mesma `obrigacao_id`). Aqui as linhas do grupo viram UMA linha do extrato.
 // A "Situação" é a pergunta que o relatório responde: a obrigação está em aberto, foi paga pela igreja, é um reembolso, foi quitada por um terceiro ou foi cancelada?
+import { ehAutomatica, situacaoDoDebito, type SituacaoDoDebito } from "@/lib/formaLiquidacao";
 import { documentacaoDaSaida, type SituacaoDocumental } from "@/lib/documentacaoExigida";
 import { CONTA_NAO_APLICAVEL_ID, ROTULO_INTENCAO, ROTULO_RESPONSAVEL, ehTerceiro, type Intencao, type ResponsavelTipo } from "@/lib/quitacao";
 
@@ -55,6 +56,8 @@ export interface LinhaDeObrigacao {
   projeto_id: string | null;
   conta_id?: string | null;
   observacoes?: string | null;
+  /** como será liquidada (`manual`, `debito_automatico`…); ausente antes da migration ou quando não foi lida */
+  forma_liquidacao?: string | null;
 }
 
 /** A quitação registrada para a obrigação (`vw_fin_quitacao`), quando existe. `resultado` e `fila` dizem se o reembolso JÁ foi pago ou se a igreja ainda deve. */
@@ -98,6 +101,8 @@ export interface LinhaDoExtrato {
   observacoes: string;
   /** quantos documentos estão anexados à obrigação (todas as parcelas) */
   anexos: number;
+  /** Débito automático / PIX recorrente / transferência programada ainda NÃO confirmados pelo banco: onde o débito está no tempo (🔵 previsto, 🔵 hoje, 🟡 aguardando confirmação, 🔴 possível falha). Nulo nas demais. */
+  debito: SituacaoDoDebito | null;
   /** a situação documental pela regra ÚNICA (`lib/documentacaoExigida.ts`): sem documentos / parcial / completa / dispensa. Nula quando não se sabe (anexos não lidos) ou a obrigação está cancelada. */
   documentacao: SituacaoDocumental | null;
   /** grau de prova da quitação ("Formal", "Relatado", "Nenhum"); nulo sem quitação */
@@ -217,6 +222,8 @@ export function montarExtratoDeObrigacoes(entrada: {
       conta: raiz.conta_id ? (raiz.conta_id === CONTA_NAO_APLICAVEL_ID ? ROTULO_SEM_CONTA : nomes.contas?.get(raiz.conta_id) ?? "") : "",
       observacoes: observacaoLegivel(raiz.observacoes),
       anexos: entrada.anexos?.get(chave) ?? 0,
+      debito: situacao === "em_aberto" && vencimentoAberto && ehAutomatica(grupo.find(l => l.id === idEmAberto)?.forma_liquidacao ?? raiz.forma_liquidacao)
+        ? situacaoDoDebito({ status: "previsto", data: vencimentoAberto }, hoje) : null,
       documentacao: situacao === "cancelada" || !entrada.tiposDeAnexo ? null : documentacaoDaSaida({
         categoriaNome: (raiz.categoria_id && nomes.categorias.get(raiz.categoria_id)) || "", contaTipo: raiz.conta_id ? nomes.contaTipos?.get(raiz.conta_id) ?? null : null,
         // a obrigação ainda não paga (ou só em parte) não tem comprovante a exigir; o reembolso a pagar é "previsto" (o PIX só existe depois)

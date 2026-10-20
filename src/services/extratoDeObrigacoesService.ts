@@ -108,8 +108,24 @@ async function nomesPor(tabela: "fin_fornecedores" | "membros", coluna: "nome" |
   return mapa;
 }
 
+/** A forma de liquidação das linhas ainda em aberto (leitura à parte e opcional: sem a coluna, ninguém é débito automático e o extrato segue igual). */
+async function formasDeLiquidacao(linhas: LinhaDeObrigacao[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  const abertas = linhas.filter(l => l.status === "previsto").map(l => l.id);
+  for (const grupo of lotes(lotes(abertas, 100), 6)) {
+    const respostas = await Promise.all(grupo.map(ids => supabase.from("fin_lancamentos").select("id, forma_liquidacao" as never).in("id", ids).neq("forma_liquidacao" as never, "manual" as never)));
+    for (const r of respostas) {
+      if (r.error) return mapa;
+      for (const x of (r.data ?? []) as unknown as { id: string; forma_liquidacao: string }[]) mapa.set(x.id, x.forma_liquidacao);
+    }
+  }
+  return mapa;
+}
+
 export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<LinhaDoExtrato[]> {
   const linhas = await linhasDoPeriodo(f);
+  const formas = await formasDeLiquidacao(linhas);
+  linhas.forEach(l => { const fl = formas.get(l.id); if (fl) l.forma_liquidacao = fl; });
   const chaves = [...new Set(linhas.map(l => l.obrigacao_id ?? l.id))];
   const [brutas, categorias, centros, projetos, contas, anexos] = await Promise.all([
     quitacoesDe(chaves), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos(), listarContas(true).catch(() => []), anexosPorObrigacao(linhas),

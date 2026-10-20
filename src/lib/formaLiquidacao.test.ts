@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   acharDebitoCompativel, ehAutomatica, indicadoresDeDebitos, normalizarLiquidacao, palavrasEmComum,
-  situacaoDoDebito, type CandidatoDebito,
+  situacaoDoDebito, debitoEmAberto, ROTULO_DO_DEBITO, GLIFO_DO_DEBITO, type CandidatoDebito,
 } from "./formaLiquidacao";
 
 describe("forma de liquidação", () => {
@@ -21,33 +21,52 @@ describe("forma de liquidação", () => {
   });
 });
 
-describe("situação do débito", () => {
-  it("aguarda até 3 dias depois do vencimento (fim de semana); depois vira não encontrado", () => {
-    const d = { status: "previsto", data: "2026-10-05" };
-    expect(situacaoDoDebito(d, "2026-10-05")).toBe("aguardando");
-    expect(situacaoDoDebito(d, "2026-10-08")).toBe("aguardando");
-    expect(situacaoDoDebito(d, "2026-10-09")).toBe("nao_encontrado");
+describe("situação do débito — acompanhada pelo tempo (Verisure, débito automático, vence 05/10/2026)", () => {
+  const verisure = { status: "previsto", data: "2026-10-05" };
+  it("antes do vencimento: 🔵 débito previsto; no dia: 🔵 previsto para hoje", () => {
+    expect(situacaoDoDebito(verisure, "2026-10-01")).toBe("previsto");
+    expect(situacaoDoDebito(verisure, "2026-10-04")).toBe("previsto");
+    expect(situacaoDoDebito(verisure, "2026-10-05")).toBe("previsto_hoje");
   });
-  it("realizado/conciliado = encontrado; cancelado/aguardando aprovação não contam", () => {
+  it("no dia seguinte, sem confirmação bancária: 🟡 aguardando confirmação (e continua assim durante a tolerância)", () => {
+    expect(situacaoDoDebito(verisure, "2026-10-06")).toBe("aguardando");
+    expect(situacaoDoDebito(verisure, "2026-10-08")).toBe("aguardando");
+  });
+  it("passada a tolerância (3 dias): 🔴 possível falha no débito", () => {
+    expect(situacaoDoDebito(verisure, "2026-10-09")).toBe("nao_encontrado");
+    expect(situacaoDoDebito(verisure, "2026-11-20")).toBe("nao_encontrado");
+  });
+  it("NUNCA vira realizado sozinho pela passagem do tempo: só o status realizado/conciliado (OFX, PDF ou conferência) o faz", () => {
+    for (const hoje of ["2026-10-06", "2026-10-09", "2026-12-01"]) expect(situacaoDoDebito(verisure, hoje)).not.toBe("encontrado");
     expect(situacaoDoDebito({ status: "conciliado", data: "2026-10-05" }, "2026-10-06")).toBe("encontrado");
     expect(situacaoDoDebito({ status: "realizado", data: "2026-10-05" }, "2026-10-06")).toBe("encontrado");
+  });
+  it("cancelado e aguardando aprovação não contam", () => {
     expect(situacaoDoDebito({ status: "cancelado", data: "2026-10-05" }, "2026-10-06")).toBeNull();
     expect(situacaoDoDebito({ status: "aguardando_aprovacao", data: "2026-10-05" }, "2026-10-06")).toBeNull();
+  });
+  it("rótulos e glifos: os quatro estados se distinguem por palavra e por forma (não só pela cor)", () => {
+    expect(ROTULO_DO_DEBITO).toMatchObject({ previsto: "Débito previsto", previsto_hoje: "Débito previsto para hoje", aguardando: "Aguardando confirmação bancária", nao_encontrado: "Possível falha no débito", encontrado: "Realizado" });
+    expect(new Set(Object.values(GLIFO_DO_DEBITO)).size).toBeGreaterThanOrEqual(4);
+    expect(debitoEmAberto("aguardando")).toBe(true);
+    expect(debitoEmAberto("encontrado")).toBe(false);
+    expect(debitoEmAberto(null)).toBe(false);
   });
 });
 
 describe("indicadores de débitos do mês", () => {
   const itens = [
     { id: "1", data: "2026-10-05", valor: 2821.46, status: "conciliado" },
-    { id: "2", data: "2026-10-05", valor: 100, status: "previsto" },   // venceu há 1 dia: ainda aguardando
-    { id: "3", data: "2026-10-01", valor: 300.5, status: "previsto" }, // venceu há 5: não encontrado
-    { id: "4", data: "2026-10-20", valor: 50, status: "previsto" },    // futuro: aguardando
-    { id: "5", data: "2026-10-05", valor: 999, status: "cancelado" },  // ignorado
+    { id: "2", data: "2026-10-05", valor: 100, status: "previsto" },   // venceu há 1 dia: aguardando confirmação
+    { id: "3", data: "2026-10-01", valor: 300.5, status: "previsto" }, // venceu há 5: possível falha
+    { id: "4", data: "2026-10-20", valor: 50, status: "previsto" },    // futuro: a vencer
+    { id: "5", data: "2026-10-06", valor: 80, status: "previsto" },    // vence hoje
+    { id: "6", data: "2026-10-05", valor: 999, status: "cancelado" },  // ignorado
   ];
-  it("conta previstos, encontrados, não encontrados e os valores", () => {
+  it("conta previstos hoje, aguardando, confirmados, possíveis falhas, a vencer e os valores", () => {
     expect(indicadoresDeDebitos(itens, "2026-10-06")).toEqual({
-      previstos: 4, encontrados: 1, naoEncontrados: 1, aguardando: 2,
-      valorPrevisto: 3271.96, valorDebitado: 2821.46,
+      previstos: 5, encontrados: 1, naoEncontrados: 1, aguardando: 1, previstosHoje: 1, aVencer: 1,
+      valorPrevisto: 3351.96, valorDebitado: 2821.46,
     });
   });
 });

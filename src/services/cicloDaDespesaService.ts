@@ -106,7 +106,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     ultimoExtratoDaConta: ultimo ? String(ultimo.data_pagamento ?? ultimo.data).slice(0, 10) : null,
     envio: envio ? { ano: envio.ano, mes: envio.mes, periodoAprovado: envio.periodoAprovado } : null,
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento, temComprovante,
-    dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(), documentacao,
+    dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(), documentacao, formaLiquidacao: l.forma_liquidacao ?? null,
     terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
     conferidoEm: (l as unknown as { conferido_em?: string | null }).conferido_em ?? null,
   });

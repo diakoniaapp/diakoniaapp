@@ -303,3 +303,26 @@ describe("situação documental no extrato (regra única de lib/documentacaoExig
     expect(comTipos([l({ id: "a", status: "cancelado" })], {})[0].documentacao).toBeNull();
   });
 });
+
+describe("débito automático no extrato — acompanhado pelo tempo", () => {
+  const verisure = (forma: string | null, status = "previsto") => l({ id: "v", data: "2026-10-05", status, forma_liquidacao: forma });
+  const debito = (hoje: string, forma: string | null = "debito_automatico", status = "previsto") => montar([verisure(forma, status)], [], hoje)[0].debito;
+  it("🔵 previsto antes do vencimento, 🔵 hoje no dia, 🟡 aguardando no dia seguinte, 🔴 possível falha depois da tolerância", () => {
+    expect(debito("2026-10-04")).toBe("previsto");
+    expect(debito("2026-10-05")).toBe("previsto_hoje");
+    expect(debito("2026-10-06")).toBe("aguardando");
+    expect(debito("2026-10-09")).toBe("nao_encontrado");
+  });
+  it("vale para PIX recorrente e transferência programada; pagamento manual e boleto não têm débito", () => {
+    expect(debito("2026-10-06", "pix_recorrente")).toBe("aguardando");
+    expect(debito("2026-10-06", "transferencia_programada")).toBe("aguardando");
+    expect(debito("2026-10-06", "manual")).toBeNull();
+    expect(debito("2026-10-06", "boleto_fatura")).toBeNull();
+    expect(debito("2026-10-06", null)).toBeNull();
+  });
+  it("confirmado pelo banco (realizado/conciliado) não tem mais débito a acompanhar — nunca vira realizado sozinho", () => {
+    expect(debito("2026-10-20", "debito_automatico", "conciliado")).toBeNull();
+    expect(montar([verisure("debito_automatico", "conciliado")], [], "2026-10-20")[0].situacao).toBe("paga");
+    expect(montar([verisure("debito_automatico")], [], "2026-10-20")[0].situacao).toBe("em_aberto");
+  });
+});

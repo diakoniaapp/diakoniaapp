@@ -6,6 +6,7 @@ import { brl } from "@/services/finService";
 import { dataDoExtrato, diaDaSemana, seloDaSituacao, type ChaveDoSelo, type DiaDoExtrato, type LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
 import type { CampoDeImpressao } from "@/lib/perfilDeImpressaoDoExtrato";
 import { DocumentacaoChip } from "@/components/financas/DocumentacaoChip";
+import { DebitoChip } from "@/components/financas/DebitoChip";
 
 type Campos = Record<CampoDeImpressao, boolean>;
 
@@ -45,7 +46,7 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
   const mostraAnexos = campos.anexos && (l.anexos > 0 || !!anexosZero);
   // a situação documental (sem documentos / parcial / completa): vai junto do campo "documentos anexados"
   const mostraDocumentacao = campos.anexos && !!l.documentacao;
-  const marcas = (campos.projeto && l.projeto ? 1 : 0) + (campos.conta && l.conta ? 1 : 0) + (mostraAnexos ? 1 : 0) + (mostraDocumentacao ? 1 : 0);
+  const marcas = (campos.projeto && l.projeto ? 1 : 0) + (campos.conta && l.conta ? 1 : 0) + (mostraAnexos ? 1 : 0) + (mostraDocumentacao ? 1 : 0) + (l.debito ? 1 : 0);
   const quemCampos = [
     campos.responsavel && `Pago por: ${l.responsavel}`, campos.intencao && l.intencao !== "—" && `Intenção: ${l.intencao}`, campos.grau && l.grau && `Prova: ${l.grau}`,
     reembolso && l.reembolsoAPagar && l.saldoAReembolsar !== null ? `Saldo a reembolsar: ${brl(l.saldoAReembolsar)}` : "",
@@ -68,6 +69,7 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
           {campos.projeto && l.projeto && <Chip tom="projeto">Projeto: {l.projeto}</Chip>}
           {campos.conta && l.conta && <Chip tom="conta">{l.conta}</Chip>}
           {mostraAnexos && <Chip tom="conta">{l.anexos} {l.anexos === 1 ? "documento" : "documentos"}</Chip>}
+          {l.debito && <span className="mr-1 inline-block align-middle"><DebitoChip situacao={l.debito} /></span>}
           {mostraDocumentacao && l.documentacao && <span className="mr-1 inline-block align-middle"><DocumentacaoChip situacao={l.documentacao} /></span>}
         </div>
       )}

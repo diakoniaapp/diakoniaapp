@@ -230,3 +230,42 @@ describe("a regra única de completude documental manda nas etapas Documento e C
     expect(c.pendencias.join(" ")).toMatch(/comprovante de pagamento/);
   });
 });
+
+describe("débito automático no ciclo (Verisure, 05/10/2026): acompanha, não presume que o banco cumpriu", () => {
+  const auto = (hoje: string, o: Partial<EntradaDoCiclo> = {}) => ciclo({ formaLiquidacao: "debito_automatico", hoje, ...o });
+  it("antes do vencimento: débito previsto — nada a fazer, nada de 'pagar à mão'", () => {
+    const c = auto("2026-10-01");
+    expect(c).toMatchObject({ estado: "prevista", debito: "previsto", naFilaOperacional: false });
+    expect(c.proximoPasso).toMatch(/banco debita sozinho no vencimento \(05\/10\)/);
+    expect(c.pendencias.join(" ")).not.toMatch(/pagar/);
+  });
+  it("no dia: previsto para hoje; ainda sem pendência de conferência", () => {
+    expect(auto("2026-10-05")).toMatchObject({ estado: "em_aberto", debito: "previsto_hoje", naFilaOperacional: false });
+  });
+  it("no dia seguinte sem confirmação: 🟡 aguardando confirmação bancária, e a conferência entra na fila", () => {
+    const c = auto("2026-10-06");
+    expect(c).toMatchObject({ debito: "aguardando", naFilaOperacional: true });
+    expect(c.proximoPasso).toMatch(/Aguardando confirmação bancária/);
+    expect(c.pendencias.join(" ")).toMatch(/confirmar o débito no banco/);
+  });
+  it("passada a tolerância: 🔴 possível falha no débito", () => {
+    const c = auto("2026-10-10");
+    expect(c.debito).toBe("nao_encontrado");
+    expect(c.proximoPasso).toMatch(/Possível falha no débito/);
+  });
+  it("NUNCA vira paga pela passagem do tempo: continua em aberto por mais velha que seja a data", () => {
+    const c = auto("2026-12-31");
+    expect(c.estado).toBe("em_aberto");
+    expect(c.debito).toBe("nao_encontrado");
+  });
+  it("confirmado pelo banco (conciliado), segue o ciclo de sempre, sem acompanhamento de débito", () => {
+    const c = auto("2026-10-20", { status: "conciliado", data_pagamento: "2026-10-05", observacoes: "[ofx:123]" });
+    expect(c.debito).toBeUndefined();
+    expect(["pagamento_realizado", "aguardando_conciliacao", "conciliada", "pronta_para_malote"]).toContain(c.estado);
+  });
+  it("pagamento manual e boleto seguem como sempre (sem acompanhamento de débito)", () => {
+    expect(ciclo({ formaLiquidacao: "manual", hoje: "2026-10-06" }).debito).toBeUndefined();
+    expect(ciclo({ formaLiquidacao: "boleto_fatura", hoje: "2026-10-06" }).debito).toBeUndefined();
+    expect(ciclo({ formaLiquidacao: "manual", hoje: "2026-10-06" }).naFilaOperacional).toBe(true);
+  });
+});

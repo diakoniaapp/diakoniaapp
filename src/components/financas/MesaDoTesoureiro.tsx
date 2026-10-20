@@ -38,7 +38,8 @@ import { Button } from "@/components/ui/button";
 import { brl, nomeExtrato, type FinLancamentoExtenso, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
 import { parciaisEmAberto, type ParcialEmAberto } from "@/services/obrigacoesService";
-import { indicadoresDeDebitos, situacaoDoDebito, type SituacaoDoDebito } from "@/lib/formaLiquidacao";
+import { DIAS_DE_TOLERANCIA_DO_DEBITO, indicadoresDeDebitos, situacaoDoDebito } from "@/lib/formaLiquidacao";
+import { DebitoChip } from "@/components/financas/DebitoChip";
 import {
   agruparVencimentos, coberturaDoCaixa, diasEntreDatas, montarChecklist, pendenciasDoChecklist,
   resumoDoCaixa, soma, totalAPagar, type ItemDoChecklist,
@@ -58,12 +59,6 @@ interface Props {
 const dataCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 const rolarPara = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-const CHIP_DEBITO: Record<SituacaoDoDebito, { texto: string; classe: string }> = {
-  aguardando: { texto: "Aguardando débito", classe: "border-info-line bg-info-soft text-info-text" },
-  encontrado: { texto: "Débito encontrado", classe: "border-success-line bg-success-soft text-success-text" },
-  nao_encontrado: { texto: "Não encontrado", classe: "border-destructive-line bg-destructive-soft text-destructive-text" },
-};
-
 function Cartao({ id, titulo, subtitulo, direita, children, className = "" }: {
   id?: string; titulo: string; subtitulo?: string; direita?: React.ReactNode; children: React.ReactNode; className?: string;
 }) {
@@ -81,11 +76,11 @@ function Cartao({ id, titulo, subtitulo, direita, children, className = "" }: {
   );
 }
 
-function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string; tom?: "bom" | "ruim" | "neutro"; detalhe?: string }) {
-  const cor = tom === "bom" ? "text-success-text" : tom === "ruim" ? "text-destructive-text" : "";
+function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string; tom?: "bom" | "ruim" | "aviso" | "neutro"; detalhe?: string }) {
+  const cor = tom === "bom" ? "text-success-text" : tom === "ruim" ? "text-destructive-text" : tom === "aviso" ? "text-warning-text" : "";
   return (
     <div className="rounded-lg border bg-card px-3 py-2.5 min-w-0">
-      <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold truncate">{rotulo}</p>
+      <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold leading-tight">{rotulo}</p>
       <p className={`text-lg font-extrabold tabular-nums truncate ${cor}`}>{valor}</p>
       {detalhe && <p className="text-[11px] text-muted-foreground truncate">{detalhe}</p>}
     </div>
@@ -192,7 +187,8 @@ export function MesaDoTesoureiro({
     const compromissos7 = totalAPagar(aPagar, "semana");
     const cobertura = coberturaDoCaixa(caixa.disponivel, compromissos7);
     const ind = indicadoresDeDebitos(dados.debitos, hoje);
-    const debitosAConferir = dados.debitos.filter(d => d.status === "previsto" && d.data <= hoje).length;
+    // a conferir = JÁ passou do vencimento e o banco não confirmou (🟡 + 🔴); o que vence hoje ainda é só "previsto para hoje"
+    const debitosAConferir = ind.aguardando + ind.naoEncontrados;
     const pagosHoje = dados.pagosRecentes.filter(p => p.dia === hoje);
     const semComprovante = dados.pagosRecentes.filter(p => !p.temComprovante);
     const checklist = montarChecklist({
@@ -245,7 +241,7 @@ export function MesaDoTesoureiro({
         <Numero rotulo={cobertura.cobre ? "Sobra depois de pagar" : "Falta para pagar"} valor={brl(Math.abs(cobertura.saldoDepois))}
           tom={cobertura.cobre ? "bom" : "ruim"} detalhe={cobertura.cobre ? "o caixa cobre a semana" : "o caixa não cobre a semana"} />
         <Numero rotulo="Débitos a conferir" valor={String(derivados.debitosAConferir)} tom={derivados.debitosAConferir > 0 ? "ruim" : "bom"}
-          detalhe={dados.debitosIndisponiveis ? "migration pendente" : "automáticos já vencidos"} />
+          detalhe={dados.debitosIndisponiveis ? "migration pendente" : ind.naoEncontrados > 0 ? `${ind.naoEncontrados} possível falha${ind.naoEncontrados > 1 ? "s" : ""} no débito` : "aguardando confirmação do banco"} />
       </div>
 
       {dados.erros.length > 0 && (
@@ -333,13 +329,13 @@ export function MesaDoTesoureiro({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-3">
-              <Numero rotulo="Previstos" valor={String(ind.previstos)} />
-              <Numero rotulo="Encontrados" valor={String(ind.encontrados)} tom="bom" />
-              <Numero rotulo="Não encontrados" valor={String(ind.naoEncontrados)} tom={ind.naoEncontrados > 0 ? "ruim" : "neutro"} />
-              <Numero rotulo="Valor previsto" valor={brl(ind.valorPrevisto)} detalhe="do mês" />
-              <Numero rotulo="Debitado de fato" valor={brl(ind.valorDebitado)} tom="bom" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2" data-indicadores-de-debitos>
+              <Numero rotulo="Débitos previstos hoje" valor={String(ind.previstosHoje)} detalhe={ind.aVencer > 0 ? `+ ${ind.aVencer} a vencer no mês` : "o banco debita hoje"} />
+              <Numero rotulo="Aguardando confirmação bancária" valor={String(ind.aguardando)} tom={ind.aguardando > 0 ? "aviso" : "neutro"} detalhe="venceram; o banco ainda não confirmou" />
+              <Numero rotulo="Débitos confirmados" valor={String(ind.encontrados)} tom="bom" detalhe={brl(ind.valorDebitado)} />
+              <Numero rotulo="Possíveis falhas de débito" valor={String(ind.naoEncontrados)} tom={ind.naoEncontrados > 0 ? "ruim" : "neutro"} detalhe={`sem confirmação há mais de ${DIAS_DE_TOLERANCIA_DO_DEBITO} dias`} />
             </div>
+            <p className="text-[11px] text-muted-foreground mb-3">{ind.previstos} débitos no mês · previsto {brl(ind.valorPrevisto)} · o sistema NUNCA marca "realizado" sozinho: só a confirmação do banco (OFX ou PDF) ou a sua conferência.</p>
             <ul>
               {dados.debitos.map(d => (
                 <LinhaDeDebito key={d.id} d={d} hoje={hoje}
@@ -489,7 +485,6 @@ function LinhaDeDebito({ d, hoje, venc, onConferir }: {
 }) {
   const s = situacaoDoDebito(d, hoje);
   if (!s) return null;
-  const chip = CHIP_DEBITO[s];
   return (
     <li className="flex items-center gap-2 py-2 border-t first:border-t-0 text-sm min-w-0">
       <span className="w-12 shrink-0 text-xs tabular-nums text-muted-foreground">{dataCurta(d.data)}</span>
@@ -501,7 +496,7 @@ function LinhaDeDebito({ d, hoje, venc, onConferir }: {
         </span>
       </span>
       <span className="tabular-nums font-medium shrink-0">{brl(d.valor)}</span>
-      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${chip.classe}`}>{chip.texto}</span>
+      <DebitoChip situacao={s} />
       {s !== "encontrado" && venc && d.data <= hoje && (
         <Button variant="outline" size="sm" className="h-7 text-xs shrink-0" onClick={() => onConferir(venc)}
           title="Já conferi no banco: marcar como debitado">

@@ -24,6 +24,8 @@
 // mas é preciso conferir: paga sozinha não chega a Pronta.
 // Só despesas (saídas) têm este ciclo; a função devolve null para entradas.
 
+import { debitoEmAberto, ehAutomatica, situacaoDoDebito, type SituacaoDoDebito } from "@/lib/formaLiquidacao";
+
 export type EstadoDoCiclo = "prevista" | "em_aberto" | "pagamento_realizado" | "aguardando_conciliacao" | "conciliada" | "pronta_para_malote" | "enviada" | "arquivada" | "cancelada";
 
 export const ORDEM_DO_CICLO: EstadoDoCiclo[] = ["prevista", "em_aberto", "pagamento_realizado", "aguardando_conciliacao", "conciliada", "pronta_para_malote", "enviada", "arquivada"];
@@ -65,6 +67,11 @@ export interface EntradaDoCiclo {
   terceiroQuitou?: boolean;
   /** quando alguém conferiu à mão (conferido_em): é o que confirma uma obrigação QUITADA POR TERCEIRO, que não tem extrato nem banco */
   conferidoEm?: string | null;
+  /**
+   * COMO a obrigação será liquidada (`manual`, `boleto_fatura`, `debito_automatico`, `pix_recorrente`, `transferencia_programada`). As três últimas são do BANCO: antes de pagar, a obrigação não está "em aberto"
+   * esperando a Tesouraria — está com o débito previsto, e a passagem do tempo só a leva a 🟡 aguardando confirmação e 🔴 possível falha; NUNCA a "paga" (ver `SituacaoDoDebito`).
+   */
+  formaLiquidacao?: string | null;
   hoje: string;
 }
 
@@ -82,6 +89,8 @@ export type Conferencia = "vinculo" | "manual" | "historico" | null;
 
 export interface CicloDaDespesa {
   estado: EstadoDoCiclo;
+  /** só para débito/PIX/transferência automáticos ainda não confirmados pelo banco: onde o débito está no tempo */
+  debito?: SituacaoDoDebito;
   conferencia?: Conferencia;
   etapas: EtapaDoCiclo[];
   /** o que falta para o malote, em palavras (vazio = pronta) */
@@ -146,6 +155,21 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
     const venceuOuVenceHoje = e.data.slice(0, 10) <= e.hoje;
     const atraso = venceuOuVenceHoje ? diasEntre(e.data.slice(0, 10), e.hoje) : 0;
     const terceiro = !!e.terceiroQuitou;
+    // DÉBITO AUTOMÁTICO (e PIX recorrente / transferência programada): a Tesouraria não paga — acompanha. O estado do ciclo segue o de sempre; o que muda é o acompanhamento e o próximo passo.
+    const debito = !terceiro && ehAutomatica(e.formaLiquidacao) ? situacaoDoDebito({ status: "previsto", data: e.data.slice(0, 10) }, e.hoje) : null;
+    if (debito && debitoEmAberto(debito)) {
+      const dd = e.data.slice(8, 10) + "/" + e.data.slice(5, 7);
+      const precisaDeConferencia = debito === "aguardando" || debito === "nao_encontrado";
+      return {
+        estado: venceuOuVenceHoje ? "em_aberto" : "prevista", debito, etapas, naFilaOperacional: precisaDeConferencia,
+        pendencias: faltam("documento", "classificacao").map(k => NOME[k]).concat(precisaDeConferencia ? ["confirmar o débito no banco (extrato ou conferência)"] : []),
+        proximoPasso: debito === "previsto" ? `O banco debita sozinho no vencimento (${dd}). Nada a fazer até lá — não pague à mão.`
+          : debito === "previsto_hoje" ? "O banco deve debitar hoje. Confira o extrato amanhã; não pague à mão."
+          : debito === "aguardando" ? `Aguardando confirmação bancária: o débito de ${dd} ainda não apareceu. Importe o extrato (OFX ou PDF) ou confira no banco.`
+          : `Possível falha no débito: venceu em ${dd} (há ${atraso} dias) e o banco não confirmou. Confira no banco — pode ter sido rejeitado, atrasado ou não ter ocorrido.`,
+        ...(venceuOuVenceHoje ? { atrasoEmDias: atraso } : {}),
+      };
+    }
     return {
       estado: venceuOuVenceHoje || terceiro ? "em_aberto" : "prevista", etapas, naFilaOperacional: true,
       // um terceiro já pagou o fornecedor: a igreja não paga de novo — o que falta é decidir a quitação (a Fila diz qual passo)

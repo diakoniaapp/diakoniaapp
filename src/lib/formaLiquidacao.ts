@@ -53,7 +53,23 @@ export const ehAutomatica = (v: unknown): boolean => LIQUIDACAO_AUTOMATICA.has(n
  *  dessa folga um débito que não apareceu vira "não encontrado". */
 export const DIAS_DE_TOLERANCIA_DO_DEBITO = 3;
 
-export type SituacaoDoDebito = "aguardando" | "encontrado" | "nao_encontrado";
+/**
+ * O débito automático acompanhado PELO TEMPO (pedido de 20/10/2026) — o sistema reflete a expectativa da Tesouraria sem presumir que o banco cumpriu:
+ *   previsto       🔵 antes do vencimento (o banco ainda vai debitar)
+ *   previsto_hoje  🔵 no dia do vencimento
+ *   aguardando     🟡 passou o vencimento e não há confirmação bancária (OFX, PDF ou conferência) — "Aguardando confirmação bancária"
+ *   nao_encontrado 🔴 passou a tolerância (`DIAS_DE_TOLERANCIA_DO_DEBITO`) — "Possível falha no débito"
+ *   encontrado     ✅ o lançamento virou realizado/conciliado — só a confirmação bancária (ou a conferência humana) faz isso, NUNCA a virada do dia: o débito pode falhar, ser rejeitado, atrasar ou não ocorrer.
+ */
+export type SituacaoDoDebito = "previsto" | "previsto_hoje" | "aguardando" | "encontrado" | "nao_encontrado";
+
+export const ROTULO_DO_DEBITO: Record<SituacaoDoDebito, string> = {
+  previsto: "Débito previsto", previsto_hoje: "Débito previsto para hoje", aguardando: "Aguardando confirmação bancária",
+  nao_encontrado: "Possível falha no débito", encontrado: "Realizado",
+};
+export const GLIFO_DO_DEBITO: Record<SituacaoDoDebito, string> = { previsto: "◔", previsto_hoje: "◔", aguardando: "◐", nao_encontrado: "▲", encontrado: "✓" };
+/** Ainda não saiu da conta (nem foi dada por conferida). */
+export const debitoEmAberto = (s: SituacaoDoDebito | null): boolean => !!s && s !== "encontrado";
 
 export interface DebitoItem {
   id: string;
@@ -77,6 +93,8 @@ const somaDias = (ymd: string, n: number): string => {
 export function situacaoDoDebito(item: Pick<DebitoItem, "status" | "data">, hoje: string): SituacaoDoDebito | null {
   if (item.status === "realizado" || item.status === "conciliado") return "encontrado";
   if (item.status !== "previsto") return null;
+  if (item.data > hoje) return "previsto";
+  if (item.data === hoje) return "previsto_hoje";
   return somaDias(item.data, DIAS_DE_TOLERANCIA_DO_DEBITO) < hoje ? "nao_encontrado" : "aguardando";
 }
 
@@ -84,14 +102,20 @@ export interface IndicadoresDeDebitos {
   /** Quantos débitos automáticos o mês tem (todos). */
   previstos: number;
   encontrados: number;
+  /** 🔴 possíveis falhas */
   naoEncontrados: number;
+  /** 🟡 venceram e ainda não têm confirmação bancária */
   aguardando: number;
+  /** 🔵 vencem hoje */
+  previstosHoje: number;
+  /** 🔵 vencem depois de hoje */
+  aVencer: number;
   valorPrevisto: number;
   valorDebitado: number;
 }
 
 export function indicadoresDeDebitos(itens: DebitoItem[], hoje: string): IndicadoresDeDebitos {
-  const r: IndicadoresDeDebitos = { previstos: 0, encontrados: 0, naoEncontrados: 0, aguardando: 0, valorPrevisto: 0, valorDebitado: 0 };
+  const r: IndicadoresDeDebitos = { previstos: 0, encontrados: 0, naoEncontrados: 0, aguardando: 0, previstosHoje: 0, aVencer: 0, valorPrevisto: 0, valorDebitado: 0 };
   for (const it of itens) {
     const s = situacaoDoDebito(it, hoje);
     if (!s) continue;
@@ -99,7 +123,9 @@ export function indicadoresDeDebitos(itens: DebitoItem[], hoje: string): Indicad
     r.valorPrevisto += it.valor;
     if (s === "encontrado") { r.encontrados += 1; r.valorDebitado += it.valor; }
     else if (s === "nao_encontrado") r.naoEncontrados += 1;
-    else r.aguardando += 1;
+    else if (s === "aguardando") r.aguardando += 1;
+    else if (s === "previsto_hoje") r.previstosHoje += 1;
+    else r.aVencer += 1;
   }
   const arred = (n: number) => Math.round(n * 100) / 100;
   r.valorPrevisto = arred(r.valorPrevisto);
