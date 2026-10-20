@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
 import { IndicadoresDeEncargos } from "@/components/financas/IndicadoresDeEncargos";
+import { AssinaturaDoSistema } from "@/components/AssinaturaDoSistema";
 
 export default function FinancasDRE() {
   const { ano: anoUrl } = useParams();
@@ -241,6 +242,7 @@ export default function FinancasDRE() {
             "Tudo, porém, deve ser feito com decência e ordem."
           </p>
           <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
+          <AssinaturaDoSistema />
         </footer>
       </div>
     </div>

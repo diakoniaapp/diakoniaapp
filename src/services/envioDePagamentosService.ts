@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { anexoSignedUrl, buscarFornecedor, listarAnexos, nomeExtrato, type FinVencimento } from "@/services/finService";
 import { dadosParaPagarDoLancamento } from "@/services/documentoPagamentoService";
 import { montarPayloadPix } from "@/lib/pix";
+import { leiaMeDoPacote } from "@/lib/assinaturaDoSistema";
 import { bancoDaLinha, montarItemDeEnvio, nomeDeArquivoSeguro, nomeDaPasta, type ItemDeEnvio } from "@/lib/envioDePagamentos";
 
 const TIPOS_DE_DOCUMENTO = ["boleto", "guia", "fatura", "outro", "documento"];
@@ -123,6 +124,17 @@ export async function baixarBoletos(itens: ItemDeEnvio[], hojeYmd: string, aoAnd
     }
   }, f => aoAndar?.(f, itens.length));
 
+  if (arquivos > 0) {
+    const dataBr = (ymd: string) => ymd.slice(0, 10).split("-").reverse().join("/");
+    zip.file("LEIA-ME.txt", leiaMeDoPacote(`Boletos para pagamento — pasta ${pasta}`, [
+      `A pasta "${pasta}" tem ${arquivos} ${arquivos === 1 ? "arquivo" : "arquivos"}: os boletos e guias dos pagamentos abaixo, numerados na ordem da mensagem.`,
+      "Este arquivo fica fora da pasta, para não ir junto para o Drive.",
+      "",
+      ...itens.map((i, n) => `${String(n + 1).padStart(2, "0")}. ${i.fornecedor} — R$ ${i.valor.toFixed(2).replace(".", ",")} — vence ${dataBr(i.vencimento)}${semDocumento.includes(i.fornecedor) ? " (sem documento anexado)" : ""}`),
+      "",
+      "Confira sempre os valores e vencimentos antes de efetuar os pagamentos.",
+    ]));
+  }
   if (arquivos > 0) saveAs(await zip.generateAsync({ type: "blob" }), `${pasta}.zip`);
   return { arquivos, semDocumento };
 }

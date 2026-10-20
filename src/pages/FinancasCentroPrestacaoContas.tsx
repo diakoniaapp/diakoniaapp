@@ -33,6 +33,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { AssinaturaDoSistema } from "@/components/AssinaturaDoSistema";
 
 const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
   ministerio: "Ministério", area: "Área", ebd_classe: "Classe EBD",
@@ -341,6 +342,7 @@ export default function FinancasCentroPrestacaoContas() {
             "Tudo, porém, deve ser feito com decência e ordem."
           </p>
           <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
+          <AssinaturaDoSistema />
         </footer>
       </div>
     </div>

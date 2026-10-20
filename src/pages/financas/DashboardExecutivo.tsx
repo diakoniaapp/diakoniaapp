@@ -21,6 +21,7 @@ import { IndicadorCentroCusto } from "@/components/financas/IndicadorCentroCusto
 import { IndicadorPorCategoria } from "@/components/financas/IndicadorPorCategoria";
 import { IndicadoresDeEncargos } from "@/components/financas/IndicadoresDeEncargos";
 import { toYmd, parseLocalDate, daquiAMeses, hojeLocal } from "@/lib/data";
+import { AssinaturaDoSistema } from "@/components/AssinaturaDoSistema";
 
 const fmtBR = (n: number | null | undefined) =>
   n == null ? "—" : Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -400,6 +401,7 @@ export default function DashboardExecutivo() {
       <p className="text-xs text-muted-foreground text-right print:text-center pt-2 border-t print:border-0">
         _Dashboard Executivo · Diakonia APP_ · Gerado em {new Date().toLocaleString("pt-BR")}
       </p>
+      <AssinaturaDoSistema />
     </div>
   );
 }

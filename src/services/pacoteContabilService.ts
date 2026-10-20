@@ -38,6 +38,7 @@ import { PASTA_DOCUMENTOS_DO_FECHAMENTO, caminhoNoPacote, indiceDosDocumentosCsv
 import { baixarBytesDoDocumento, documentosParaOPacote } from "@/services/fechamentoDocumentosService";
 import { ANEXOS_DA_QUITACAO, ROTULO_INTENCAO, ehTerceiro } from "@/lib/quitacao";
 import type { ContextoDocumental } from "@/lib/pacoteContabil";
+import { leiaMeDoPacote } from "@/lib/assinaturaDoSistema";
 
 const BUCKET = "fin-comprovantes";
 // Mesmo motivo de `emLotes` em finService: `.in()` vira query string, e
@@ -358,6 +359,12 @@ export async function baixarPacoteContabil(
     ));
   }
 
+  zip.file(`${plano.raiz}/LEIA-ME.txt`, leiaMeDoPacote(`Pacote contábil — ${plano.raiz}`, [
+    "INDICE.csv — todos os arquivos do pacote e o caminho de cada um.",
+    "PENDENCIAS.csv — pagamentos cuja documentação ainda não está completa.",
+    "Cada pasta de pagamento traz o dossiê do lançamento (nota, boleto, comprovante…).",
+    `Arquivos incluídos: ${baixados} · pendências de documentação: ${plano.pendencias.length}${falhas.length ? ` · arquivos que não puderam ser baixados: ${falhas.length} (veja ERROS.txt)` : ""}.`,
+  ]));
   zip.file(`${plano.raiz}/INDICE.csv`, indiceCsv(plano, falhouPath, paginas));
   zip.file(`${plano.raiz}/PENDENCIAS.csv`, pendenciasCsv(plano));
   if (plano.quitacoesPendentes.length > 0) zip.file(`${plano.raiz}/PENDENCIAS_QUITACAO.csv`, pendenciasDeQuitacaoCsv(plano.quitacoesPendentes));

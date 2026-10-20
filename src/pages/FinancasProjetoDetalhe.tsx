@@ -39,6 +39,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
 import { quitacoesDasObrigacoes } from "@/services/quitacaoService";
+import { AssinaturaDoSistema } from "@/components/AssinaturaDoSistema";
 
 const VERMELHO = "#dc2626";
 const VERDE = "#059669";
@@ -576,6 +577,7 @@ export default function FinancasProjetoDetalhe() {
             </p>
             <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
             <p className="text-xs text-muted-foreground mt-2">Tesouraria · DiakoniaApp — página 2 de 2</p>
+            <AssinaturaDoSistema />
           </footer>
         </div>
       )}

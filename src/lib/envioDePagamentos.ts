@@ -6,6 +6,11 @@
 // Regras que ela aprovou: só entra no corpo o que tem linha digitável; Pix é um bloco opcional; prebenda, folha e Sustento são sigilosos e ficam FORA por padrão; o que não tem meio de
 // pagamento aparece como "sem dado automático" (nunca some em silêncio) e pode ser citado numa linha final ("na pasta, sem linha digitável").
 
+import { assinaturaEmHtml, assinaturaEmTexto, assinaturaEmWhatsapp } from "@/lib/assinaturaDoSistema";
+
+/** A camada de controle do e-mail: quem paga confere antes. */
+export const AVISO_DE_CONFERENCIA = "Confira sempre os valores e vencimentos antes de efetuar os pagamentos.";
+
 export type GrupoDoEnvio = "padrao" | "pix" | "sigiloso" | "sem_dado";
 
 export interface ItemDeEnvio {
@@ -174,6 +179,8 @@ export function montarEnvio(itens: ItemDeEnvio[], o: OpcoesDoEnvio): EnvioMontad
     html += `</table>`;
   }
   if (semDado.length > 0) html += `<p style="margin-top:14px">Na pasta do drive, sem linha digitável: ${esc(semDado.map(i => `${i.fornecedor} (${brl(i.valor)})`).join("; "))}.</p>`;
+  html += `<p style="margin-top:16px;font-size:12px;color:#555">${esc(AVISO_DE_CONFERENCIA)}</p>`;
+  html += assinaturaEmHtml("mensagem");
   html += `</div>`;
 
   // ── WhatsApp (*negrito* e ```fonte monoespaçada```, que o aplicativo copia com um toque) ──
@@ -187,6 +194,9 @@ export function montarEnvio(itens: ItemDeEnvio[], o: OpcoesDoEnvio): EnvioMontad
   for (const b of blocos) txt.push("", `➡️ ${b.cab}`, b.ben, ...(b.rotuloDoCodigo ? [b.rotuloDoCodigo] : []), b.codigo);
   if (itens.length > 0) txt.push("", `Total: ${itens.length} · ${brl(total)}`);
   if (semDado.length > 0) txt.push("", `Na pasta do drive, sem linha digitável: ${semDado.map(i => `${i.fornecedor} (${brl(i.valor)})`).join("; ")}.`);
+
+  wa.push("", AVISO_DE_CONFERENCIA, "", assinaturaEmWhatsapp("mensagem"));
+  txt.push("", AVISO_DE_CONFERENCIA, "", assinaturaEmTexto("mensagem"));
 
   return { assunto, html, whatsapp: wa.join("\n"), texto: txt.join("\n"), total, quantidade: itens.length };
 }

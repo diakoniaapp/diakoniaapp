@@ -4,6 +4,7 @@
 // uma tela por vez. Só estilo e estrutura: nenhuma regra de negócio mora aqui. Fontes: as do sistema (Inter no texto, Cormorant Garamond nos títulos).
 import type { ReactNode } from "react";
 import logoDiakonia from "@/assets/logo-diakonia.png";
+import { AssinaturaDoSistema } from "@/components/AssinaturaDoSistema";
 
 export function CabecalhoDeRelatorio({ emitidoPor }: { emitidoPor: string }) {
   const agora = new Date();
@@ -85,6 +86,7 @@ export function RodapeDeRelatorio() {
     <footer className="avoid-break mt-6 pt-3 border-t border-gold/30 text-center">
       <p className="text-xs italic text-muted-foreground font-serif">"Tudo, porém, deve ser feito com decência e ordem."</p>
       <p className="text-xs text-gold-text tracking-wide mt-1">1 Coríntios 14:40</p>
+      <AssinaturaDoSistema />
     </footer>
   );
 }

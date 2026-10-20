@@ -68,6 +68,7 @@ import { PaginaSkeleton } from "@/components/ListState";
 import { hojeLocal, daquiAMeses, toYmd, parseLocalDate } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { AssinaturaDoSistema } from "@/components/AssinaturaDoSistema";
 
 /**
  * Como as células da demonstração escrevem dinheiro. Com mais de 6 meses o papel é vertical e as 12 colunas de valor não cabem com "R$ " em cada célula (o navegador encolhia a página toda
@@ -839,6 +840,7 @@ export default function FinancasPrestacaoContas() {
             "Tudo, porém, deve ser feito com decência e ordem."
           </p>
           <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
+          <AssinaturaDoSistema />
         </footer>
         </div>
       </div>
