@@ -78,15 +78,18 @@ function Cartao({ id, titulo, subtitulo, direita, children, className = "" }: {
   );
 }
 
-function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string; tom?: "bom" | "ruim" | "aviso" | "neutro"; detalhe?: string }) {
+function Numero({ rotulo, valor, tom, detalhe, onClick }: { rotulo: string; valor: string; tom?: "bom" | "ruim" | "aviso" | "neutro"; detalhe?: string; onClick?: () => void }) {
   const cor = tom === "bom" ? "text-success-text" : tom === "ruim" ? "text-destructive-text" : tom === "aviso" ? "text-warning-text" : "";
-  return (
-    <div className="rounded-lg border bg-card px-3 py-2.5 min-w-0">
+  const miolo = (
+    <>
       <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold leading-tight">{rotulo}</p>
       <p className={`text-lg font-extrabold tabular-nums truncate ${cor}`}>{valor}</p>
       {detalhe && <p className="text-[11px] text-muted-foreground truncate">{detalhe}</p>}
-    </div>
+    </>
   );
+  return onClick
+    ? <button type="button" onClick={onClick} className="rounded-lg border bg-card px-3 py-2.5 min-w-0 text-left hover:border-gold/60 hover:bg-muted/30 transition-colors">{miolo}</button>
+    : <div className="rounded-lg border bg-card px-3 py-2.5 min-w-0">{miolo}</div>;
 }
 
 export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarReembolso, onEditar, onAnexo, onAbrir, chip }: {
@@ -225,7 +228,9 @@ export function MesaDoTesoureiro({
     );
   }
   const { aPagar, caixa, compromissos7, cobertura, ind, pagosHoje, semComprovante, checklist, porId } = derivados;
-  const pendentesDoDia = pendenciasDoChecklist(checklist);
+  // os itens do checklist que NÃO são um dos quatro números do topo (atrasadas, hoje e débitos já são números)
+  const tambemHoje = checklist.filter(i => !i.feito && !["atrasadas", "hoje", "debitos"].includes(i.chave));
+  const irParaAFila = () => { setVisao("fila"); window.setTimeout(() => rolarPara("mesa-contas"), 60); };
 
   /** A linha de uma conta a pagar, com o chip da ação à frente — a MESMA da Mesa, agora dentro da fila única. */
   const renderConta = (v: FinVencimento, chip: React.ReactNode) => (
@@ -240,17 +245,37 @@ export function MesaDoTesoureiro({
 
   return (
     <div className="space-y-4">
-      {/* 1 · a faixa do dia */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        <Numero rotulo="Caixa disponível" valor={brl(caixa.disponivel)} tom="neutro"
-          detalhe={caixa.aplicacoes > 0 ? `+ ${brl(caixa.aplicacoes)} em aplicações` : "banco, caixa e envelopes"} />
-        <Numero rotulo="A pagar até 7 dias" valor={brl(compromissos7)} tom={compromissos7 > 0 ? "ruim" : "neutro"}
-          detalhe={aPagar.atrasadas.length > 0 ? `inclui ${aPagar.atrasadas.length} atrasada${aPagar.atrasadas.length > 1 ? "s" : ""}` : "nada atrasado"} />
-        <Numero rotulo={cobertura.cobre ? "Sobra depois de pagar" : "Falta para pagar"} valor={brl(Math.abs(cobertura.saldoDepois))}
-          tom={cobertura.cobre ? "bom" : "ruim"} detalhe={cobertura.cobre ? "o caixa cobre a semana" : "o caixa não cobre a semana"} />
+      {/* 1 · o "Seu dia": quatro números que levam ao que pede ação. Substituem a coluna lateral (que deixava um buraco do tamanho da Fila e repetia estes mesmos números) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5" data-seu-dia>
+        <Numero rotulo="▲ Atrasadas" valor={String(aPagar.atrasadas.length)} tom={aPagar.atrasadas.length > 0 ? "ruim" : "bom"}
+          detalhe={aPagar.atrasadas.length > 0 ? `${brl(soma(aPagar.atrasadas))} · resolver →` : "nada atrasado"}
+          onClick={aPagar.atrasadas.length > 0 ? irParaAFila : undefined} />
+        <Numero rotulo="Vencem hoje" valor={String(aPagar.hoje.length)} tom={aPagar.hoje.length > 0 ? "aviso" : "bom"}
+          detalhe={aPagar.hoje.length > 0 ? `${brl(soma(aPagar.hoje))} · pagar →` : "nada vence hoje"}
+          onClick={aPagar.hoje.length > 0 ? irParaAFila : undefined} />
         <Numero rotulo="Débitos a conferir" valor={String(derivados.debitosAConferir)} tom={derivados.debitosAConferir > 0 ? "ruim" : "bom"}
-          detalhe={dados.debitosIndisponiveis ? "migration pendente" : ind.naoEncontrados > 0 ? `${ind.naoEncontrados} possível falha${ind.naoEncontrados > 1 ? "s" : ""} no débito` : "aguardando confirmação do banco"} />
+          detalhe={dados.debitosIndisponiveis ? "migration pendente" : ind.naoEncontrados > 0 ? `${ind.naoEncontrados} possível falha${ind.naoEncontrados > 1 ? "s" : ""} · conferir →` : "aguardando confirmação do banco"}
+          onClick={derivados.debitosAConferir > 0 ? irParaAFila : undefined} />
+        <Numero rotulo={cobertura.cobre ? "Sobra depois de pagar a semana" : "Falta para pagar a semana"} valor={brl(Math.abs(cobertura.saldoDepois))}
+          tom={cobertura.cobre ? "bom" : "ruim"} detalhe={`caixa ${brl(caixa.disponivel)} · a pagar em 7 dias ${brl(compromissos7)}`} />
       </div>
+
+      {tambemHoje.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border bg-card px-3 py-2 text-xs" data-tambem-hoje>
+          <span className="font-bold uppercase tracking-wide text-muted-foreground text-2xs">Também hoje</span>
+          {tambemHoje.map(i => {
+            const acao = acaoDoItem(i.chave, { onImportarExtrato });
+            const rotulo = <>{i.rotulo}<span className="text-muted-foreground"> · {i.detalhe}</span></>;
+            const cls = "rounded-full border bg-background px-2.5 py-1 hover:bg-muted/60";
+            return i.chave === "documentos"
+              ? <Link key={i.chave} to="/financas/documentos" className={cls}>{rotulo}</Link>
+              : acao ? <button key={i.chave} type="button" onClick={acao} className={cls}>{rotulo}</button>
+              : <span key={i.chave} className={cls}>{rotulo}</span>;
+          })}
+        </div>
+      ) : (
+        <p className="text-xs text-success-text px-1" data-tambem-hoje>✓ Comprovantes, extrato e documentos em dia.</p>
+      )}
 
       {dados.erros.length > 0 && (
         <p className="text-xs text-warning-text border border-warning-line bg-warning-soft/40 rounded-md px-3 py-2">
@@ -258,9 +283,9 @@ export function MesaDoTesoureiro({
         </p>
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
-        {/* 2 · contas a pagar */}
-        <Cartao id="mesa-contas" className="lg:col-span-2" titulo={visao === "calendario" ? "Calendário de vencimentos" : "Fila do dia"}
+      <div className="space-y-4">
+        {/* 2 · contas a pagar — a lista de obrigações é o ambiente de trabalho: largura inteira */}
+        <Cartao id="mesa-contas" titulo={visao === "calendario" ? "Calendário de vencimentos" : "Fila do dia"}
           subtitulo={visao === "calendario" ? "O mês de uma vez: contas e débitos automáticos — clique num dia" : "O que pede você agora: contas, débitos e quitações — um vocabulário, uma ordem"}
           direita={<div className="flex flex-wrap justify-end gap-1.5">
             <div role="group" aria-label="Visão" className="inline-flex overflow-hidden rounded-md border">
@@ -289,27 +314,17 @@ export function MesaDoTesoureiro({
           </>}
         </Cartao>
 
-        {/* as filas e os prazos da Quitação agora são itens da Fila do dia (um vocabulário só) */}
-        <SaneamentoDeCadastros chave={chaveDeAtualizacao} />
-
-        {/* 3 · seu dia */}
-        <div className="space-y-4">
-          <Cartao titulo="Seu dia"
-            subtitulo={pendentesDoDia === 0 ? "Tudo em dia" : `${pendentesDoDia} ${pendentesDoDia === 1 ? "item pede" : "itens pedem"} sua atenção`}>
-            <ul className="space-y-0.5">
-              {checklist.map(i => <ItemChecklist key={i.chave} item={i}
-                acao={acaoDoItem(i.chave, { onImportarExtrato })} />)}
-            </ul>
-          </Cartao>
-
-          {/* 5 · pagamentos de hoje */}
-          <Cartao titulo="Pagamentos de hoje" subtitulo={pagosHoje.length === 0 ? "Nada pago hoje ainda" : `${pagosHoje.length} · ${brl(soma(pagosHoje))}`}>
-            {pagosHoje.length > 0 && (
+        {/* o que sobra do dia: saneamento de cadastros e pagamentos de hoje — só aparecem quando há o que mostrar */}
+        <div className="grid gap-4 empty:hidden md:grid-cols-2">
+          {/* as filas e os prazos da Quitação agora são itens da Fila do dia (um vocabulário só) */}
+          <SaneamentoDeCadastros chave={chaveDeAtualizacao} />
+          {pagosHoje.length > 0 && (
+            <Cartao titulo="Pagamentos de hoje" subtitulo={`${pagosHoje.length} · ${brl(soma(pagosHoje))}`}>
               <ul>
                 {pagosHoje.slice(0, 8).map(p => <LinhaPaga key={p.id} p={p} onAnexo={() => onAnexo({ id: p.id, label: p.fornecedor || p.descricao })} />)}
               </ul>
-            )}
-          </Cartao>
+            </Cartao>
+          )}
         </div>
       </div>
 
@@ -439,31 +454,6 @@ function acaoDoItem(chave: string, a: { onImportarExtrato: () => void }): (() =>
     case "extrato": return a.onImportarExtrato;
     default: return null;
   }
-}
-
-function ItemChecklist({ item, acao }: { item: ItemDoChecklist; acao: (() => void) | null }) {
-  const Icone = item.feito ? CheckCircle2 : item.chave === "atrasadas" ? AlertTriangle : item.chave === "hoje" ? Clock : Circle;
-  const cor = item.feito ? "text-success-text" : item.chave === "atrasadas" ? "text-destructive-text" : "text-warning-text";
-  const miolo = (
-    <>
-      <Icone className={`w-4 h-4 shrink-0 mt-0.5 ${cor}`} />
-      <span className="min-w-0 text-left">
-        <span className={`block text-sm ${item.feito ? "text-muted-foreground" : "font-medium"}`}>{item.rotulo}</span>
-        <span className="block text-xs text-muted-foreground">{item.detalhe}</span>
-      </span>
-    </>
-  );
-  return (
-    <li>
-      {acao && !item.feito ? (
-        <button type="button" onClick={acao} className="w-full flex items-start gap-2 rounded px-1.5 py-1.5 hover:bg-muted/60">{miolo}</button>
-      ) : item.chave === "documentos" && !item.feito ? (
-        <Link to="/financas/documentos" className="w-full flex items-start gap-2 rounded px-1.5 py-1.5 hover:bg-muted/60">{miolo}</Link>
-      ) : (
-        <div className="flex items-start gap-2 px-1.5 py-1.5">{miolo}</div>
-      )}
-    </li>
-  );
 }
 
 function LinhaPaga({ p, onAnexo, mostrarDia }: { p: PagoRecente; onAnexo: () => void; mostrarDia?: boolean }) {

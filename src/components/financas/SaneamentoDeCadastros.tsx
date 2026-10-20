@@ -26,7 +26,7 @@ export function SaneamentoDeCadastros({ chave }: { chave: number }) {
 
   if (!lista || lista.length === 0) return null;
   return (
-    <section aria-label="Saneamento de cadastros" className="rounded-lg border bg-card lg:col-span-2">
+    <section aria-label="Saneamento de cadastros" className="rounded-lg border bg-card self-start">
       <button type="button" onClick={() => setAberta(a => !a)} className="flex w-full items-center gap-2 px-4 py-3 text-left hover:bg-muted/40">
         {aberta ? <ChevronUp className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
         <span className="min-w-0 flex-1">
