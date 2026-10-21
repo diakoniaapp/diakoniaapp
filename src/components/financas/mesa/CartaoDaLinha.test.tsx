@@ -77,6 +77,13 @@ describe("CartaoDaLinha — a conta compatível vem antes da despesa nova", () =
     expect(botao(/Registrar como nova despesa/)!.disabled).toBe(false);
   });
 
+  it("movimento de ENTRADA fala em receita, nunca em despesa (21/10/2026)", () => {
+    montar(<Caso l={linha({ tx: { fitid: "E1", tipo: "entrada", data: "2026-10-01", valor: 300, memo: "PIX RECEBIDO REM: JOSE DUTRA" } })} />);
+    expect(document.body.textContent).toContain("é uma receita nova");
+    expect(botao(/Registrar como nova receita/)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/despesa/i);
+  });
+
   it("sem candidata: diz o que procurou, a despesa nova já está aberta e não pede motivo", () => {
     montar(<Caso l={linha()} />);
     expect(document.body.textContent).toContain("Nenhuma conta em aberto nem recorrência compatível");

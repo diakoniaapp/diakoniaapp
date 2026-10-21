@@ -106,7 +106,7 @@ export function CartaoDaLinha(p: Props) {
               {obrigacaoExata ? "Liquidar esta conta" : "Liquidar esta conta (explicar a diferença)"}
             </AcaoDoPainel>
             {buscar}
-            <AcaoDoPainel dica="pede o motivo" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>Não é esta conta — registrar nova despesa</AcaoDoPainel>
+            <AcaoDoPainel dica="pede o motivo" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>Não é esta conta — registrar {entrada ? "nova receita" : "nova despesa"}</AcaoDoPainel>
             {ignorar}
           </ListaDeAcoes>
         </>
@@ -121,7 +121,7 @@ export function CartaoDaLinha(p: Props) {
           <ListaDeAcoes>
             <AcaoDoPainel variante="principal" icone={<CheckCircle2 className="h-4 w-4" />} atalho="Enter" disabled={ocupado || !p.onGerarRecorrencia} onClick={p.onGerarRecorrencia}>Gerar e liquidar a recorrência</AcaoDoPainel>
             {buscar}
-            <AcaoDoPainel dica="pede o motivo" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>Não é esta recorrência — registrar nova despesa</AcaoDoPainel>
+            <AcaoDoPainel dica="pede o motivo" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>Não é esta recorrência — registrar {entrada ? "nova receita" : "nova despesa"}</AcaoDoPainel>
             {ignorar}
           </ListaDeAcoes>
         </>
@@ -141,7 +141,7 @@ export function CartaoDaLinha(p: Props) {
           )}
           {!candidata && !modoTransf && (
             <CaixaDeResposta tom="h4" titulo="◻ Nenhuma conta, recorrência ou registro compatível">
-              Nenhuma conta em aberto nem recorrência compatível foi encontrada — é uma despesa nova.
+              Nenhuma conta em aberto nem recorrência compatível foi encontrada — é {entrada ? "uma receita nova" : "uma despesa nova"}.
             </CaixaDeResposta>
           )}
           <HipoteseDaLinha h={hipotese} />
@@ -184,7 +184,7 @@ export function CartaoDaLinha(p: Props) {
           )}
 
           {candidata && (
-            <div className="space-y-1.5" role="group" aria-label="Por que é uma despesa nova">
+            <div className="space-y-1.5" role="group" aria-label={entrada ? "Por que é uma receita nova" : "Por que é uma despesa nova"}>
               <p className="text-xs font-medium">Por que não é {documento ? "essa conta" : "essa recorrência"}? <span className="text-destructive-text">(obrigatório)</span></p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {MOTIVOS_DE_DESPESA_NOVA.map(m => (
@@ -228,7 +228,7 @@ export function CartaoDaLinha(p: Props) {
           <ListaDeAcoes>
             <AcaoDoPainel variante={candidata ? "normal" : "azul"} icone={<CheckCircle2 className="h-4 w-4" />} disabled={ocupado || !gravavel || !motivoPronto} onClick={p.onConfirmar}
               title={!motivoPronto ? "Diga por que não é a conta em aberto" : undefined}>
-              Registrar como nova despesa
+              Registrar como {entrada ? "nova receita" : "nova despesa"}
             </AcaoDoPainel>
             {buscar}
             <AcaoDoPainel icone={<Pencil className="h-4 w-4" />} disabled={ocupado} onClick={p.onFormulario}>Editar no formulário completo</AcaoDoPainel>

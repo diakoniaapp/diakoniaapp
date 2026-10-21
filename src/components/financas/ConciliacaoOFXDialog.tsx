@@ -1020,7 +1020,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                   rodape={`${(pag.pagina - 1) * POR_PAGINA + 1}–${Math.min(pag.pagina * POR_PAGINA, naLista.length)} de ${naLista.length}`}
                   painelInline={isMobile && atual ? <div data-painel className="space-y-1.5 text-sm">{decisaoDaLinha(atual)}</div> : undefined} />
                 {!isMobile && (
-                  <aside data-painel aria-label="Decisão do movimento" className="space-y-1.5 rounded-md border bg-card p-3 text-sm md:sticky md:top-0">
+                  <aside data-painel aria-label="Decisão do movimento" className="space-y-1.5 rounded-md border bg-card p-3 text-sm md:sticky md:top-0 md:max-h-[calc(90vh-3rem)] md:overflow-y-auto md:overscroll-contain">
                     {atual ? decisaoDaLinha(atual) : <p className="text-muted-foreground">Escolha um movimento na lista.</p>}
                   </aside>
                 )}
@@ -1171,7 +1171,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Voltar</AlertDialogCancel>
-          <Button type="button" disabled={!motivoH0.trim()} onClick={() => void confirmarNaoEJaRegistrada()}>Seguir como despesa nova</Button>
+          <Button type="button" disabled={!motivoH0.trim()} onClick={() => void confirmarNaoEJaRegistrada()}>Seguir como {naoEJaRegistrada?.tx.tipo === "entrada" ? "receita nova" : "despesa nova"}</Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
