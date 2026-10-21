@@ -58,6 +58,17 @@ export default function FinancasProjetoDetalhe() {
   const [searchParams, setSearchParams] = useSearchParams();
   const vista: VistaDoProjeto = searchParams.get("vista") === "extrato" ? "extrato" : "relatorio";
   const trocarVista = (v: VistaDoProjeto) => setSearchParams(v === "extrato" ? { vista: "extrato" } : {}, { replace: true });
+  // PDF COMPLETO (21/10/2026): o relatório executivo (capa com os gráficos + anexo) e, depois, o extrato cronológico, num arquivo só. Durante a impressão as duas partes ficam
+  // montadas na tela; espera os gráficos terminarem de desenhar (eles animam ~1,5 s quando acabam de montar) e volta ao normal no `afterprint`.
+  const [imprimindoCompleto, setImprimindoCompleto] = useState(false);
+  function imprimirCompleto() {
+    const vinhaDoExtrato = vista === "extrato";
+    setImprimindoCompleto(true);
+    toast.message("Preparando o PDF completo…");
+    const fim = () => { setImprimindoCompleto(false); window.removeEventListener("afterprint", fim); };
+    window.addEventListener("afterprint", fim);
+    setTimeout(() => window.print(), vinhaDoExtrato ? 2200 : 500);
+  }
 
   const [projeto, setProjeto] = useState<FinProjeto | null>(null);
 
@@ -254,11 +265,11 @@ export default function FinancasProjetoDetalhe() {
     </div>
   );
 
-  if (vista === "extrato") {
+  if (vista === "extrato" && !imprimindoCompleto) {
     return (
       <>
         <ExtratoDoProjeto projeto={projeto} lancamentos={todosLancs} emitidoPor={emitidoPor} abas={<AbasDoProjeto vista={vista} onChange={trocarVista} />}
-          onEditarProjeto={() => setEditOpen(true)} onMudou={carregar} />
+          onEditarProjeto={() => setEditOpen(true)} onMudou={carregar} onImprimirCompleto={imprimirCompleto} />
         <ProjetoForm open={editOpen} onOpenChange={setEditOpen} projeto={projeto} onSaved={carregar} />
       </>
     );
@@ -298,8 +309,8 @@ export default function FinancasProjetoDetalhe() {
             <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
               <Download className="w-3.5 h-3.5" /> CSV
             </Button>
-            <Button variant="gold" onClick={() => window.print()} size="sm" className="gap-1.5">
-              <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+            <Button variant="gold" onClick={imprimirCompleto} size="sm" className="gap-1.5" title="Capa com os gráficos, anexo e o extrato cronológico, num PDF só">
+              <Printer className="w-3.5 h-3.5" /> Imprimir / PDF completo
             </Button>
           </div>
         </div>
@@ -592,10 +603,14 @@ export default function FinancasProjetoDetalhe() {
               "Tudo, porém, deve ser feito com decência e ordem."
             </p>
             <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
-            <p className="text-xs text-muted-foreground mt-2">Tesouraria · DiakoniaApp — página 2 de 2</p>
+            <p className="text-xs text-muted-foreground mt-2">Tesouraria · DiakoniaApp{imprimindoCompleto ? "" : " — página 2 de 2"}</p>
             <AssinaturaDoSistema />
           </footer>
         </div>
+      )}
+
+      {imprimindoCompleto && (
+        <ExtratoDoProjeto soDocumento projeto={projeto} lancamentos={todosLancs} emitidoPor={emitidoPor} abas={null} onEditarProjeto={() => {}} onMudou={() => {}} />
       )}
 
       <ProjetoForm open={editOpen} onOpenChange={setEditOpen} projeto={projeto} onSaved={carregar} />

@@ -55,12 +55,28 @@ describe("Extrato do projeto", () => {
     expect(el.textContent).toContain("R$ 60,00");
   });
 
-  it("Imprimir / PDF existe, e os controles e a lista 'sem projeto' ficam fora do papel (no-print)", async () => {
+  it("Imprimir só o extrato existe, e os controles e a lista 'sem projeto' ficam fora do papel (no-print)", async () => {
     const { el } = await abrir([lanc({ id: "a" })]);
-    expect([...el.querySelectorAll("button")].some(b => /Imprimir \/ PDF/.test(b.textContent ?? ""))).toBe(true);
+    expect([...el.querySelectorAll("button")].some(b => /Só o extrato/.test(b.textContent ?? ""))).toBe(true);
     expect(el.querySelector(".relatorio-page")!.textContent).toContain("Extrato do Projeto");
     expect(el.querySelector("section[aria-label='Do mesmo centro, sem projeto']")!.className).toContain("no-print");
     expect(el.querySelector(".relatorio-page [aria-label='Do mesmo centro, sem projeto']")).toBeNull();
+  });
+
+  it("PDF completo: no modo só-documento renderiza apenas o extrato (sem controles nem lista 'sem projeto'), começando em página nova", async () => {
+    const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
+    await act(async () => { raiz!.render(<ExtratoDoProjeto soDocumento projeto={projeto} lancamentos={[lanc({ id: "a" })] as never} emitidoPor="Telma" abas={null} onEditarProjeto={() => {}} onMudou={() => {}} />); });
+    expect(alvo.querySelector(".pagina-extrato")!.getAttribute("style")).toContain("page-break-before");
+    expect(alvo.textContent).toContain("Extrato do Projeto");
+    expect([...alvo.querySelectorAll("button")].some(b => /Só o extrato|Editar projeto|PDF completo/.test(b.textContent ?? ""))).toBe(false);
+    expect(alvo.querySelector("section[aria-label='Do mesmo centro, sem projeto']")).toBeNull();
+  });
+  it("o botão PDF completo existe no extrato e dispara o callback", async () => {
+    const f = vi.fn();
+    const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
+    await act(async () => { raiz!.render(<ExtratoDoProjeto projeto={projeto} lancamentos={[lanc({ id: "a" })] as never} emitidoPor="Telma" abas={null} onEditarProjeto={() => {}} onMudou={() => {}} onImprimirCompleto={f} />); });
+    await act(async () => { ([...alvo.querySelectorAll("button")].find(x => /PDF completo/.test(x.textContent ?? "")) as HTMLButtonElement).click(); });
+    expect(f).toHaveBeenCalled();
   });
 
   it("o PDF sai em A4 RETRATO: Centro e Conta saem das colunas no papel e vão para a linha de baixo da descrição", async () => {

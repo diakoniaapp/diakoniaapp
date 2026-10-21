@@ -51,9 +51,13 @@ interface Props {
   onEditarProjeto: () => void;
   /** depois de editar um lançamento ou incluir outros no projeto: a tela recarrega */
   onMudou: () => void;
+  /** só o documento do PDF (sem controles): usado pelo "PDF completo" da tela do Projeto */
+  soDocumento?: boolean;
+  /** imprime o relatório executivo + este extrato */
+  onImprimirCompleto?: () => void;
 }
 
-export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEditarProjeto, onMudou }: Props) {
+export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEditarProjeto, onMudou, soDocumento, onImprimirCompleto }: Props) {
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [mostrarPrevistos, setMostrarPrevistos] = useState(false);
@@ -75,6 +79,7 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
   useEffect(() => {
     let vivo = true;
     setMarcados(new Set());
+    if (soDocumento) return;   // só o documento do PDF: não precisa da lista "sem projeto"
     if (!chaveDosCentros) { setDoCentro([]); return; }
     setCarregandoCentro(true);
     Promise.all(chaveDosCentros.split(",").map(id => listarLancamentosSemTeto({ centroCustoId: id })))
@@ -112,36 +117,7 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
   const horaBr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const rotuloSaldo = ate ? `Saldo do projeto em ${dataBr(ate)}` : "Saldo do projeto";
 
-  return (
-    <div className="bg-background min-h-screen" data-extrato-projeto>
-      <style>{`
-        @media print {
-          @page { size: A4 portrait; margin: 1.2cm 1.4cm; }
-          .relatorio-page table { table-layout: fixed !important; }
-        }
-      `}</style>
-
-      {/* controles (fora do papel) */}
-      <div className="no-print sticky top-0 z-10 border-b bg-card">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
-          {abas}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <CampoData value={de} permitirVazio placeholder="De" className="w-[10.5rem]" onChange={v => { const r = aoMudarInicio(v, ate); setDe(r.inicio); setAte(r.fim); }} />
-            <span className="text-xs text-muted-foreground">até</span>
-            <CampoData value={ate} permitirVazio placeholder="Até" className="w-[10.5rem]" onChange={v => { const r = aoMudarFim(de, v); setDe(r.inicio); setAte(r.fim); }} />
-            {(de || ate) && <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setDe(""); setAte(""); }}>Todo o período</Button>}
-          </div>
-          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-            <Checkbox checked={mostrarPrevistos} onCheckedChange={v => setMostrarPrevistos(!!v)} /> Mostrar previstos
-          </label>
-          <div className="ml-auto flex items-center gap-1">
-            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onEditarProjeto}><Pencil className="h-3.5 w-3.5" /> Editar projeto</Button>
-            <Button type="button" variant="gold" size="sm" className="gap-1.5" onClick={() => window.print()}><Printer className="h-3.5 w-3.5" /> Imprimir / PDF</Button>
-          </div>
-        </div>
-      </div>
-
-      {/* o documento: é só isto que sai no PDF */}
+  const documento = (
       <div className="relatorio-page mx-auto my-4 max-w-6xl rounded-md border border-border/40 bg-white p-4 text-foreground shadow-elevated md:my-6 md:p-8 print:my-0">
         <header className="avoid-break flex flex-col gap-3 border-b-2 border-gold/30 pb-4 print:flex-row print:items-start print:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -243,6 +219,42 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
           <AssinaturaDoSistema />
         </footer>
       </div>
+  );
+  // "PDF completo": o relatório executivo (capa com os gráficos) + este extrato como últimas páginas — só o documento, sem controles nem a lista "sem projeto"
+  if (soDocumento) return <div className="pagina-extrato" style={{ pageBreakBefore: "always" }}>{documento}</div>;
+
+  return (
+    <div className="bg-background min-h-screen" data-extrato-projeto>
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 1.2cm 1.4cm; }
+          .relatorio-page table { table-layout: fixed !important; }
+        }
+      `}</style>
+
+      {/* controles (fora do papel) */}
+      <div className="no-print sticky top-0 z-10 border-b bg-card">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2">
+          {abas}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <CampoData value={de} permitirVazio placeholder="De" className="w-[10.5rem]" onChange={v => { const r = aoMudarInicio(v, ate); setDe(r.inicio); setAte(r.fim); }} />
+            <span className="text-xs text-muted-foreground">até</span>
+            <CampoData value={ate} permitirVazio placeholder="Até" className="w-[10.5rem]" onChange={v => { const r = aoMudarFim(de, v); setDe(r.inicio); setAte(r.fim); }} />
+            {(de || ate) && <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setDe(""); setAte(""); }}>Todo o período</Button>}
+          </div>
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+            <Checkbox checked={mostrarPrevistos} onCheckedChange={v => setMostrarPrevistos(!!v)} /> Mostrar previstos
+          </label>
+          <div className="ml-auto flex items-center gap-1">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onEditarProjeto}><Pencil className="h-3.5 w-3.5" /> Editar projeto</Button>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()} title="Só esta vista: o extrato, com o período escolhido"><Printer className="h-3.5 w-3.5" /> Só o extrato</Button>
+            {onImprimirCompleto && <Button type="button" variant="gold" size="sm" className="gap-1.5" onClick={onImprimirCompleto} title="Relatório executivo (com os gráficos) + extrato"><Printer className="h-3.5 w-3.5" /> PDF completo</Button>}
+          </div>
+        </div>
+      </div>
+
+      {/* o documento: é só isto que sai no PDF */}
+      {documento}
 
       {/* fora do papel: o que ainda está só no centro de custo */}
       <section className="no-print mx-auto mb-10 max-w-6xl px-4 print:hidden" aria-label="Do mesmo centro, sem projeto">
