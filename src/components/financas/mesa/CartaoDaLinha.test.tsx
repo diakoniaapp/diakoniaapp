@@ -84,7 +84,7 @@ describe("CartaoDaLinha — a conta compatível vem antes da despesa nova", () =
     expect(document.body.textContent).not.toMatch(/despesa/i);
   });
 
-  it("receita: as categorias de entrada vêm numa lista suspensa só (sem botões nem 'Outra…'); despesa mantém os botões", () => {
+  it("as categorias vêm numa lista suspensa só, sem botões nem 'Outra…': da receita nas entradas, da despesa nas saídas", () => {
     const cats = [{ id: "c1", nome: "Dízimo" }, { id: "c2", nome: "Oferta" }, { id: "c3", nome: "Oferta de Missões" }];
     montar(<Caso categorias={cats} l={linha({ tx: { fitid: "E1", tipo: "entrada", data: "2026-10-01", valor: 300, memo: "PIX RECEBIDO REM: JOSE" } })} />);
     const lista = document.querySelector('select[aria-label="Categoria da receita"]') as HTMLSelectElement;
@@ -94,7 +94,8 @@ describe("CartaoDaLinha — a conta compatível vem antes da despesa nova", () =
     act(() => { raiz?.unmount(); }); pai?.remove();
     montar(<Caso categorias={cats} l={linha()} />);
     expect(document.querySelector('select[aria-label="Categoria da receita"]')).toBeNull();
-    expect(document.querySelector('select[aria-label="Outra categoria"]')).toBeTruthy();
+    expect(document.querySelector('select[aria-label="Categoria da despesa"]')).toBeTruthy();
+    expect(document.querySelector('select[aria-label="Outra categoria"]')).toBeNull();
   });
 
   it("sem candidata: diz o que procurou, a despesa nova já está aberta e não pede motivo", () => {
