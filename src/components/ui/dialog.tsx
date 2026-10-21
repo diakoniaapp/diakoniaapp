@@ -4,6 +4,10 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+// FECHAR SEM ESPERAR ANIMAÇÃO (20/10/2026, "o modal Imprimir extrato não fecha"): o Radix só DESMONTA um modal que está fechando quando a animação de saída
+// termina (evento `animationend`). Com a aba em segundo plano, o aparelho em economia de bateria ou a página ocupada, esse evento atrasa — medido: o diálogo ficava
+// "fechado" no estado em 88 ms e só saía da tela em 2.114 ms — e, enquanto não sai, o <body> continua com `pointer-events: none`: Cancelar, X e a página inteira
+// parecem mortos. Sem animação de saída o modal some no mesmo quadro do clique. A animação de ENTRADA continua. (Dialog, AlertDialog e Sheet seguem a mesma regra)
 const Dialog = DialogPrimitive.Root;
 
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -19,7 +23,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=open]:fade-in-0",
       className,
     )}
     {...props}
@@ -48,7 +52,7 @@ const DialogContent = React.forwardRef<
         //
         // minmax(0, 1fr) permite a trilha encolher abaixo do min-content, que e
         // exatamente o que `min-w-0` faz em flex. Vale para todos os dialogos.
-        "fixed left-[50%] top-[50%] z-50 grid grid-cols-[minmax(0,1fr)] w-[calc(100%-1rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 max-h-[92vh] supports-[height:1dvh]:max-h-[92dvh] overflow-y-auto overscroll-contain rounded-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        "fixed left-[50%] top-[50%] z-50 grid grid-cols-[minmax(0,1fr)] w-[calc(100%-1rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-4 sm:p-6 shadow-lg duration-200 max-h-[92vh] supports-[height:1dvh]:max-h-[92dvh] overflow-y-auto overscroll-contain rounded-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         className,
       )}
       {...props}
