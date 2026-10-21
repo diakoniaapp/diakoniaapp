@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central de decisões — conciliação OFX</title>
+<style>
+  :root {
+    --fundo: #f6f2ec; --papel: #fffdf9; --tinta: #2b211c; --suave: #7a6d64; --linha: #e3d9cd;
+    --ouro: #b8893a; --ouro-fundo: #f3e7cf; --marrom: #5a3a2e;
+    --ruim: #b3382c; --ruim-fundo: #fbe9e6; --bom: #2f7d4f; --bom-fundo: #e6f3ea; --aviso: #a8741a; --aviso-fundo: #faf0d9; --info: #2f5f93; --info-fundo: #e8eff8; --roxo: #6b4f8f; --roxo-fundo: #efe9f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--tinta); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .pagina { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font: 600 28px/1.2 Georgia, "Times New Roman", serif; margin: 0 0 6px; }
+  h2 { font: 600 20px/1.3 Georgia, serif; margin: 38px 0 6px; }
+  p { margin: 0 0 10px; } .sub { color: var(--suave); max-width: 74ch; }
+  code { background: #efe7db; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .aviso { background: var(--papel); border: 1px solid var(--linha); border-left: 4px solid var(--ouro); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13.5px; }
+
+  /* a central: lista + painel */
+  .central { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 0; background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; overflow: hidden; margin-top: 12px; }
+  @media (max-width: 900px) { .central { grid-template-columns: 1fr; } }
+  .lista { border-right: 1px solid var(--linha); min-width: 0; }
+  @media (max-width: 900px) { .lista { border-right: 0; border-bottom: 1px solid var(--linha); } }
+  .barra { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--linha); background: #f9f4ec; }
+  .f { font-size: 11.5px; border: 1px solid var(--linha); border-radius: 99px; padding: 2px 10px; background: #fff; white-space: nowrap; }
+  .f.on { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+  .f b { font-variant-numeric: tabular-nums; }
+  .th, .tr { display: grid; grid-template-columns: 52px minmax(0, 1fr) 84px 92px; gap: 8px; align-items: center; padding: 6px 12px; font-size: 12.5px; }
+  .th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); border-bottom: 1px solid var(--linha); }
+  .tr { border-bottom: 1px solid var(--linha); }
+  .tr.sel { background: var(--ouro-fundo); box-shadow: inset 3px 0 0 var(--ouro); }
+  .tr .m { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tr .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; } .v.e { color: var(--bom); } .v.s { color: var(--ruim); }
+  .chip { font-size: 10.5px; padding: 1px 7px; border-radius: 4px; text-align: center; white-space: nowrap; font-weight: 600; }
+  .h0 { background: var(--aviso-fundo); color: var(--aviso); } .h1 { background: var(--bom-fundo); color: var(--bom); } .h2 { background: var(--roxo-fundo); color: var(--roxo); }
+  .h3 { background: var(--info-fundo); color: var(--info); } .h4 { background: #ece6dc; color: var(--marrom); } .ok { background: #e9e9e9; color: #777; font-weight: 400; }
+  .rodape { padding: 8px 12px; font-size: 11.5px; color: var(--suave); }
+
+  .painel { padding: 14px 16px; min-width: 0; }
+  .painel .cab { border-bottom: 1px solid var(--linha); padding-bottom: 8px; margin-bottom: 10px; }
+  .painel .cab b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .painel .cab span { color: var(--suave); font-size: 12px; }
+  .resposta { border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 12.5px; }
+  .resposta .t { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .resposta.h0 { background: var(--aviso-fundo); border: 1px solid #ecd9a8; color: var(--tinta); } .resposta.h0 .t { color: var(--aviso); }
+  .resposta.h1 { background: var(--bom-fundo); border: 1px solid #bfdfca; color: var(--tinta); } .resposta.h1 .t { color: var(--bom); }
+  .resposta.h4 { background: #f1ebe1; border: 1px solid var(--linha); color: var(--tinta); } .resposta.h4 .t { color: var(--marrom); }
+  .resposta small { color: var(--suave); display: block; margin-top: 2px; }
+  .acoes { display: grid; gap: 6px; }
+  .a { display: flex; align-items: center; gap: 8px; border: 1px solid var(--linha); border-radius: 8px; padding: 8px 12px; font-size: 13px; background: #fff; }
+  .a.principal { background: #2c6b45; color: #fff; border-color: #2c6b45; font-weight: 600; }
+  .a.fixa { border-style: dashed; }
+  .a.apagada { color: #aaa; background: #f6f6f6; }
+  .a small { margin-left: auto; color: var(--suave); font-weight: 400; font-size: 11px; }
+  .a.principal small { color: #d6eadb; }
+  .sep { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); margin: 8px 0 2px; }
+  .campos { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .sel2 { font-size: 11.5px; border: 1px solid var(--linha); border-radius: 6px; padding: 3px 8px; background: #fff; color: var(--suave); }
+  .sel2.on { background: var(--ouro-fundo); border-color: var(--ouro); color: var(--marrom); }
+
+  .tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
+  @media (max-width: 980px) { .tres { grid-template-columns: 1fr; } }
+  .caixa { background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .rot { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-bottom: 6px; color: var(--suave); }
+
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; }
+  .cmp th, .cmp td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  .cmp th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); background: #f3ece1; }
+  .cmp td.n { font-variant-numeric: tabular-nums; }
+  .cmp .no { color: var(--ruim); font-weight: 600; } .cmp .si { color: var(--bom); font-weight: 600; } .cmp .em { color: var(--aviso); font-weight: 600; }
+  .wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <h1>Central de decisões</h1>
+  <p class="sub">Proposta de layout da Conciliação OFX — a filosofia do Omie (lista à esquerda, um painel de decisão à direita), com a ordem H0 → H4 que você aprovou. <b>Nada disto está no sistema ainda</b>; o motor H0, o “Vincular”, a busca manual e o motivo obrigatório já estão no código (ver o fim da página).</p>
+  <div class="aviso">Os movimentos, datas e valores são do extrato de 01–19/10 e do banco em 20/10. Categoria, nomes de contrato e contagens do painel são ilustrativos.</div>
+
+  <h2>1 · Uma tela, duas áreas</h2>
+  <div class="central">
+    <div class="lista">
+      <div class="barra">
+        <span class="f on"><b>166</b> movimentos</span>
+        <span class="f"><b>H0</b> já registrados</span><span class="f"><b>H1</b> contas</span><span class="f"><b>H2</b> recorrências</span>
+        <span class="f"><b>H3</b> transferências</span><span class="f"><b>H4</b> nada achado</span><span class="f">resolvidos</span>
+      </div>
+      <div class="th"><span>Data</span><span>Movimento</span><span style="text-align:right">Valor</span><span>Hipótese</span></div>
+      <div class="tr"><span>01/10</span><span class="m">PIX RECEBIDO REM: JOSE DUTRA DOS SANTOS</span><span class="v e">300,00</span><span class="chip ok">resolvido</span></div>
+      <div class="tr"><span>02/10</span><span class="m">PIX ENVIADO DES: ANA PATRICIA DA SILVA</span><span class="v s">760,00</span><span class="chip h0">H0 registrado</span></div>
+      <div class="tr sel"><span>05/10</span><span class="m">PAGTO ELETRON COBRANCA VERISURE BRASIL</span><span class="v s">278,22</span><span class="chip h0">H0 registrado</span></div>
+      <div class="tr"><span>05/10</span><span class="m">PAGTO ELETRON COBRANCA VERISURE BRASIL</span><span class="v s">291,31</span><span class="chip h0">H0 registrado</span></div>
+      <div class="tr"><span>06/10</span><span class="m">PAGTO ELETRON COBRANCA PAG COBRANCA NET</span><span class="v s">431,43</span><span class="chip h1">H1 conta</span></div>
+      <div class="tr"><span>07/10</span><span class="m">PIX RECEBIDO REM: MARIA REGINA MENEZES</span><span class="v e">400,12</span><span class="chip h4">H4 dízimo?</span></div>
+      <div class="tr"><span>08/10</span><span class="m">BAIXA AUTOMAT POUPANCA*</span><span class="v e">1.017,58</span><span class="chip h3">H3 transf.</span></div>
+      <div class="tr"><span>13/10</span><span class="m">GASTOS CARTAO DE CREDITO</span><span class="v s">5.542,93</span><span class="chip h2">H2 recorrência</span></div>
+      <div class="rodape">1–50 de 166 · ↑ ↓ navega · Enter executa a ação principal · / abre “Buscar e associar”</div>
+    </div>
+
+    <div class="painel">
+      <div class="cab"><b>PAGTO ELETRON COBRANCA VERISURE BRASIL</b><span>05/10 · Bradesco · saída · − R$ 278,22</span></div>
+      <div class="resposta h0">
+        <div class="t">⚠ Este movimento já parece estar registrado</div>
+        Verisure Brasil Monitoramento · R$ 278,22 · 05/10
+        <small>recorrência já baixada em 08/10; o banco numerou esta linha N105B3, o arquivo anterior a chamava N11F17.</small>
+      </div>
+      <div class="acoes">
+        <div class="a principal">✔ Vincular ao lançamento existente <small>Enter</small></div>
+        <div class="a fixa">🔍 Buscar e associar a um lançamento ou conta <small>/</small></div>
+        <div class="a">Não é este movimento — é outro pagamento <small>pede o motivo</small></div>
+        <div class="a">⊘ Ignorar este movimento</div>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:8px">À esquerda, o <b>estado</b> de cada movimento (a hipótese é um chip, não uma pilha de controles). À direita, <b>uma</b> decisão por vez. As ações aparecem como no Omie — uma lista curta, com a principal destacada e “Buscar e associar” sempre presente —, mas a ordem muda conforme a hipótese.</p>
+
+  <h2>2 · O painel muda com a hipótese</h2>
+  <div class="tres">
+    <div class="caixa">
+      <div class="rot">H1 · conta compatível</div>
+      <div class="resposta h1"><div class="t">✅ Já existe uma conta compatível</div>Caio Marcelo · vence 05/10 · <b>R$ 4.138,00</b><small>valor igual · recorrência mensal</small></div>
+      <div class="acoes">
+        <div class="a principal">✔ Liquidar esta conta <small>Enter</small></div>
+        <div class="a fixa">🔍 Buscar e associar</div>
+        <div class="a">Não é esta conta — nova despesa <small>motivo</small></div>
+      </div>
+    </div>
+    <div class="caixa">
+      <div class="rot">H2 · recorrência sem conta aberta</div>
+      <div class="resposta h1" style="background:var(--roxo-fundo);border-color:#d8cbe8"><div class="t" style="color:var(--roxo)">↻ Recorrência compatível</div>Light · contrato mensal · dia 15 · R$ 3.583,22<small>a conta de outubro ainda não foi gerada</small></div>
+      <div class="acoes">
+        <div class="a principal" style="background:var(--roxo);border-color:var(--roxo)">✔ Gerar e liquidar a recorrência <small>Enter</small></div>
+        <div class="a fixa">🔍 Buscar e associar</div>
+        <div class="a">Não é esta recorrência — nova despesa <small>motivo</small></div>
+      </div>
+    </div>
+    <div class="caixa">
+      <div class="rot">H4 · nada encontrado</div>
+      <div class="resposta h4"><div class="t">◻ Nenhuma conta, recorrência ou registro compatível</div><small>procurei contas abertas, contratos do favorecido e lançamentos do dia</small></div>
+      <div class="campos"><span class="sel2 on">Dízimo (sugerido · 62%)</span><span class="sel2">Oferta</span><span class="sel2">Centro ▾</span><span class="sel2">Projeto ▾</span><span class="sel2">Favorecido ▾</span></div>
+      <div class="acoes">
+        <div class="a principal" style="background:#2f5f93;border-color:#2f5f93">✔ Registrar como nova despesa/receita <small>Enter</small></div>
+        <div class="a fixa">🔍 Buscar e associar</div>
+        <div class="a">⇄ É transferência entre contas</div>
+      </div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:8px">Categoria, centro e projeto <b>só existem no H4</b>. Nos demais, a classificação vem da conta ou da recorrência — nada a preencher.</p>
+
+  <h2>3 · Fluxo atual × fluxo proposto</h2>
+  <div class="wrap"><table class="cmp">
+    <thead><tr><th></th><th>Hoje (cartão por linha)</th><th>Proposto (central)</th></tr></thead>
+    <tbody>
+      <tr><td><b>Pergunta que a tela faz</b></td><td>“Qual categoria?” — e o botão é <i>Confirmar</i></td><td>“O que este movimento é?” — a hipótese vem pronta</td></tr>
+      <tr><td><b>Controles por decisão</b></td><td class="n">8–12 (favorecido, categorias, transferência, centro, projeto, 4 botões)</td><td class="n">2–4 (ação principal, buscar, “não é este”, ignorar); +4 só no H4</td></tr>
+      <tr><td><b>Linhas visíveis ao mesmo tempo</b></td><td class="n">≈ 4 cartões por tela</td><td class="n">≈ 20 linhas + 1 painel</td></tr>
+      <tr><td><b>Criar despesa nova</b></td><td>botão azul, sempre disponível</td><td>só em H4; com candidata exige <b>motivo</b></td></tr>
+      <tr><td><b>Recorrência já baixada</b></td><td class="no">invisível — vira “nova”</td><td class="si">H0: “já registrado” (par por valor + dia)</td></tr>
+      <tr><td><b>Outro arquivo, outro identificador</b></td><td class="no">não reconhece (52 duplicados em 20/10)</td><td class="si">reconhece; backtest: 56 de 56 linhas (01–05/10)</td></tr>
+      <tr><td><b>Quando o motor erra</b></td><td class="no">só resta “Confirmar” (criar)</td><td class="si">🔍 Buscar e associar, em qualquer cenário</td></tr>
+      <tr><td><b>Lote</b></td><td class="em">“Confirmar identificadas” grava sem olhar</td><td class="si">lote só de H0 (vincular, nada é criado) e de H4 já identificadas; recusa na gravação se houver gêmeo</td></tr>
+      <tr><td><b>Mudança de modelo mental</b></td><td>movimento bancário → categoria</td><td>movimento → obrigação / registro existente</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>4 · Onde cada duplicidade é barrada</h2>
+  <div class="wrap"><table class="cmp">
+    <thead><tr><th>Como duplicava</th><th>Camada que barra</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>Arquivo sobreposto, FITID diferente (as 52 de hoje)</td><td>Motor H0 (par 1:1 por valor + dia) → “Vincular”</td><td class="si">no código (47f7aa2), não publicado</td></tr>
+      <tr><td>Mesmo caso, análise antiga / duas abas / lote em massa</td><td>Guarda final em <code>registrarLote</code>: recusa gêmeo sem motivo</td><td class="si">no código (47f7aa2)</td></tr>
+      <tr><td>Conta em aberto + “Confirmar” (caso Ana/Carlos/Denise)</td><td>Cartão H1 (liquidar é o botão) + motivo obrigatório</td><td class="si">no código (47f7aa2)</td></tr>
+      <tr><td>Linha ligada à mão a lançamento de outro mês volta como “nova”</td><td>Vínculo ativo lido por FITID em qualquer data</td><td class="si">no código (47f7aa2)</td></tr>
+      <tr><td>Qualquer tela futura que grave sem passar por <code>registrarLote</code></td><td>Gatilho no banco que recusa o gêmeo sem motivo</td><td class="em">proposto — precisa de migration</td></tr>
+      <tr><td>Pensar em movimento, não em obrigação</td><td>Central (esta página) + visão por obrigação</td><td class="em">proposto</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</body>
+</html>

@@ -180,3 +180,31 @@ O desenho acima muda o cartão. A mudança de modelo mental pede também mudar a
 ---
 
 *Medições: consultas de leitura com a sessão de admin no navegador (PostgREST), 20/10/2026. Nenhum dado foi alterado. Arquivos lidos: `CartaoDaLinha.tsx`, `HipoteseDaLinha.tsx`, `ofxCandidatas.ts`, `documentoDoExtrato.ts`, trechos de `ConciliacaoOFXDialog.tsx`, `importacaoOfxService.ts`, `mesaOfx.ts`.*
+
+---
+
+## 7. Central de decisões (lista + painel) — arquitetura proposta (20/10/2026, a pedido dela)
+
+Comparativo visual e tabelas em `docs/proposta-conciliacao-central/index.html`. Aqui, a arquitetura.
+
+**Princípio:** separar *decidir* de *desenhar*.
+
+1. **Resolvedor puro** (`lib/resolverMovimento.ts`, testado): recebe a linha analisada e devolve uma união discriminada `{ hipotese: "H0" | "H1" | "H2" | "H3" | "H4", … }` com tudo que o painel precisa (o lançamento existente; a conta e a diferença; a recorrência e o mês; a conta de transferência; ou "nada encontrado" + o que foi procurado). Hoje essa decisão está espalhada em `analisar` (situações), em `CartaoDaLinha` (condições de tela) e na guarda D3. O cartão atual, o painel novo, a guarda final e a futura visão por obrigação **leem o mesmo resultado**.
+2. **Lista** (`ListaDeMovimentos`): uma linha por movimento (data, memo, valor, chip da hipótese), filtros por hipótese com contagem, paginação de 50, navegação por teclado. Substitui a pilha de cartões e os 12 filtros atuais por 6 (H0–H4 + resolvidos).
+3. **Painel** (`PainelDeDecisao`): renderiza pela hipótese. Ação principal destacada; "🔍 Buscar e associar" fixo; "Não é este… — nova despesa" sempre com motivo; categoria/centro/projeto só em H4. Reaproveita `BuscarEAssociarDialog`, `LiquidarPeloExtratoDialog`, `vincularMovimentos` e o motivo, que já existem.
+4. **Estado** continua em `ConciliacaoOFXDialog` (linhas, edições, motivos); a lista seleciona, o painel age. Sem backend novo, sem migration.
+
+**Tamanho e riscos.** É troca de apresentação sobre motor já pronto: o maior risco é regressão nos fluxos de lote e de grupo (`CartaoDoGrupo`, "Confirmar identificadas"), que precisam virar "lote de H4 identificadas" e "lote de H0". Por isso a ordem abaixo.
+
+**Fases**
+| Fase | Conteúdo | Estado |
+|---|---|---|
+| 1 | Motor H0 + Vincular + guarda final + motivo + busca manual + cartão com conta compatível primeiro | **commit 47f7aa2**, testes verdes, **não publicado** |
+| 2 | `resolverMovimento` (extrai a decisão) + H2 "Gerar e liquidar a recorrência" (chama `gerarOcorrencias` para o mês e abre a liquidação) + H3 unificada | próxima |
+| 3 | Lista + painel (a central), atalhos de teclado, lotes por hipótese | depois da 2 |
+| 4 | Gatilho no banco + impressão digital no vínculo (migration) | depende de decisão dela |
+| 5 | Visão por obrigação (contas à esquerda, movimento ao lado) | depois |
+
+**Impacto medido até aqui (Fase 1).** Backtest read-only no banco de produção com as 56 primeiras linhas do arquivo de 20/10 (01–05/10): com os identificadores reais, 56 de 56 já constam como "já registradas"; com os identificadores trocados (reexportação simulada), **56 de 56 viram "vincular" e nenhuma "nova"** — inclusive as 13 saídas. Testes: 9 do motor H0, 6 da guarda de gravação, 6 do cartão, 1 da grade; suíte completa 1.954 testes verdes; `tsc` e `vite build` sem erro.
+
+**Pendente da Fase 1 (honestidade):** H2 como *ação* (gerar e liquidar) ainda não existe — hoje a recorrência já baixada cai em H0 e a aberta em H1; a "recorrência sem conta aberta no mês" ainda aparece como despesa nova (com a nota "nenhuma conta ou recorrência compatível", que **não** é verdadeira nesse caso: a nota diz o que o motor procurou, e o motor ainda não procura contratos sem conta). Não verifiquei a tela com um arquivo real no navegador (o painel não permite escolher o arquivo); verifiquei o motor com `analisar` direto e o cartão com teste de componente.
