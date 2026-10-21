@@ -87,10 +87,10 @@ describe("CartaoDaLinha — a conta compatível vem antes da despesa nova", () =
   it("'Buscar e associar' está em qualquer cenário", () => {
     const aoBuscar = vi.fn();
     montar(<Caso l={linha({ documentos: [documento] })} aoBuscar={aoBuscar} />);
-    clicar(botao(/Buscar outra conta ou lançamento/));
+    clicar(botao(/Buscar e associar a um lançamento ou conta/));
     act(() => { raiz!.unmount(); }); pai!.remove();
     montar(<Caso l={linha()} aoBuscar={aoBuscar} />);
-    clicar(botao(/Buscar e associar a um lançamento que já existe/));
+    clicar(botao(/Buscar e associar a um lançamento ou conta/));
     expect(aoBuscar).toHaveBeenCalledTimes(2);
   });
 

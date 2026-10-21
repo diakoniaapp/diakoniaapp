@@ -24,7 +24,7 @@ describe("filtros da grade", () => {
 
   it("conta cada linha na faixa certa; transferência não entra em identificadas/revisar", () => {
     expect(contarPorFiltro(linhas)).toEqual({
-      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, recorrencias: 0, conciliar: 1, vincular: 0, ja_registradas: 1, ignoradas: 0,
+      todas: 8, h0: 0, h1: 0, h2: 0, h3: 0, h4: 0, resolvidos: 0, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, recorrencias: 0, conciliar: 1, vincular: 0, ja_registradas: 1, ignoradas: 0,
     });
   });
 
@@ -114,5 +114,18 @@ describe("paginar", () => {
     expect(marcadasParaGravar([comCandidata, livre], {}, new Set(["c1", "l1"])).map(x => x.fitid)).toEqual(["l1"]);
     expect(pertenceAoFiltro({ ...nova("h2"), recorrencia: true }, "recorrencias")).toBe(true);
     expect(pertenceAoFiltro(nova("x"), "recorrencias")).toBe(false);
+  });
+
+  it("os filtros da Central seguem a hipótese da linha (H0–H4 e resolvidos)", () => {
+    const l = (hipotese: LinhaDaGrade["hipotese"]): LinhaDaGrade => ({ ...nova("x"), hipotese });
+    expect(pertenceAoFiltro(l("H0"), "h0")).toBe(true);
+    expect(pertenceAoFiltro(l("H1"), "h1")).toBe(true);
+    expect(pertenceAoFiltro(l("H2"), "h2")).toBe(true);
+    expect(pertenceAoFiltro(l("H3"), "h3")).toBe(true);
+    expect(pertenceAoFiltro(l("H4"), "h4")).toBe(true);
+    expect(pertenceAoFiltro(l("resolvida"), "resolvidos")).toBe(true);
+    expect(pertenceAoFiltro(l("H4"), "h0")).toBe(false);
+    const c = contarPorFiltro([l("H0"), l("H0"), l("H4"), l("resolvida")]);
+    expect([c.todas, c.h0, c.h4, c.resolvidos]).toEqual([4, 2, 1, 1]);
   });
 });

@@ -8,6 +8,7 @@
 // escolhida por quem revisa. Linha sem categoria nunca é gravada "para depois".
 
 import type { Sugestao } from "./classificacaoOfx";
+import type { Resolucao } from "./resolverMovimento";
 
 export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "vincular" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
 
@@ -19,6 +20,8 @@ export interface LinhaDaGrade {
   sugestao?: Sugestao;
   /** H2: a linha tem uma recorrência compatível (e nenhuma conta em aberto candidata) */
   recorrencia?: boolean;
+  /** a resposta de `resolverMovimento`: H0 já registrado · H1 conta · H2 recorrência · H3 transferência/débito · H4 nada achado · resolvida */
+  hipotese?: Resolucao["h"];
   /** a linha tem uma CANDIDATA (conta em aberto ou recorrência): despesa nova é o último caminho — nunca entra em lote nem vem marcada; é decidida na própria linha, com o motivo */
   candidata?: boolean;
 }
@@ -43,10 +46,17 @@ export const MOTIVOS_DE_DESPESA_NOVA = [
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"
+  | "h0" | "h1" | "h2" | "h3" | "h4" | "resolvidos"
   | "transferencias" | "debitos" | "documentos" | "recorrencias" | "conciliar" | "vincular" | "ja_registradas" | "ignoradas";
 
 export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   todas: "Todas",
+  h0: "H0 já registrados",
+  h1: "H1 contas",
+  h2: "H2 recorrências",
+  h3: "H3 transferências",
+  h4: "H4 nada achado",
+  resolvidos: "resolvidos",
   identificadas: "Identificadas",
   pendencias: "Pendências",
   revisar: "Revisar",
@@ -62,11 +72,17 @@ export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
 };
 
 export const ORDEM_DOS_FILTROS: Filtro[] = [
-  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "recorrencias", "conciliar", "vincular", "ja_registradas", "ignoradas",
+  "todas", "h0", "h1", "h2", "h3", "h4", "resolvidos", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "recorrencias", "conciliar", "vincular", "ja_registradas", "ignoradas",
 ];
 
 export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
   if (f === "todas") return true;
+  if (f === "h0") return l.hipotese === "H0";
+  if (f === "h1") return l.hipotese === "H1";
+  if (f === "h2") return l.hipotese === "H2";
+  if (f === "h3") return l.hipotese === "H3";
+  if (f === "h4") return l.hipotese === "H4";
+  if (f === "resolvidos") return l.hipotese === "resolvida";
   if (f === "conciliar") return l.situacao === "conciliar";
   if (f === "vincular") return l.situacao === "vincular";
   // o movimento que parece já registrado precisa de um olhar antes de qualquer outra coisa: entra nas pendências

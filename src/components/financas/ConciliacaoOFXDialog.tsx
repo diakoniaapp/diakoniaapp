@@ -27,7 +27,7 @@ import { pedidosDeConfirmacao, type PedidoDeConfirmacao } from "@/lib/ofxCandida
 import type { DocumentoDoExtrato } from "@/lib/documentoDoExtrato";
 import { toast } from "sonner";
 import {
-  FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon, Search,
+  FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon, Search, Pencil,
 } from "lucide-react";
 import { conciliarEmLote, excluirLancamentosEmLote, listarContas, brl, type FinMovimentoTipo } from "@/services/finService";
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
@@ -49,9 +49,11 @@ import { LiquidarPeloExtratoDialog } from "./LiquidarPeloExtratoDialog";
 import { TransferenciaForm } from "./TransferenciaForm";
 import { BuscarEAssociarDialog } from "./mesa/BuscarEAssociarDialog";
 import { gerarUmaOcorrencia } from "@/services/recorrenciaService";
-import { CartaoDaLinha } from "./mesa/CartaoDaLinha";
+import { CartaoDaLinha, ROTULO_BUSCAR, nomeCurtoDaCategoria } from "./mesa/CartaoDaLinha";
 import { ListaDeMovimentos } from "./mesa/ListaDeMovimentos";
 import { moverSelecao, proximaPorDecidir, selecaoAposSumir } from "@/lib/selecaoDaLista";
+import { resolverMovimento } from "@/lib/resolverMovimento";
+import { AcaoDoPainel, CabecalhoDoPainel, CaixaDeResposta, ListaDeAcoes } from "./mesa/PainelDeDecisao";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AvisoDosGrupos } from "./mesa/AvisoDosGrupos";
 import { CartaoDoGrupo } from "./mesa/CartaoDoGrupo";
@@ -67,14 +69,16 @@ interface Props {
   onSaved: () => void;
 }
 
-const POR_PAGINA = 40;
+const POR_PAGINA = 50;
+/** a barra de filtros da Central de decisões: o total e as hipóteses */
+const CHIPS_DA_CENTRAL: Filtro[] = ["todas", "h0", "h1", "h2", "h3", "h4", "resolvidos"];
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 /** A linha como a grade a vê. As que foram lançadas AGORA (sem reanalisar o arquivo) contam como já registradas. */
-const daGradeBase = (l: LinhaAnalisada): LinhaDaGrade => ({ fitid: l.tx.fitid, situacao: l.situacao, sugestao: l.sugestao, recorrencia: !!l.recorrenciaCompativel && !l.documentos?.length, candidata: !!l.documentos?.length || !!l.recorrenciaCompativel });
+const daGradeBase = (l: LinhaAnalisada): LinhaDaGrade => ({ fitid: l.tx.fitid, situacao: l.situacao, sugestao: l.sugestao, hipotese: resolverMovimento(l).h, recorrencia: !!l.recorrenciaCompativel && !l.documentos?.length, candidata: !!l.documentos?.length || !!l.recorrenciaCompativel });
 
 export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, onSaved }: Props) {
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -691,162 +695,180 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       if (alvo?.isContentEditable || alvo?.closest?.('[role="listbox"],[role="menu"]')) return;
       if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setSelFitid(moverSelecao(itensDaLista, selFitid, e.key === "ArrowDown" ? 1 : -1)); }
       else if (e.key === "/" && atual && !ocupado) { e.preventDefault(); setBuscandoLinha(atual); }
+      // Enter executa a ação PRINCIPAL da linha — só quando o foco NÃO está num botão/campo (corpo, o próprio diálogo) ou está na lista (noutro botão, Enter é o clique daquele botão). Despesa nova nunca é principal.
+      else if (e.key === "Enter" && atual && !ocupado && (!alvo || !/^(BUTTON|A|INPUT|TEXTAREA|SELECT|SUMMARY)$/.test(alvo.tagName ?? "") || !!alvo.closest?.('ul[aria-label="Movimentos do extrato"]'))) {
+        const principal = acaoPrincipalDa(atual);
+        if (principal) { e.preventDefault(); principal(); }
+      }
     };
     document.addEventListener("keydown", aoTeclar);
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [open, linhas, itensDaLista, selFitid, atual, ocupado]);
 
-  /** O painel de decisão de UMA linha: o que o sistema achou (H0–H4) e as ações. */
+  /** "Conciliar este lançamento" (H0, linha única): liga a linha do extrato ao lançamento que casou. */
+  async function conciliarUma(l: LinhaAnalisada) {
+    if (!l.lancamentoId || !transacoes) return;
+    setConciliando(true);
+    try {
+      const r = await conciliarPagamentos([{ lancamentoId: l.lancamentoId, tx: l.tx }]);
+      if (r.conciliados.length > 0) { toast.success("Conciliado, com o vínculo do extrato"); alterou.current = true; }
+      if (r.erros.length > 0) toast.error(r.erros[0]);
+      await analisarDeNovo(transacoes, false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao conciliar");
+    } finally {
+      setConciliando(false);
+    }
+  }
+
+  /**
+   * A ação PRINCIPAL de uma linha (a tecla Enter): vincular, liquidar a conta, gerar e liquidar a recorrência, conciliar, conciliar o débito. Despesa NOVA nunca é principal —
+   * e nenhuma delas grava sem o clique/diálogo de confirmação que já tinha.
+   */
+  function acaoPrincipalDa(l: LinhaAnalisada): (() => void) | null {
+    if (confirmadas.has(l.tx.fitid)) return null;
+    const r = resolverMovimento(l);
+    const revelada = !!edicoes[l.tx.fitid]?.revelarNova;
+    if (r.h === "H0" && r.modo === "vincular") return () => setConfirmandoVinculo([l]);
+    if (r.h === "H0" && r.modo === "conciliar") return () => void conciliarUma(l);
+    if (r.h === "H1" && (l.situacao === "documento" || !revelada)) return () => setLiquidarLinha(l);
+    if (r.h === "H2" && !revelada) return () => void gerarELiquidarRecorrencia(l);
+    if (r.h === "H3" && r.modo === "debito") return () => void conciliarOsDebitos([l]);
+    return null;
+  }
+
+  /** O painel de decisão de UMA linha: o que o sistema achou (H0–H4) e as ações, uma por linha (a principal destacada, "Buscar e associar" sempre presente). */
   function decisaoDaLinha(l: LinhaAnalisada) {
     const fitid = l.tx.fitid;
-    const entrada = l.tx.tipo === "entrada";
     const lancadaAgora = confirmadas.get(fitid);
-    return (
-      <div className="space-y-1.5">
-                      {lancadaAgora ? (
-                        <div className="flex items-center gap-2 min-w-0">
-                          <CheckCircle2 className="w-4 h-4 shrink-0 text-success-text" aria-hidden />
-                          <span className="w-11 shrink-0 tabular-nums text-xs text-muted-foreground">{dataBr(l.tx.data)}</span>
-                          <span className="min-w-0 flex-1 truncate text-muted-foreground" title={l.tx.memo}>{l.tx.memo}</span>
-                          <span className="shrink-0 tabular-nums text-muted-foreground">{entrada ? "+" : "−"}{brl(l.tx.valor)}</span>
-                          <span className="shrink-0 text-xs text-success-text">lançado</span>
-                          <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={ocupado} onClick={() => desfazerLinha(fitid, lancadaAgora)}>
-                            <Undo2 className="w-3 h-3" /> Desfazer
-                          </Button>
-                        </div>
-                      ) : l.situacao === "nova" && l.sugestao ? (
-                        <CartaoDaLinha linha={l} edicao={edicoes[fitid]} marcada={marcadas.has(fitid)} ocupado={ocupado}
-                          categorias={categoriasPorTipo[l.tx.tipo]} opcoesDeCentro={opcoesDeCentro} projetos={projetos} nomeDaCategoria={nomeDaCategoria}
-                          ignorarDisponivel={ignorarDisponivel}
-                          onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
-                          onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
-                          outrasContas={outrasContas} contaNome={contaNome} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
-                          onLiquidar={() => setLiquidarLinha(l)} onBuscar={() => setBuscandoLinha(l)} onGerarRecorrencia={() => void gerarELiquidarRecorrencia(l)}
-                          onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="w-4 shrink-0" />
-                            <span className="w-11 shrink-0 tabular-nums text-xs text-muted-foreground">{dataBr(l.tx.data)}</span>
-                            <span className="min-w-0 flex-1 truncate" title={l.tx.memo}>{l.tx.memo}</span>
-                            <span className={`shrink-0 tabular-nums ${entrada ? "text-success-text" : "text-destructive-text"}`}>
-                              {entrada ? "+" : "−"}{brl(l.tx.valor)}
-                            </span>
-                          </div>
+    const r = resolverMovimento(l);
+    const cabecalho = <CabecalhoDoPainel linha={l} contaNome={contaNome} />;
+    const buscar = <AcaoDoPainel variante="fixa" icone={<Search className="h-4 w-4" />} atalho="/" disabled={ocupado} onClick={() => setBuscandoLinha(l)}>{ROTULO_BUSCAR}</AcaoDoPainel>;
+    const ignorar = ignorarDisponivel ? <AcaoDoPainel icone={<BanIcon className="h-4 w-4" />} disabled={ocupado} onClick={() => setIgnorando(l)}>Ignorar este movimento</AcaoDoPainel> : null;
+    const dataLanc = (iso: string) => dataBr(iso.slice(0, 10));
 
-                          {l.situacao === "conciliar" && (
-                            <p className="pl-6 text-xs text-muted-foreground">
-                              {l.semVinculo
-                                ? "Casa com um lançamento já CONFERIDO, sem vínculo com o banco — será ligada ao extrato (fica Conciliada)."
-                                : "Casa com um lançamento já registrado — será conciliada."}
-                            </p>
-                          )}
-                          {l.situacao === "vincular" && l.jaRegistrado && (
-                            <div className="pl-6 space-y-1.5">
-                              <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 text-xs">
-                                <p className="text-sm font-semibold text-warning-text">⚠ Este movimento já parece estar registrado</p>
-                                <p className="mt-0.5">
-                                  <b>{l.jaRegistrado.lancamento.rotulo ?? "lançamento existente"}</b> · <b className="tabular-nums">{brl(l.jaRegistrado.lancamento.valor)}</b> · {dataBr((l.jaRegistrado.lancamento.data_pagamento ?? l.jaRegistrado.lancamento.data).slice(0, 10))}
-                                </p>
-                                <p className="mt-0.5 text-muted-foreground">{l.jaRegistrado.motivo}</p>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <Button type="button" size="sm" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={() => setConfirmandoVinculo([l])}>
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Vincular ao lançamento existente
-                                </Button>
-                                <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={() => setBuscandoLinha(l)}>
-                                  <Search className="h-3 w-3" /> Buscar e associar a outro
-                                </Button>
-                                <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={() => { setMotivoH0(""); setNaoEJaRegistrada(l); }}>
-                                  Não é este movimento — é outro pagamento
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          {l.situacao === "ja_registrada" && (
-                            <p className="pl-6 text-xs text-muted-foreground">Já registrada: {l.motivoJaRegistrada}. Não será criada de novo.</p>
-                          )}
-                          {l.situacao === "ignorada" && l.ignorada && (
-                            <div className="pl-6 flex flex-wrap items-center gap-2">
-                              <p className="text-xs text-muted-foreground flex-1 min-w-0">
-                                <BanIcon className="mr-1 inline h-3 w-3" aria-hidden />Ignorada — {ROTULO_DO_MOTIVO[l.ignorada.motivo]}{l.ignorada.observacao ? `: ${l.ignorada.observacao}` : ""}. Não volta nas próximas importações.
-                              </p>
-                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado} onClick={() => reativar(l)}>
-                                <RotateCcw className="w-3 h-3" /> Reativar
-                              </Button>
-                            </div>
-                          )}
-                          {l.situacao === "debito_encontrado" && l.debito && (
-                            <div className="pl-6 flex flex-wrap items-center gap-2">
-                              <p className="text-xs flex-1 min-w-0">
-                                <b className="text-info-text">Débito automático encontrado</b>
-                                {" — "}{l.debito.candidato.fornecedor || l.debito.candidato.descricao || "previsto"}, vencimento {dataBr(l.debito.candidato.data)}, previsto {brl(l.debito.candidato.valor)}
-                                <span className="text-muted-foreground"> · {l.debito.confianca}% · {l.debito.motivos.join(" · ")}</span>
-                              </p>
-                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
-                                onClick={() => conciliarOsDebitos([l])}>
-                                <Scale className="w-3 h-3" /> Conciliar débito
-                              </Button>
-                            </div>
-                          )}
-                          {l.situacao === "documento" && l.documentos?.[0] && (() => {
-                            const d = l.documentos![0];
-                            const todos = [d.documento, ...d.outrosAbertos].sort((a, b) => a.data.localeCompare(b.data));
-                            return (
-                              <div className="pl-6 space-y-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-xs flex-1 min-w-0">
-                                    {d.ambiguo ? (
-                                      <b className="text-warning-text">⚠ {todos.length} documentos em aberto do mesmo fornecedor — escolha o contrato</b>
-                                    ) : d.segundoContrato ? (
-                                      <b className="text-success-text">✅ Possível segundo contrato</b>
-                                    ) : (
-                                      <b className={d.exato ? "text-info-text" : "text-warning-text"}>{d.exato ? "Documento a pagar encontrado" : "⚠ Diferença identificada"}</b>
-                                    )}
-                                    {!d.ambiguo && <>{" — "}{d.documento.fornecedor_nome ?? d.documento.descricao ?? "documento"}, vencimento {dataBr(d.documento.data)}, documento <b className="tabular-nums">{brl(d.documento.valor)}</b> · confiança <b className="tabular-nums">{d.confianca}%</b></>}
-                                    {!d.ambiguo && !d.exato && <> · diferença <b className="tabular-nums">{d.diferenca > 0 ? "+" : "−"}{brl(Math.abs(d.diferenca))}</b></>}
-                                  </p>
-                                  <Button type="button" size="sm" variant={d.exato && !d.ambiguo ? "default" : "outline"} className="h-7 gap-1 text-xs" disabled={ocupado}
-                                    onClick={() => setLiquidarLinha(l)}>
-                                    <Scale className="w-3 h-3" /> {d.ambiguo ? "Escolher o contrato" : d.exato ? "Liquidar obrigação prevista" : "Explicar diferença"}
-                                  </Button>
-                                  <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={ocupado}
-                                    onClick={() => naoEEsteDocumento(l.tx.fitid)}>
-                                    Não é este documento
-                                  </Button>
-                                </div>
-                                {(d.ambiguo || d.segundoContrato) && (
-                                  <ul className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
-                                    {todos.map(x => (
-                                      <li key={x.id} className={x.id === d.documento.id && d.segundoContrato ? "font-medium text-foreground" : ""}>
-                                        {x.descricao ?? "Contrato"} · vence {dataBr(x.data)} · <span className="tabular-nums">{brl(x.valor)}</span>
-                                        {Math.abs(x.valor - l.tx.valor) < 0.005 && <span className="text-success-text"> ← valor igual</span>}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                                <p className="text-[11px] text-muted-foreground">{d.motivo}</p>
-                              </div>
-                            );
-                          })()}
-                          {l.situacao === "ambigua" && (
-                            <div className="pl-6 flex flex-wrap items-center gap-2">
-                              <p className="text-xs text-warning-text flex-1 min-w-0">Há lançamentos parecidos já registrados — confira à mão antes de criar outro.</p>
-                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setEditarLinha(l)}>
-                                Lançar
-                              </Button>
-                              {ignorarDisponivel && (
-                                <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setIgnorando(l)}>
-                                  <BanIcon className="w-3 h-3" /> Ignorar
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
+    if (lancadaAgora) {
+      return (
+        <div className="space-y-2.5">
+          {cabecalho}
+          <CaixaDeResposta tom="ok" titulo="✓ Lançado agora" porque="Gravado nesta rodada — dá para desfazer.">Este movimento já saiu da fila.</CaixaDeResposta>
+          <ListaDeAcoes><AcaoDoPainel icone={<Undo2 className="h-4 w-4" />} disabled={ocupado} onClick={() => desfazerLinha(fitid, lancadaAgora)}>Desfazer o lançamento</AcaoDoPainel></ListaDeAcoes>
+        </div>
+      );
+    }
+    if (l.situacao === "nova" && l.sugestao) {
+      return (
+        <CartaoDaLinha linha={l} edicao={edicoes[fitid]} marcada={marcadas.has(fitid)} ocupado={ocupado}
+          categorias={categoriasPorTipo[l.tx.tipo]} opcoesDeCentro={opcoesDeCentro} projetos={projetos} nomeDaCategoria={nomeDaCategoria}
+          ignorarDisponivel={ignorarDisponivel}
+          onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
+          onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
+          outrasContas={outrasContas} contaNome={contaNome} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
+          onLiquidar={() => setLiquidarLinha(l)} onBuscar={() => setBuscandoLinha(l)} onGerarRecorrencia={() => void gerarELiquidarRecorrencia(l)}
+          onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
+      );
+    }
 
-      </div>
-    );
+    let corpo: React.ReactNode = null;
+    if (r.h === "H0" && r.modo === "vincular") {
+      const lc = r.jaRegistrado.lancamento;
+      corpo = (
+        <>
+          <CaixaDeResposta tom="h0" titulo="⚠ Este movimento já parece estar registrado" porque={r.jaRegistrado.motivo}>
+            <b>{lc.rotulo ?? "lançamento existente"}</b> · <b className="tabular-nums">{brl(lc.valor)}</b> · {dataLanc(lc.data_pagamento ?? lc.data)}
+          </CaixaDeResposta>
+          <ListaDeAcoes>
+            <AcaoDoPainel variante="principal" icone={<CheckCircle2 className="h-4 w-4" />} atalho="Enter" disabled={ocupado} onClick={() => setConfirmandoVinculo([l])}>Vincular ao lançamento existente</AcaoDoPainel>
+            {buscar}
+            <AcaoDoPainel dica="pede o motivo" disabled={ocupado} onClick={() => { setMotivoH0(""); setNaoEJaRegistrada(l); }}>Não é este movimento — é outro pagamento</AcaoDoPainel>
+            {ignorar}
+          </ListaDeAcoes>
+        </>
+      );
+    } else if (r.h === "H0" && r.modo === "conciliar") {
+      corpo = (
+        <>
+          <CaixaDeResposta tom="h0" titulo="✅ Casa com um lançamento já registrado"
+            porque={r.semVinculo ? "O lançamento está CONFERIDO, sem vínculo com o banco — conciliar liga a linha do extrato a ele (fica Conciliado)." : "O lançamento já registrado será conciliado com esta linha do extrato."}>
+            Mesmo valor e data próxima: nada será criado.
+          </CaixaDeResposta>
+          <ListaDeAcoes>
+            <AcaoDoPainel variante="principal" icone={<CheckCircle2 className="h-4 w-4" />} atalho="Enter" disabled={ocupado} onClick={() => void conciliarUma(l)}>Conciliar este lançamento</AcaoDoPainel>
+            {buscar}
+            {ignorar}
+          </ListaDeAcoes>
+        </>
+      );
+    } else if (r.h === "H0") {
+      corpo = (
+        <>
+          <CaixaDeResposta tom="h0" titulo="⚠ Há lançamentos parecidos já registrados">Confira à mão antes de criar outro.</CaixaDeResposta>
+          <ListaDeAcoes>
+            {buscar}
+            <AcaoDoPainel icone={<Pencil className="h-4 w-4" />} disabled={ocupado} onClick={() => setEditarLinha(l)}>Lançar no formulário (se for mesmo outro pagamento)</AcaoDoPainel>
+            {ignorar}
+          </ListaDeAcoes>
+        </>
+      );
+    } else if (r.h === "H1") {
+      const d = r.documento;
+      const todos = [d.documento, ...d.outrosAbertos].sort((a, b) => a.data.localeCompare(b.data));
+      corpo = (
+        <>
+          <CaixaDeResposta tom="h1"
+            titulo={d.ambiguo ? `⚠ ${todos.length} documentos em aberto do mesmo fornecedor — escolha o contrato` : d.segundoContrato ? "✅ Possível segundo contrato" : d.exato ? "✅ Documento a pagar encontrado" : "⚠ Diferença identificada"}
+            porque={d.motivo}>
+            {!d.ambiguo && <><b>{d.documento.fornecedor_nome ?? d.documento.descricao ?? "documento"}</b> · vence {dataBr(d.documento.data)} · <b className="tabular-nums">{brl(d.documento.valor)}</b> · confiança <b className="tabular-nums">{d.confianca}%</b></>}
+            {!d.ambiguo && !d.exato && <> · diferença <b className="tabular-nums">{d.diferenca > 0 ? "+" : "−"}{brl(Math.abs(d.diferenca))}</b></>}
+            {(d.ambiguo || d.segundoContrato) && (
+              <span className="mt-1 flex flex-col gap-0.5 text-muted-foreground">
+                {todos.map(x => (
+                  <span key={x.id} className={x.id === d.documento.id && d.segundoContrato ? "font-medium text-foreground" : ""}>
+                    {x.descricao ?? "Contrato"} · vence {dataBr(x.data)} · <span className="tabular-nums">{brl(x.valor)}</span>
+                    {Math.abs(x.valor - l.tx.valor) < 0.005 && <span className="text-success-text"> ← valor igual</span>}
+                  </span>
+                ))}
+              </span>
+            )}
+          </CaixaDeResposta>
+          <ListaDeAcoes>
+            <AcaoDoPainel variante="principal" icone={<Scale className="h-4 w-4" />} atalho="Enter" disabled={ocupado} onClick={() => setLiquidarLinha(l)}>
+              {d.ambiguo ? "Escolher o contrato" : d.exato ? "Liquidar obrigação prevista" : "Explicar a diferença e liquidar"}
+            </AcaoDoPainel>
+            {buscar}
+            <AcaoDoPainel dica="vira pagamento novo" disabled={ocupado} onClick={() => naoEEsteDocumento(fitid)}>Não é este documento</AcaoDoPainel>
+            {ignorar}
+          </ListaDeAcoes>
+        </>
+      );
+    } else if (r.h === "H3" && r.modo === "debito" && l.debito) {
+      corpo = (
+        <>
+          <CaixaDeResposta tom="h3" titulo="↻ Débito automático encontrado" porque={`${l.debito.confianca}% · ${l.debito.motivos.join(" · ")}`}>
+            <b>{l.debito.candidato.fornecedor || l.debito.candidato.descricao || "previsto"}</b> · vencimento {dataBr(l.debito.candidato.data)} · previsto <b className="tabular-nums">{brl(l.debito.candidato.valor)}</b>
+          </CaixaDeResposta>
+          <ListaDeAcoes>
+            <AcaoDoPainel variante="principal" icone={<Scale className="h-4 w-4" />} atalho="Enter" disabled={ocupado} onClick={() => void conciliarOsDebitos([l])}>Conciliar o débito</AcaoDoPainel>
+            {buscar}
+            {ignorar}
+          </ListaDeAcoes>
+        </>
+      );
+    } else if (r.h === "resolvida" && r.motivo === "ignorada" && l.ignorada) {
+      corpo = (
+        <>
+          <CaixaDeResposta tom="h4" titulo="⊘ Movimento ignorado" porque="Não volta nas próximas importações.">
+            {ROTULO_DO_MOTIVO[l.ignorada.motivo]}{l.ignorada.observacao ? `: ${l.ignorada.observacao}` : ""}
+          </CaixaDeResposta>
+          <ListaDeAcoes><AcaoDoPainel icone={<RotateCcw className="h-4 w-4" />} disabled={ocupado} onClick={() => reativar(l)}>Reativar (volta para a fila)</AcaoDoPainel></ListaDeAcoes>
+        </>
+      );
+    } else if (r.h === "resolvida") {
+      corpo = <CaixaDeResposta tom="ok" titulo="✓ Já registrado" porque="Não será criado de novo.">{l.motivoJaRegistrada ?? "o mesmo identificador do banco já está no sistema"}</CaixaDeResposta>;
+    } else {
+      corpo = <ListaDeAcoes>{buscar}{ignorar}</ListaDeAcoes>;
+    }
+    return <div className="space-y-2.5">{cabecalho}{corpo}</div>;
   }
 
   return (
@@ -963,13 +985,13 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
               </div>
             )}
 
-            {/* filtros */}
+            {/* a barra da Central: o total e as 6 hipóteses (filtros antigos, como "Revisar pendências", aparecem como um chip a mais) */}
             <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar movimentações">
-              {ORDEM_DOS_FILTROS.filter(f => f !== "ignoradas" || contagem.ignoradas > 0).map(f => (
+              {[...CHIPS_DA_CENTRAL, ...(CHIPS_DA_CENTRAL.includes(filtro) ? [] : [filtro])].map(f => (
                 <button key={f} type="button" role="tab" aria-selected={filtro === f}
                   onClick={() => setFiltro(f)}
-                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${filtro === f ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
-                  {ROTULO_DO_FILTRO[f]} <span className="tabular-nums opacity-80">{contagem[f]}</span>
+                  className={`rounded-full border px-3 py-1 text-xs transition-colors ${filtro === f ? "bg-foreground text-background border-foreground" : "bg-card hover:bg-muted"}`}>
+                  {f === "todas" ? <><b className="tabular-nums">{total}</b> movimentos</> : <>{ROTULO_DO_FILTRO[f]} <span className="tabular-nums opacity-80">{contagem[f]}</span></>}
                 </button>
               ))}
             </div>
@@ -991,15 +1013,15 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
             {pag.itens.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">{agrupamento.grupos.length > 0 ? "O resto desta pilha está nos grupos acima." : "Nenhuma movimentação neste filtro."}</p>
             ) : (
-              <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:items-start" data-central>
-                <ListaDeMovimentos itens={pag.itens} selecionada={atual?.tx.fitid ?? null} confirmadas={confirmadas} marcadas={marcadas}
-                  podeMarcar={l => l.situacao === "nova" && !!l.sugestao && !daGradeBase(l).candidata && podeGravar(daGradeBase(l), edicoes[l.tx.fitid])}
-                  ocupado={ocupado} onSelecionar={selecionar} onMarcar={alternarMarca} onDesfazer={desfazerLinha}
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:items-start" data-central>
+                <ListaDeMovimentos itens={pag.itens} selecionada={atual?.tx.fitid ?? null} confirmadas={confirmadas}
+                  categoriaSugerida={l => (l.sugestao?.categoriaId ? nomeCurtoDaCategoria(nomeDaCategoria(l.sugestao.categoriaId)) : null)}
+                  ocupado={ocupado} onSelecionar={selecionar} onDesfazer={desfazerLinha}
+                  rodape={`${(pag.pagina - 1) * POR_PAGINA + 1}–${Math.min(pag.pagina * POR_PAGINA, naLista.length)} de ${naLista.length}`}
                   painelInline={isMobile && atual ? <div data-painel className="space-y-1.5 text-sm">{decisaoDaLinha(atual)}</div> : undefined} />
                 {!isMobile && (
                   <aside data-painel aria-label="Decisão do movimento" className="space-y-1.5 rounded-md border bg-card p-3 text-sm md:sticky md:top-0">
                     {atual ? decisaoDaLinha(atual) : <p className="text-muted-foreground">Escolha um movimento na lista.</p>}
-                    <p className="border-t pt-1.5 text-[11px] text-muted-foreground">↑ ↓ trocam de movimento · / abre “Buscar e associar”</p>
                   </aside>
                 )}
               </div>
