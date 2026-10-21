@@ -116,7 +116,7 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
     <div className="bg-background min-h-screen" data-extrato-projeto>
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 1cm 1.2cm; }
+          @page { size: A4 portrait; margin: 1.2cm 1.4cm; }
           .relatorio-page table { table-layout: fixed !important; }
         }
       `}</style>
@@ -178,21 +178,22 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
           <table className="w-full text-xs" aria-label="Extrato do projeto">
             <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr className="border-b">
-                <th className="w-20 py-1.5 text-left">Data</th>
+                <th className="w-20 py-1.5 text-left print:w-[1.9cm]">Data</th>
                 <th className="py-1.5 text-left">Descrição / Favorecido</th>
-                <th className="w-32 py-1.5 text-left">Categoria</th>
-                <th className="w-32 py-1.5 text-left">Centro</th>
-                <th className="w-28 py-1.5 text-left">Conta</th>
-                <th className="w-24 py-1.5 text-right">Receita</th>
-                <th className="w-24 py-1.5 text-right">Despesa</th>
-                <th className="w-28 py-1.5 text-right">Saldo</th>
+                <th className="w-32 py-1.5 text-left print:w-[2.6cm]">Categoria</th>
+                <th className="w-32 py-1.5 text-left print:hidden">Centro</th>
+                <th className="w-28 py-1.5 text-left print:hidden">Conta</th>
+                <th className="w-24 py-1.5 text-right print:w-[2.3cm]">Receita</th>
+                <th className="w-24 py-1.5 text-right print:w-[2.3cm]">Despesa</th>
+                <th className="w-28 py-1.5 text-right print:w-[2.5cm]">Saldo</th>
                 <th className="no-print w-8 print:hidden" />
               </tr>
             </thead>
             <tbody>
               {(de) && (
                 <tr className="border-b bg-muted/30 italic text-muted-foreground">
-                  <td className="py-1.5" colSpan={7}>Saldo anterior · até {dataBr(de)}</td>
+                  <td className="py-1.5" colSpan={5}>Saldo anterior · até {dataBr(de)}</td>
+                  <td className="py-1.5 print:hidden" colSpan={2} />
                   <td className="py-1.5 text-right tabular-nums font-medium">{brl(extrato.saldoAnterior)}</td>
                   <td className="no-print print:hidden" />
                 </tr>
@@ -205,10 +206,12 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
                     <td className="py-1.5 pr-2">
                       <span className="font-medium">{nome.principal}</span>{!conta && <span className="ml-1 rounded border px-1 text-[10px] not-italic">previsto</span>}
                       {nome.secundario && nome.secundario !== l.categoria_nome && <span className="block text-muted-foreground">{nome.secundario}</span>}
+                      {/* no papel (retrato) o centro e a conta vão aqui embaixo, em vez de duas colunas que não cabem */}
+                      <span className="hidden text-[10px] text-muted-foreground print:block">{[l.centro_nome, l.conta_nome].filter(Boolean).join(" · ")}</span>
                     </td>
                     <td className="py-1.5 pr-2">{l.categoria_nome ?? ""}</td>
-                    <td className="py-1.5 pr-2">{l.centro_nome ?? ""}</td>
-                    <td className="py-1.5 pr-2">{l.conta_nome ?? ""}</td>
+                    <td className="py-1.5 pr-2 print:hidden">{l.centro_nome ?? ""}</td>
+                    <td className="py-1.5 pr-2 print:hidden">{l.conta_nome ?? ""}</td>
                     <td className="py-1.5 text-right tabular-nums text-success-text">{entrada ? brl(entrada) : ""}</td>
                     <td className="py-1.5 text-right tabular-nums text-destructive-text">{saida ? brl(saida) : ""}</td>
                     <td className={`py-1.5 text-right tabular-nums ${saldo < 0 ? "text-destructive-text" : ""}`}>{conta ? brl(saldo) : ""}</td>
@@ -221,7 +224,8 @@ export function ExtratoDoProjeto({ projeto, lancamentos, emitidoPor, abas, onEdi
             </tbody>
             <tfoot>
               <tr className="border-t-2 font-semibold">
-                <td className="py-2" colSpan={5}>Total do período</td>
+                <td className="py-2" colSpan={3}>Total do período</td>
+                <td className="py-2 print:hidden" colSpan={2} />
                 <td className="py-2 text-right tabular-nums text-success-text">{brl(extrato.entradas)}</td>
                 <td className="py-2 text-right tabular-nums text-destructive-text">{brl(extrato.saidas)}</td>
                 <td className={`py-2 text-right tabular-nums ${extrato.saldoFinal < 0 ? "text-destructive-text" : ""}`}>{brl(extrato.saldoFinal)}</td>

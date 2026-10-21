@@ -63,6 +63,16 @@ describe("Extrato do projeto", () => {
     expect(el.querySelector(".relatorio-page [aria-label='Do mesmo centro, sem projeto']")).toBeNull();
   });
 
+  it("o PDF sai em A4 RETRATO: Centro e Conta saem das colunas no papel e vão para a linha de baixo da descrição", async () => {
+    const { el } = await abrir([lanc({ id: "a", centro_nome: "Juventude", conta_nome: "Bradesco" })]);
+    const css = el.querySelector("style")!.textContent!;
+    expect(css).toContain("A4 portrait");
+    expect(css).not.toContain("landscape");
+    const cab = [...el.querySelectorAll("thead th")].filter(th => th.className.includes("print:hidden")).map(th => th.textContent);
+    expect(cab).toEqual(expect.arrayContaining(["Centro", "Conta"]));
+    expect([...el.querySelectorAll("[data-linha=a] span")].some(x => x.className.includes("print:block") && x.textContent === "Juventude · Bradesco")).toBe(true);
+  });
+
   it("'Do mesmo centro, sem projeto': mostra só o que não tem projeto e inclui o marcado, com o projeto certo e o motivo", async () => {
     doCentro = [
       lanc({ id: "ja", projeto_id: "p1" }),
