@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { CampoData } from "@/components/CampoData";
 import { hojeLocal, parseLocalDate, toYmd, daquiADias } from "@/lib/data";
+import { aoMudarFim, aoMudarInicio } from "@/lib/intervaloDeDatas";
 import type { FinStatus } from "@/services/finService";
 
 export type PeriodoPreset =
@@ -196,17 +197,17 @@ export function SeletorPeriodo({
           já calcula sozinho. Mesmo `CampoData` de sempre: digitar OU
           calendário, com máscara — nada de `<input type="date">` nativo
           (teclado quebrado em WebView, ver o comentário grande em
-          `CampoData.tsx`). Mudar Data inicial já realinha Data final pra
-          mesma data (corrigido em 29/09/2026, achado ao vivo pela Telma). */}
+          `CampoData.tsx`). Regra do par (21/10/2026, substitui a de 29/09): mudar a Data
+          inicial NÃO mexe na final, a menos que a final ficasse menor que a inicial — ver lib/intervaloDeDatas.ts. */}
       {preset === "personalizado" && (
         <>
           <div className="min-w-[150px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <CampoData value={dataInicio} onChange={(v) => { onDataInicioChange(v); onDataFimChange(v); }} />
+            <CampoData value={dataInicio} onChange={(v) => { const r = aoMudarInicio(v, dataFim); onDataInicioChange(r.inicio); if (r.fim !== dataFim) onDataFimChange(r.fim); }} />
           </div>
           <div className="min-w-[150px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <CampoData value={dataFim} onChange={onDataFimChange} />
+            <CampoData value={dataFim} onChange={(v) => { const r = aoMudarFim(dataInicio, v); onDataFimChange(r.fim); if (r.inicio !== dataInicio) onDataInicioChange(r.inicio); }} />
           </div>
         </>
       )}

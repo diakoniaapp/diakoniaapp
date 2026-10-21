@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { aoMudarFim, aoMudarInicio } from "@/lib/intervaloDeDatas";
 import { CampoData } from "@/components/CampoData";
 import { brl } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
@@ -74,8 +75,8 @@ export function LiquidacoesDoPeriodo({ chaveDeAtualizacao }: { chaveDeAtualizaca
           <p className="text-[11px] text-muted-foreground">Cada conta: valor do documento, o que foi pago e a diferença. Período pelo último pagamento (ou vencimento).</p>
         </div>
         <div className="flex items-end gap-2">
-          <span><label className="text-xs text-muted-foreground block">De</label><CampoData value={de} onChange={setDe} className="h-8 w-[10.5rem]" inputClassName="text-sm" /></span>
-          <span><label className="text-xs text-muted-foreground block">Até</label><CampoData value={ate} onChange={setAte} className="h-8 w-[10.5rem]" inputClassName="text-sm" /></span>
+          <span><label className="text-xs text-muted-foreground block">De</label><CampoData value={de} onChange={v => { const r = aoMudarInicio(v, ate); setDe(r.inicio); setAte(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" /></span>
+          <span><label className="text-xs text-muted-foreground block">Até</label><CampoData value={ate} onChange={v => { const r = aoMudarFim(de, v); setDe(r.inicio); setAte(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" /></span>
         </div>
       </div>
 

@@ -74,6 +74,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { aoMudarFim, aoMudarInicio } from "@/lib/intervaloDeDatas";
 import { CampoData } from "@/components/CampoData";
 import {
   Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao, formatarAtualizadoHa,
@@ -824,11 +825,11 @@ export default function PainelTesouraria() {
             <div className="flex flex-wrap items-end gap-2 mb-3">
               <span>
                 <label className="text-xs text-muted-foreground block">De</label>
-                <CampoData value={eclCustomInicio} onChange={setEclCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+                <CampoData value={eclCustomInicio} onChange={v => { const r = aoMudarInicio(v, eclCustomFim); setEclCustomInicio(r.inicio); setEclCustomFim(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
               </span>
               <span>
                 <label className="text-xs text-muted-foreground block">Até</label>
-                <CampoData value={eclCustomFim} onChange={setEclCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+                <CampoData value={eclCustomFim} onChange={v => { const r = aoMudarFim(eclCustomInicio, v); setEclCustomInicio(r.inicio); setEclCustomFim(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
               </span>
             </div>
 

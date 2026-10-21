@@ -16,6 +16,7 @@ import { ArrowLeft, Download, FileSpreadsheet, Loader2, Printer, RefreshCw, Slid
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { aoMudarFim, aoMudarInicio } from "@/lib/intervaloDeDatas";
 import { CampoData } from "@/components/CampoData";
 import { PaginaSkeleton } from "@/components/ListState";
 import { useAcoesDeObrigacao } from "@/components/financas/extrato/AcoesDeObrigacao";
@@ -298,8 +299,8 @@ export default function FinancasExtratoObrigacoes() {
           </div>
 
           <div className={`${filtrosAbertos ? "grid" : "hidden"} md:grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 items-end`}>
-            <div className="min-w-0"><p className="text-2xs text-muted-foreground mb-0.5">Data inicial</p><CampoData value={de} onChange={v => v && mudar({ inicio: v })} /></div>
-            <div className="min-w-0"><p className="text-2xs text-muted-foreground mb-0.5">Data final</p><CampoData value={ate} onChange={v => v && mudar({ fim: v })} /></div>
+            <div className="min-w-0"><p className="text-2xs text-muted-foreground mb-0.5">Data inicial</p><CampoData value={de} onChange={v => { if (!v) return; const r = aoMudarInicio(v, ate); mudar({ inicio: r.inicio, fim: r.fim }); }} /></div>
+            <div className="min-w-0"><p className="text-2xs text-muted-foreground mb-0.5">Data final</p><CampoData value={ate} onChange={v => { if (!v) return; const r = aoMudarFim(de, v); mudar({ inicio: r.inicio, fim: r.fim }); }} /></div>
             <div className="min-w-0">
               <p className="text-2xs text-muted-foreground mb-0.5">Situação</p>
               <Select value={situacao} onValueChange={v => mudar({ situacao: v === "todas" ? "" : v })}>

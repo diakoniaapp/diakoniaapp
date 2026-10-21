@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { aoMudarFim, aoMudarInicio } from "@/lib/intervaloDeDatas";
 import { CampoData } from "@/components/CampoData";
 import {
   LIMITE_DIARIO, agrupar, destaques, granularidadeDe,
@@ -82,11 +83,11 @@ export function FluxoCaixaCard({ de, ate, onDe, onAte, serie, carregando }: Prop
         <div className="flex items-end gap-1.5 print:hidden flex-wrap">
           <div>
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
-            <CampoData value={de} onChange={onDe} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+            <CampoData value={de} onChange={v => { const r = aoMudarInicio(v, ate); onDe(r.inicio); if (r.fim !== ate) onAte(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
           </div>
           <div>
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Até</label>
-            <CampoData value={ate} onChange={onAte} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+            <CampoData value={ate} onChange={v => { const r = aoMudarFim(de, v); onAte(r.fim); if (r.inicio !== de) onDe(r.inicio); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
           </div>
           {carregando && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground mb-1.5" />}
         </div>

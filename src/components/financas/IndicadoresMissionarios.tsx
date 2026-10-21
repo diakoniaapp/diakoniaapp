@@ -16,6 +16,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { aoMudarFim, aoMudarInicio } from "@/lib/intervaloDeDatas";
 import { CampoData } from "@/components/CampoData";
 import { AjustesDoFundoDialog } from "@/components/financas/AjustesDoFundoDialog";
 import { MetasDeCampanhaDialog } from "@/components/financas/MetasDeCampanhaDialog";
@@ -111,11 +112,11 @@ export function IndicadoresMissionarios({
       <div className="flex flex-wrap items-end gap-2">
         <span>
           <label className="text-xs text-muted-foreground block">De</label>
-          <CampoData value={customInicio} onChange={setCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+          <CampoData value={customInicio} onChange={v => { const r = aoMudarInicio(v, customFim); setCustomInicio(r.inicio); setCustomFim(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
         </span>
         <span>
           <label className="text-xs text-muted-foreground block">Até</label>
-          <CampoData value={customFim} onChange={setCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+          <CampoData value={customFim} onChange={v => { const r = aoMudarFim(customInicio, v); setCustomInicio(r.inicio); setCustomFim(r.fim); }} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
         </span>
       </div>
 
