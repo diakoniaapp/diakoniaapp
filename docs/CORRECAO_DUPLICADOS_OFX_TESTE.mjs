@@ -1,4 +1,4 @@
-// Ensaio (Postgres embutido) dos scripts CORRECAO_DUPLICADOS_OFX_*.sql — harness em scratchpad/pgnew (embedded-postgres + pg). Resultado em 20/10/2026: TUDO OK (6 blocos, 4 travas).
+// Ensaio (Postgres embutido) dos scripts CORRECAO_DUPLICADOS_OFX_*.sql (instrução única) — harness em scratchpad/pgnew. Resultado em 21/10/2026: TUDO OK.
 // Ensaio local (Postgres real) dos scripts docs/CORRECAO_DUPLICADOS_OFX_ENSAIO.sql e _APLICAR.sql, com os 33 pares (mesmos ids) e os gatilhos REAIS de vínculo (D4).
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
@@ -45,56 +45,65 @@ async function semear() {
 }
 const ent = fs.readFileSync(raiz + 'docs/CORRECAO_DUPLICADOS_OFX_ENSAIO.sql', 'utf8');
 const apl = fs.readFileSync(raiz + 'docs/CORRECAO_DUPLICADOS_OFX_APLICAR.sql', 'utf8');
-const total = async () => +(await q(`select count(*)::int n from fin_lancamentos`))[0].n;
-const rodar = async (sql) => { try { const r = await c.query(sql); return { ok: true, r }; } catch (e) { try { await c.query('rollback'); } catch {} return { ok: false, e }; } };
-const ultimo = (r) => { const arr = Array.isArray(r) ? r : [r]; return arr.filter(x => x.command === 'SELECT').pop()?.rows?.[0]; };
+const conf = fs.readFileSync(raiz + 'docs/CORRECAO_DUPLICADOS_OFX_CONFERENCIA.sql', 'utf8');
+const total = async () => +(await q('select count(*)::int n from fin_lancamentos'))[0].n;
+const um = async (sql) => (await c.query(sql)).rows[0];
 
-console.log('\n1) ENSAIO: roda tudo, mostra a conferência final e DESFAZ');
+console.log('\n1) ENSAIO: só leitura — diz que dá certo e NÃO muda nada');
 await semear();
-let r = await rodar(ent);
-confere('executou sem erro', r.ok, r.e?.message);
-const fim = r.ok ? ultimo(r.r) : null;
-confere('conferência final: 33 apagados · 33 antigos preservados · 33 chaves com um só · variação 2081.75', !!fim && +fim.apagados === 33 && +fim.antigos_preservados === 33 && +fim.chaves_com_um_so === 33 && Math.abs(+fim.variacao_do_saldo - 2081.75) < 0.005, JSON.stringify(fim));
-confere('ROLLBACK: nada ficou (67 lançamentos, como antes)', (await total()) === 67);
+let r = await um(ent);
+confere('conferencias_ok, 33 de 33, sem problemas', r.conferencias_ok === true && +r.pares === 33 && +r.pares_ok === 33 && r.problemas === '', JSON.stringify(r));
+confere('saldo depois esperado = atual − 2081.75', Math.abs((+r.saldo_atual - 2081.75) - +r.saldo_depois_esperado) < 0.005, `${r.saldo_atual} → ${r.saldo_depois_esperado}`);
+confere('nada mudou (67 lançamentos)', (await total()) === 67);
 
 console.log('\n2) APLICAR: apaga só os 33 de hoje');
 await semear();
-r = await rodar(apl);
-confere('executou sem erro', r.ok, r.e?.message);
+r = await um(apl);
+confere('apagados = 33 e conferências ok', +r.apagados === 33 && r.conferencias_ok === true, JSON.stringify(r));
 confere('sobraram 34 (os 33 antigos + o movimento fora da lista)', (await total()) === 34);
-confere('todos os 33 antigos continuam', +(await q(`select count(*)::int n from fin_lancamentos where id = any($1::uuid[])`, [pares.map(p => p[1])]))[0].n === 33);
-confere('o movimento fora da lista continua', +(await q(`select count(*)::int n from fin_lancamentos where observacoes like '%N99999%'`))[0].n === 1);
-const vinc = await q(`select count(*)::int n from fin_extrato_vinculos where desfeito_em is not null and desfeito_motivo like 'A despesa foi excluída%'`);
-confere('o vínculo de cada apagado foi FECHADO (fica na história), não apagado', +vinc[0].n === 33, String(vinc[0].n));
-confere('os vínculos dos antigos seguem ativos', +(await q(`select count(*)::int n from fin_extrato_vinculos where desfeito_em is null and fitid like 'N11%'`))[0].n === 33);
+confere('todos os 33 antigos continuam', +(await q('select count(*)::int n from fin_lancamentos where id = any($1::uuid[])', [pares.map(p => p[1])]))[0].n === 33);
+confere('o movimento fora da lista continua', +(await q("select count(*)::int n from fin_lancamentos where observacoes like '%N99999%'"))[0].n === 1);
+const vinc = await q("select count(*)::int n from fin_extrato_vinculos where desfeito_em is not null and desfeito_motivo like 'A despesa foi excluída%'");
+confere('o vínculo de cada apagado foi FECHADO, não apagado', +vinc[0].n === 33, String(vinc[0].n));
+confere('os vínculos dos antigos seguem ativos', +(await q("select count(*)::int n from fin_extrato_vinculos where desfeito_em is null and fitid like 'N11%'"))[0].n === 33);
+const cf = await um(conf);
+confere('CONFERENCIA: 33 · 33 · 33', +cf.apagados === 33 && +cf.antigos_preservados === 33 && +cf.chaves_com_um_so === 33, JSON.stringify(cf));
 
-console.log('\n3) Trava: um anexo no lançamento de HOJE aborta tudo, sem apagar nada');
+console.log('\n3) Trava: um anexo no lançamento de HOJE → não apaga nada (apagados = 0) e diz por quê');
 await semear();
-await c.query(`insert into fin_lancamento_anexos (lancamento_id) values ($1)`, [pares[5][0]]);
-r = await rodar(apl);
-confere('abortou com a mensagem certa', !r.ok && /Nada foi alterado/.test(r.e.message) && /tem anexo/.test(r.e.message), r.e?.message?.slice(0, 120));
+await c.query('insert into fin_lancamento_anexos (lancamento_id) values ($1)', [pares[5][0]]);
+r = await um(apl);
+confere('apagados = 0, conferencias_ok falso, motivo "tem anexo"', +r.apagados === 0 && r.conferencias_ok === false && /tem anexo/.test(r.problemas), r.problemas);
 confere('nada foi apagado', (await total()) === 67);
+r = await um(ent);
+confere('o ENSAIO também acusa', r.conferencias_ok === false && +r.pares_ok === 32);
 
-console.log('\n4) Trava: o ANTIGO sumiu (alguém já limpou) → aborta');
+console.log('\n4) Trava: o ANTIGO sumiu → não apaga');
 await semear();
-await c.query(`delete from fin_lancamentos where id = $1`, [pares[0][1]]);
-r = await rodar(apl);
-confere('abortou', !r.ok && /Nada foi alterado/.test(r.e.message), r.e?.message?.slice(0, 120));
+await c.query('delete from fin_lancamentos where id = $1', [pares[0][1]]);
+r = await um(apl);
+confere('apagados = 0', +r.apagados === 0 && r.conferencias_ok === false && /antigo não confere/.test(r.problemas), r.problemas);
 confere('nada além do que já tinha sumido', (await total()) === 66);
 
-console.log('\n5) Trava: um terceiro lançamento igual na mesma chave (o sistema teria 3, não 2) → aborta');
+console.log('\n5) Trava: um terceiro lançamento igual na mesma chave → não apaga');
 await semear();
-await c.query(`insert into fin_lancamentos (id,conta_id,tipo,status,data,valor,origem,observacoes,created_at) values (gen_random_uuid(),$1,$2,'realizado',$3,$4,'manual',null,$5)`, [CONTA, pares[2][3], pares[2][2], pares[2][4], ontem]);
-r = await rodar(apl);
-confere('abortou citando a chave', !r.ok && /esperado 2/.test(r.e.message), r.e?.message?.slice(0, 160));
+await c.query("insert into fin_lancamentos (id,conta_id,tipo,status,data,valor,origem,observacoes,created_at) values (gen_random_uuid(),$1,$2,'realizado',$3,$4,'manual',null,$5)", [CONTA, pares[2][3], pares[2][2], pares[2][4], ontem]);
+r = await um(apl);
+confere('apagados = 0, cita a chave', +r.apagados === 0 && /exatamente 2/.test(r.problemas), r.problemas);
 confere('nada foi apagado', (await total()) === 68);
 
-console.log('\n6) Trava: o lançamento de hoje foi liquidado/ligado a outro (tem filho) → aborta');
+console.log('\n6) Trava: o de hoje tem filho → não apaga');
 await semear();
-await c.query(`insert into fin_lancamentos (id,conta_id,tipo,status,data,valor,origem,observacoes,lancamento_pai_id,created_at) values (gen_random_uuid(),$1,'saida','realizado','2026-10-05',1,'manual',null,$2,$3)`, [CONTA, pares[10][0], hoje]);
-r = await rodar(apl);
-confere('abortou', !r.ok && /filho/.test(r.e.message), r.e?.message?.slice(0, 120));
+await c.query("insert into fin_lancamentos (id,conta_id,tipo,status,data,valor,origem,observacoes,lancamento_pai_id,created_at) values (gen_random_uuid(),$1,'saida','realizado','2026-10-05',1,'manual',null,$2,$3)", [CONTA, pares[10][0], hoje]);
+r = await um(apl);
+confere('apagados = 0', +r.apagados === 0 && /filho/.test(r.problemas), r.problemas);
 
-console.log(falhas === 0 ? '\nTUDO OK' : `\n${falhas} FALHA(S)`);
+console.log('\n7) É UMA instrução só: sem BEGIN, sem tabela temporária (o editor do Supabase pode enviar em partes)');
+for (const [n, t] of [['ENSAIO', ent], ['APLICAR', apl], ['CONFERENCIA', conf]]) {
+  const semComentarios = t.split(String.fromCharCode(10)).filter(l => !l.startsWith('--')).join(String.fromCharCode(10));
+  confere(n + ': sem BEGIN/COMMIT/TEMP e um único ponto-e-vírgula final', !/(BEGIN|COMMIT|ROLLBACK|TEMP|TEMPORARY)/i.test(semComentarios) && (semComentarios.match(/;/g) || []).length === 1);
+}
+
+console.log(falhas === 0 ? 'TUDO OK' : `${falhas} FALHA(S)`);
 await c.end(); await server.stop();
 process.exit(falhas === 0 ? 0 : 1);
