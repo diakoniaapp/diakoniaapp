@@ -88,7 +88,10 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
       onOpenChange(false);
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao salvar projeto");
+      // a coluna da reserva só existe depois da migration 20261021150000: sem ela o banco recusa o campo — diz o que fazer, em vez do texto técnico do PostgREST
+      if (/reserva_financeira/.test(e?.message ?? "")) {
+        toast.error("A reserva financeira ainda não está ativa no banco (falta aplicar a migration 20261021150000). Desmarque “Projeto com Reserva Financeira” para salvar agora, ou aplique a migration e tente de novo.");
+      } else toast.error(e?.message ?? "Erro ao salvar projeto");
     } finally { setBusy(false); }
   }
 
