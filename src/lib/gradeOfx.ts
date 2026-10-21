@@ -17,6 +17,10 @@ export interface LinhaDaGrade {
   fitid: string;
   situacao: SituacaoDaLinha;
   sugestao?: Sugestao;
+  /** H2: a linha tem uma recorrência compatível (e nenhuma conta em aberto candidata) */
+  recorrencia?: boolean;
+  /** a linha tem uma CANDIDATA (conta em aberto ou recorrência): despesa nova é o último caminho — nunca entra em lote nem vem marcada; é decidida na própria linha, com o motivo */
+  candidata?: boolean;
 }
 
 export interface FavorecidoEscolhido { tipo: "pessoa" | "fornecedor"; id: string; nome: string; /** favorecido que é uma pessoa do cadastro: o lançamento leva as duas ligações */ pessoaId?: string | null }
@@ -39,7 +43,7 @@ export const MOTIVOS_DE_DESPESA_NOVA = [
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"
-  | "transferencias" | "debitos" | "documentos" | "conciliar" | "vincular" | "ja_registradas" | "ignoradas";
+  | "transferencias" | "debitos" | "documentos" | "recorrencias" | "conciliar" | "vincular" | "ja_registradas" | "ignoradas";
 
 export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   todas: "Todas",
@@ -50,6 +54,7 @@ export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   transferencias: "Transferências",
   debitos: "Débitos automáticos",
   documentos: "Documentos a liquidar",
+  recorrencias: "Recorrências (gerar e liquidar)",
   conciliar: "A conciliar",
   vincular: "Já registradas (vincular)",
   ja_registradas: "Já registradas",
@@ -57,7 +62,7 @@ export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
 };
 
 export const ORDEM_DOS_FILTROS: Filtro[] = [
-  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "conciliar", "vincular", "ja_registradas", "ignoradas",
+  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "recorrencias", "conciliar", "vincular", "ja_registradas", "ignoradas",
 ];
 
 export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
@@ -68,6 +73,7 @@ export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
   if (f === "pendencias" && l.situacao === "vincular") return true;
   if (f === "debitos") return l.situacao === "debito_encontrado";
   if (f === "documentos") return l.situacao === "documento";
+  if (f === "recorrencias") return l.situacao === "nova" && !!l.recorrencia;
   if (f === "ja_registradas") return l.situacao === "ja_registrada";
   if (f === "ignoradas") return l.situacao === "ignorada";
   if (l.situacao !== "nova" && l.situacao !== "ambigua") return false;
@@ -133,19 +139,19 @@ export function identificadasParaConfirmar(
   linhas: LinhaDaGrade[], edicoes: Record<string, Edicao>, marcadas: ReadonlySet<string>,
 ): LinhaDaGrade[] {
   return linhas.filter(l =>
-    l.sugestao?.banda === "identificada" && marcadas.has(l.fitid) && podeGravar(l, edicoes[l.fitid]));
+    l.sugestao?.banda === "identificada" && !l.candidata && marcadas.has(l.fitid) && podeGravar(l, edicoes[l.fitid]));
 }
 
 /** As marcadas (de qualquer faixa) que podem ser gravadas. */
 export function marcadasParaGravar(
   linhas: LinhaDaGrade[], edicoes: Record<string, Edicao>, marcadas: ReadonlySet<string>,
 ): LinhaDaGrade[] {
-  return linhas.filter(l => marcadas.has(l.fitid) && podeGravar(l, edicoes[l.fitid]));
+  return linhas.filter(l => marcadas.has(l.fitid) && !l.candidata && podeGravar(l, edicoes[l.fitid]));
 }
 
 /** Quem já vem marcada ao abrir: as identificadas que podem ser gravadas. */
 export function marcadasIniciais(linhas: LinhaDaGrade[]): Set<string> {
-  return new Set(linhas.filter(l => l.sugestao?.banda === "identificada" && podeGravar(l)).map(l => l.fitid));
+  return new Set(linhas.filter(l => l.sugestao?.banda === "identificada" && !l.candidata && podeGravar(l)).map(l => l.fitid));
 }
 
 export function paginar<T>(itens: T[], pagina: number, porPagina: number): { itens: T[]; paginas: number; pagina: number } {

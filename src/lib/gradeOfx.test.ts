@@ -24,7 +24,7 @@ describe("filtros da grade", () => {
 
   it("conta cada linha na faixa certa; transferência não entra em identificadas/revisar", () => {
     expect(contarPorFiltro(linhas)).toEqual({
-      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, conciliar: 1, vincular: 0, ja_registradas: 1, ignoradas: 0,
+      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, recorrencias: 0, conciliar: 1, vincular: 0, ja_registradas: 1, ignoradas: 0,
     });
   });
 
@@ -104,5 +104,15 @@ describe("paginar", () => {
     expect(paginar(itens, 3, 50).itens).toHaveLength(20);
     expect(paginar(itens, 99, 50).pagina).toBe(3);
     expect(paginar([], 1, 50)).toMatchObject({ paginas: 1, itens: [] });
+  });
+
+  it("linha com CANDIDATA (conta em aberto ou recorrência) nunca vem marcada nem entra em lote: despesa nova é o último caminho", () => {
+    const comCandidata: LinhaDaGrade = { ...nova("c1"), candidata: true };
+    const livre = nova("l1");
+    expect(marcadasIniciais([comCandidata, livre])).toEqual(new Set(["l1"]));
+    expect(identificadasParaConfirmar([comCandidata, livre], {}, new Set(["c1", "l1"])).map(x => x.fitid)).toEqual(["l1"]);
+    expect(marcadasParaGravar([comCandidata, livre], {}, new Set(["c1", "l1"])).map(x => x.fitid)).toEqual(["l1"]);
+    expect(pertenceAoFiltro({ ...nova("h2"), recorrencia: true }, "recorrencias")).toBe(true);
+    expect(pertenceAoFiltro(nova("x"), "recorrencias")).toBe(false);
   });
 });

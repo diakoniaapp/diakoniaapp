@@ -117,16 +117,16 @@ export function CartaoDaLinha(p: Props) {
             <p className="mt-0.5 text-muted-foreground">{documento.motivo}</p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onLiquidar}>
+            <Button type="button" size="sm" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onLiquidar}>
               <CheckCircle2 className="h-3.5 w-3.5" /> {obrigacaoExata ? "Liquidar esta conta" : "Liquidar esta conta (explicar a diferença)"}
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}>
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onBuscar}>
               <Search className="h-3 w-3" /> Buscar outra conta ou lançamento
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>
+            <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>
               Não é esta conta — registrar nova despesa
             </Button>
-            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
           </div>
         </div>
       )}
@@ -142,16 +142,16 @@ export function CartaoDaLinha(p: Props) {
             <p className="mt-0.5 text-muted-foreground">{recorrencia.motivo}</p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado || !p.onGerarRecorrencia} onClick={p.onGerarRecorrencia}>
+            <Button type="button" size="sm" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado || !p.onGerarRecorrencia} onClick={p.onGerarRecorrencia}>
               <CheckCircle2 className="h-3.5 w-3.5" /> Gerar e liquidar a recorrência
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}>
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onBuscar}>
               <Search className="h-3 w-3" /> Buscar outra conta ou lançamento
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>
+            <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>
               Não é esta recorrência — registrar nova despesa
             </Button>
-            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
           </div>
         </div>
       )}
@@ -190,16 +190,16 @@ export function CartaoDaLinha(p: Props) {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado || !alvo} onClick={() => alvo && p.onConfirmarTransferencia(alvo)}>
+            <Button type="button" size="sm" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado || !alvo} onClick={() => alvo && p.onConfirmarTransferencia(alvo)}>
               <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar transferência
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado}
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado}
               onClick={() => p.onEditar({ naoETransferencia: true, abrirTransferencia: false, transferirPara: undefined })}>
               Não é transferência
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onTransferencia}><Pencil className="h-3 w-3" /> Formulário</Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}><Search className="h-3 w-3" /> Buscar lançamento existente</Button>
-            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3.5 w-3.5" /> Ignorar</Button>}
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onTransferencia}><Pencil className="h-3 w-3" /> Formulário</Button>
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onBuscar}><Search className="h-3 w-3" /> Buscar lançamento existente</Button>
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3.5 w-3.5" /> Ignorar</Button>}
           </div>
         </div>
       ) : mostrarNova && (
@@ -257,15 +257,15 @@ export function CartaoDaLinha(p: Props) {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 pl-6">
-            <Button type="button" size="sm" variant={candidata ? "outline" : "default"} className="h-8 gap-1 text-xs" disabled={ocupado || !gravavel || !motivoPronto} onClick={p.onConfirmar}
+            <Button type="button" size="sm" variant={candidata ? "outline" : "default"} className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado || !gravavel || !motivoPronto} onClick={p.onConfirmar}
               title={!motivoPronto ? "Diga por que não é a conta em aberto" : undefined}>
               <CheckCircle2 className="h-3.5 w-3.5" /> Registrar como nova despesa
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}>
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onBuscar}>
               <Search className="h-3 w-3" /> Buscar e associar a um lançamento que já existe
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onFormulario}><Pencil className="h-3 w-3" /> Editar</Button>
-            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
+            <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onFormulario}><Pencil className="h-3 w-3" /> Editar</Button>
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-center text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
             {s.motivos.length > 0 && s.banda !== "identificada" && (
               <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={s.motivos.join(" · ")}>{s.motivos[s.motivos.length - 1]}</span>
             )}
