@@ -62,7 +62,9 @@ function CartaoDoItem({ item }: { item: ItemReservado }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           {nome}
-          <p className="text-xs text-muted-foreground">{fundo ? "Fundo (calculado nos Indicadores Missionários)" : "Projeto com Reserva Financeira"}</p>
+          <p className="text-xs text-muted-foreground">
+            {fundo ? "Fundo (calculado nos Indicadores Missionários)" : <>Projeto com Reserva Financeira · <Link to={`/financas/projeto/${item.id}?vista=extrato`} className="underline underline-offset-2 hover:text-foreground">ver extrato</Link></>}
+          </p>
         </div>
         <p className="shrink-0 text-base font-bold tabular-nums text-info-text">{brl(item.reservado)}</p>
       </div>

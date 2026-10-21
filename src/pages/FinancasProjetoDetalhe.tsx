@@ -17,7 +17,7 @@
 // — as duas coisas respondem perguntas diferentes.
 import { useEffect, useMemo, useState } from "react";
 import { useRotuloDaTela } from "@/hooks/useNavegacao";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, Tooltip,
@@ -35,6 +35,7 @@ import {
   type FinProjeto, type FinLancamentoExtenso,
 } from "@/services/finService";
 import { ProjetoForm } from "@/components/financas/ProjetoForm";
+import { AbasDoProjeto, ExtratoDoProjeto, type VistaDoProjeto } from "@/components/financas/projeto/ExtratoDoProjeto";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -53,6 +54,10 @@ function dataBr(s: string) {
 export default function FinancasProjetoDetalhe() {
   const { id = "" } = useParams();
   const { user } = useAuth();
+  // Relatório (executivo, de sempre) × Extrato (cronológico, com saldo do projeto) — 21/10/2026; a vista fica no endereço (`?vista=extrato`) para fixar e compartilhar
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista: VistaDoProjeto = searchParams.get("vista") === "extrato" ? "extrato" : "relatorio";
+  const trocarVista = (v: VistaDoProjeto) => setSearchParams(v === "extrato" ? { vista: "extrato" } : {}, { replace: true });
 
   const [projeto, setProjeto] = useState<FinProjeto | null>(null);
 
@@ -249,6 +254,16 @@ export default function FinancasProjetoDetalhe() {
     </div>
   );
 
+  if (vista === "extrato") {
+    return (
+      <>
+        <ExtratoDoProjeto projeto={projeto} lancamentos={todosLancs} emitidoPor={emitidoPor} abas={<AbasDoProjeto vista={vista} onChange={trocarVista} />}
+          onEditarProjeto={() => setEditOpen(true)} onMudou={carregar} />
+        <ProjetoForm open={editOpen} onOpenChange={setEditOpen} projeto={projeto} onSaved={carregar} />
+      </>
+    );
+  }
+
   const hojeBr = new Date().toLocaleDateString("pt-BR");
   const horaBr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const temDespesas = totais.totalSaidas > 0;
@@ -275,6 +290,7 @@ export default function FinancasProjetoDetalhe() {
       {/* Barra de controles */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
+          <AbasDoProjeto vista={vista} onChange={trocarVista} />
           <Button onClick={() => setEditOpen(true)} variant="outline" size="sm" className="gap-1.5">
             <Pencil className="w-3.5 h-3.5" /> Editar
           </Button>

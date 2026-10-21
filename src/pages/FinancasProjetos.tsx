@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  ArrowLeft, FolderKanban, Plus, Search, ChevronRight, Lock, LockOpen, Trash2,
+  ArrowLeft, FolderKanban, Plus, Search, ChevronRight, Lock, LockOpen, Trash2, Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -173,6 +173,9 @@ export default function FinancasProjetos() {
                 <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                   onClick={() => pedirExclusao(p)} title="Excluir">
                   <Trash2 className="w-3.5 h-3.5 text-destructive-text" />
+                </Button>
+                <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Extrato do projeto">
+                  <Link to={`/financas/projeto/${p.id}?vista=extrato`} aria-label="Extrato do projeto"><Receipt className="w-3.5 h-3.5 text-muted-foreground" /></Link>
                 </Button>
                 <Button asChild variant="ghost" size="icon" className="h-7 w-7">
                   <Link to={`/financas/projeto/${p.id}`}><ChevronRight className="w-3.5 h-3.5" /></Link>
