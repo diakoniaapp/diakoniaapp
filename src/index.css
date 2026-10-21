@@ -517,9 +517,17 @@
      Abaixo de 1280px nada muda — no celular e no notebook a escala
      compacta está certa, e ali o problema oposto (falta de espaço) é o
      que manda. */
-  @media (min-width: 1280px) { :root { font-size: 17px; } }
-  @media (min-width: 1600px) { :root { font-size: 18px; } }
-  @media (min-width: 1900px) { :root { font-size: 19px; } }
+  /* ESCALA COMPACTA DE TELA GRANDE (21/10/2026, pedido dela): "tenho sempre que alterar a visualização para 80% da tela, para visualizar tudo — corrija para que eu não precise mais
+     ajustar". Ela dava Ctrl e menos até 80% a cada máquina/navegador; as raízes de cima (17/18/19px, de 27/08) deixavam a tela grande demais para ver o Extrato, a Mesa e os painéis
+     inteiros. A raiz passa a valer 80% dessas (13,6 / 14,4 / 15,2px) e vale a partir de 1024px; abaixo disso (celular, tablet em pé) nada muda. É a mesma conta do zoom do navegador
+     para tudo que é `rem` (texto, espaçamento, larguras), sem o problema do `zoom` em CSS, que encurta `100vh` e deixa uma faixa vazia no pé da tela.
+     Quem já tinha o navegador em 80% deve voltar para 100% (Ctrl + 0) — senão fica 80% de 80%. Na impressão a raiz volta a 16px (mais abaixo): o papel não encolhe. */
+  @media (min-width: 1024px) { :root { font-size: 13px; } }
+  @media (min-width: 1280px) { :root { font-size: 13.6px; } }
+  @media (min-width: 1600px) { :root { font-size: 14.4px; } }
+  @media (min-width: 1900px) { :root { font-size: 15.2px; } }
+  /* o papel não é tela: a folha A4 (inclusive paisagem, 1123px) não herda a escala compacta */
+  @media print { :root { font-size: 16px !important; } }
 
   body {
     @apply bg-background text-foreground antialiased;
