@@ -20,10 +20,10 @@ const linha = (extra: Partial<LinhaAnalisada> = {}): LinhaAnalisada => ({
   tx: { fitid: "N105B3", tipo: "saida", data: "2026-10-05", valor: 278.22, memo: "PAGTO ELETRON COBRANCA VERISURE" }, situacao: "nova", sugestao, ...extra,
 } as LinhaAnalisada);
 
-function Caso({ l, aoConfirmar, aoBuscar, aoGerar }: { l: LinhaAnalisada; aoConfirmar?: () => void; aoBuscar?: () => void; aoGerar?: () => void }) {
+function Caso({ l, aoConfirmar, aoBuscar, aoGerar, categorias = [] }: { categorias?: { id: string; nome: string }[]; l: LinhaAnalisada; aoConfirmar?: () => void; aoBuscar?: () => void; aoGerar?: () => void }) {
   const [edicao, setEdicao] = useState<Edicao | undefined>(undefined);
   return (
-    <CartaoDaLinha linha={l} edicao={edicao} marcada={false} ocupado={false} categorias={[]} opcoesDeCentro={[]} projetos={[]}
+    <CartaoDaLinha linha={l} edicao={edicao} marcada={false} ocupado={false} categorias={categorias as never} opcoesDeCentro={[]} projetos={[]}
       nomeDaCategoria={() => "Categoria"} ignorarDisponivel={false} outrasContas={[]} contaNome="Bradesco"
       onEditar={p => setEdicao(e => ({ ...e, ...p }))} onMarcar={() => {}} onConfirmar={aoConfirmar ?? (() => {})} onFormulario={() => {}} onTransferencia={() => {}}
       onConfirmarTransferencia={() => {}} onLiquidar={() => {}} onIgnorar={() => {}} onBuscar={aoBuscar ?? (() => {})} onGerarRecorrencia={aoGerar} />
@@ -82,6 +82,19 @@ describe("CartaoDaLinha — a conta compatível vem antes da despesa nova", () =
     expect(document.body.textContent).toContain("é uma receita nova");
     expect(botao(/Registrar como nova receita/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/despesa/i);
+  });
+
+  it("receita: as categorias de entrada vêm numa lista suspensa só (sem botões nem 'Outra…'); despesa mantém os botões", () => {
+    const cats = [{ id: "c1", nome: "Dízimo" }, { id: "c2", nome: "Oferta" }, { id: "c3", nome: "Oferta de Missões" }];
+    montar(<Caso categorias={cats} l={linha({ tx: { fitid: "E1", tipo: "entrada", data: "2026-10-01", valor: 300, memo: "PIX RECEBIDO REM: JOSE" } })} />);
+    const lista = document.querySelector('select[aria-label="Categoria da receita"]') as HTMLSelectElement;
+    expect(lista).toBeTruthy();
+    expect([...lista.options].map(o => o.textContent)).toEqual(expect.arrayContaining(["Dízimo", "Oferta", "Oferta de Missões"]));
+    expect(document.querySelector('select[aria-label="Outra categoria"]')).toBeNull();
+    act(() => { raiz?.unmount(); }); pai?.remove();
+    montar(<Caso categorias={cats} l={linha()} />);
+    expect(document.querySelector('select[aria-label="Categoria da receita"]')).toBeNull();
+    expect(document.querySelector('select[aria-label="Outra categoria"]')).toBeTruthy();
   });
 
   it("sem candidata: diz o que procurou, a despesa nova já está aberta e não pede motivo", () => {

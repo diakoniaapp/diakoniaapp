@@ -199,7 +199,22 @@ export function CartaoDaLinha(p: Props) {
           )}
 
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Categoria">
-            {ids.map(id => (
+            {/* Receita (entrada): UMA lista suspensa com todas as categorias de entrada (Dízimo, Oferta, Oferta de Missões…), as sugeridas primeiro — pedido dela, 21/10/2026: "assim ganha-se
+                mais espaço e organização visual". Despesa continua com os botões das sugeridas + "Outra…", porque ali a escolha entre poucas opções é o caso comum. */}
+            {entrada && (
+              <select className={`${SELECT} w-52`} aria-label="Categoria da receita" disabled={ocupado} value={v.categoriaId ?? ""} onChange={e => p.onEditar({ categoriaId: e.target.value })}>
+                <option value="">Categoria da receita…</option>
+                {ids.length > 0 && (
+                  <optgroup label="Sugeridas">
+                    {ids.map(id => <option key={id} value={id}>{p.nomeDaCategoria(id)}</option>)}
+                  </optgroup>
+                )}
+                <optgroup label={ids.length > 0 ? "Todas as receitas" : "Receitas"}>
+                  {p.categorias.filter(c => !ids.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </optgroup>
+              </select>
+            )}
+            {!entrada && ids.map(id => (
               <button key={id} type="button" disabled={ocupado} aria-pressed={v.categoriaId === id} onClick={() => p.onEditar({ categoriaId: id })}
                 className={`h-8 rounded-md border px-2.5 text-xs ${v.categoriaId === id ? "border-primary bg-primary/10 font-medium text-primary" : "border-input bg-background hover:bg-muted"}`}>
                 {nomeCurtoDaCategoria(p.nomeDaCategoria(id))}
@@ -209,10 +224,10 @@ export function CartaoDaLinha(p: Props) {
               className={`inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs hover:bg-muted ${deposito ? "border-info-line bg-info-soft text-info-text" : "border-input bg-background"}`}>
               <ArrowRightLeft className="h-3 w-3" /> Transferência entre contas
             </button>
-            <select className={`${SELECT} w-36`} aria-label="Outra categoria" disabled={ocupado} value="" onChange={e => { if (e.target.value) p.onEditar({ categoriaId: e.target.value }); }}>
+            {!entrada && <select className={`${SELECT} w-36`} aria-label="Outra categoria" disabled={ocupado} value="" onChange={e => { if (e.target.value) p.onEditar({ categoriaId: e.target.value }); }}>
               <option value="">{ids.length ? "Outra…" : "Categoria…"}</option>
               {p.categorias.filter(c => !ids.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
+            </select>}
             <select className={`${SELECT} w-44`} aria-label="Centro de custo" disabled={ocupado} value={v.centroId ?? ""} onChange={e => p.onEditar({ centroId: e.target.value })}>
               <option value="">Centro de custo…</option>
               {p.opcoesDeCentro.map(c => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
