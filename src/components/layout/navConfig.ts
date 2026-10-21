@@ -303,8 +303,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // Fase B (20/10/2026): "Malote Contábil" e "Central de Documentos" saíram do menu. O malote é a etapa 5 do FECHAMENTO do mês (aba 4 da Tesouraria) e a Central é a ferramenta
       // "Anexar em lote" da etapa Prontidão — uma tarefa, uma casa. As rotas continuam (links, favoritos e a busca Ctrl+K).
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
-      { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
+      // Visão Executiva e DRE abertas à TESOURARIA (pedido dela, 21/10/2026: o segundo tesoureiro precisa vê-las). Antes: só admin/diakonia/secretaria. O pastor titular continua sem alcançar.
+      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/extrato-de-obrigacoes", label: "Extrato de Obrigações", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
       // N2/F6 do roadmap "90 Dias" (22/09/2026): o grupo tinha chegado a 18
@@ -517,7 +518,7 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/financas":           ROLES_FINANCEIRO,
   "/financas/fiscal":    ROLES_FINANCEIRO,
   "/financas/reunioes":  ROLES_FINANCEIRO,
-  "/financas/executivo": ROLES_PASTORAL_SEM_TITULAR,
+  "/financas/executivo": ROLES_FINANCEIRO,   // era ROLES_PASTORAL_SEM_TITULAR; a tesouraria passou a ver (21/10/2026)
   // Mesma malha da Visão Executiva, de propósito: uma DRE formal é o
   // mesmo tipo de documento — leitura estratégica/pastoral, não operação
   // do dia a dia de tesouraria. `papeisExigidosPara()` casa por PREFIXO
@@ -526,7 +527,7 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // o estado antes dessa função existir; hoje uma entrada aqui cobre a
   // rota exata E as sub-rotas dela (ex: "/financas/dre/2026" herda esta
   // linha), só não sobrepõe uma entrada mais específica que exista.
-  "/financas/dre":       ROLES_PASTORAL_SEM_TITULAR,
+  "/financas/dre":       ROLES_FINANCEIRO,
   // Nota de privacidade do doador (12/09/2026): "tesoureiros e
   // administrador do sistema podem ver tudo sobre as doações" — malha
   // mais estreita que ROLES_FINANCEIRO (sem secretaria), ver o comentário

@@ -114,7 +114,7 @@ import { ConferenciaDiariaDaCorrente } from "@/components/financas/ConferenciaDi
 import { PrazosDaQuitacao } from "@/components/financas/PrazosDaQuitacao";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
-import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR, ROLES_SUSTENTO } from "@/components/layout/navConfig";
+import { ROLES_DOADORES, ROLES_FINANCEIRO, ROLES_SUSTENTO } from "@/components/layout/navConfig";
 
 export default function PainelTesouraria() {
   const { hasRole } = useAuth();
@@ -1051,7 +1051,7 @@ export default function PainelTesouraria() {
               icone={LineChart} titulo="Leitura estratégica"
               descricao="Análise, não operação do dia a dia."
               links={[
-                ...(hasRole(ROLES_PASTORAL_SEM_TITULAR) ? [
+                ...(hasRole(ROLES_FINANCEIRO) ? [
                   { to: "/financas/executivo", label: "Visão Executiva", icone: LineChart },
                   { to: "/financas/dre", label: "DRE Eclesiástica", icone: ScrollText },
                 ] : []),
