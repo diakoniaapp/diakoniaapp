@@ -87,8 +87,8 @@ describe("Calendário de vencimentos", () => {
     expect(celula(el, "2026-10-25").textContent).toContain("2 obrigações");
     expect(celula(el, "2026-10-25").querySelector("[data-alerta]")).toBeNull();               // em aberto, ainda no prazo: sem alerta
     expect(celula(el, "2026-10-05").querySelector("[data-alerta]")).toBeNull();               // tudo pago: célula limpa
-    expect(celula(el, "2026-10-10").querySelector("[data-alerta]")!.textContent).toContain("1 vencida");
-    expect(celula(el, "2026-10-19").querySelector("[data-alerta]")!.textContent).toContain("1 a conferir");
+    expect(celula(el, "2026-10-10").querySelector("[data-alerta]")!.textContent).toMatch(/▲ 1 .*vencida/);
+    expect(celula(el, "2026-10-19").querySelector("[data-alerta]")!.textContent).toMatch(/◐ 1 .*a conferir/);
     expect(celula(el, "2026-10-10").getAttribute("aria-label")).toContain("1 vencida");
   });
 
