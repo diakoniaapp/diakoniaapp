@@ -56,6 +56,18 @@ describe("Saldo nas contas · Reservado · Saldo livre", () => {
     expect(document.body.querySelector("[role=alert]")!.textContent).toContain("somam mais do que há nas contas");
   });
 
+  it("saldo nas contas NEGATIVO fica vermelho (o 'Disponível' antigo era verde mesmo negativo), e o livre também", async () => {
+    const el = montar(-43690.93, itens);
+    expect(el.querySelector("[data-saldo-contas]")!.className).toContain("text-destructive-text");
+    expect(el.querySelector("[data-saldo-contas]")!.className).not.toContain("text-success-text");
+    expect(el.querySelector("[data-saldos]")!.textContent).toContain("R$ -43.690,93");
+    await act(async () => { (el.querySelector("button[aria-label^='Reservado']") as HTMLButtonElement).click(); });
+    expect(document.body.querySelector("[role=alert]")!.textContent).toContain("contas estão no negativo");
+  });
+  it("saldo positivo continua verde", () => {
+    expect(montar(5000, []).querySelector("[data-saldo-contas]")!.className).toContain("text-success-text");
+  });
+
   it("sem nenhum projeto marcado: o painel orienta onde marcar", async () => {
     const el = montar(500, []);
     await act(async () => { (el.querySelector("button[aria-label^='Reservado']") as HTMLButtonElement).click(); });

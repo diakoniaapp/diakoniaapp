@@ -17,12 +17,14 @@ const ROTULO = "text-2xs uppercase tracking-wide text-muted-foreground font-semi
 export function IndicadoresDeSaldo({ recursos }: { recursos: RecursosReservados }) {
   const [aberto, setAberto] = useState(false);
   const livreNegativo = recursos.saldoLivre < 0;
+  const contasNegativo = recursos.saldoNasContas < 0;
   return (
     <>
       <div className="flex items-center gap-3 sm:gap-4" data-saldos>
         <div className="text-right">
           <p className={ROTULO}>Saldo nas contas</p>
-          <p className="text-sm font-bold tabular-nums">{brl(recursos.saldoNasContas)}</p>
+          {/* negativo é vermelho (o "Disponível" antigo era verde mesmo no negativo) */}
+          <p className={`text-sm font-bold tabular-nums ${contasNegativo ? "text-destructive-text" : "text-success-text"}`} data-saldo-contas>{brl(recursos.saldoNasContas)}</p>
         </div>
         <div className="w-px h-7 bg-border" />
         <button type="button" onClick={() => setAberto(true)} aria-label={`Reservado ${brl(recursos.reservado)} — ver detalhe`}
@@ -41,11 +43,11 @@ export function IndicadoresDeSaldo({ recursos }: { recursos: RecursosReservados 
   );
 }
 
-function Linha({ rotulo, valor, destaque }: { rotulo: string; valor: string; destaque?: boolean }) {
+function Linha({ rotulo, valor, destaque, negativo }: { rotulo: string; valor: string; destaque?: boolean; negativo?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="text-muted-foreground">{rotulo}</span>
-      <span className={`tabular-nums ${destaque ? "font-semibold" : ""}`}>{valor}</span>
+      <span className={`tabular-nums ${destaque ? "font-semibold" : ""} ${negativo ? "text-destructive-text" : ""}`}>{valor}</span>
     </div>
   );
 }
@@ -92,16 +94,18 @@ export function PainelDosReservados({ aberto, onOpenChange, recursos }: { aberto
         </SheetHeader>
 
         <div className="mt-4 space-y-1 rounded-lg border bg-muted/30 p-3 text-sm" aria-label="Como o saldo livre é calculado">
-          <Linha rotulo="Saldo nas contas" valor={brl(recursos.saldoNasContas)} />
+          <Linha rotulo="Saldo nas contas" valor={brl(recursos.saldoNasContas)} negativo={recursos.saldoNasContas < 0} />
           <Linha rotulo="Reservado" valor={`− ${brl(recursos.reservado)}`} />
           <div className="border-t pt-1">
-            <Linha rotulo="Saldo livre" valor={brl(recursos.saldoLivre)} destaque />
+            <Linha rotulo="Saldo livre" valor={brl(recursos.saldoLivre)} destaque negativo={livreNegativo} />
           </div>
         </div>
         {livreNegativo && (
           <p role="alert" className="mt-2 flex items-start gap-2 rounded-lg bg-destructive-soft p-2.5 text-sm text-destructive-text">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            As reservas somam mais do que há nas contas: parte do dinheiro reservado já foi usada em outras despesas.
+            {recursos.saldoNasContas < 0
+              ? "As contas estão no negativo: não há dinheiro livre, e o que está reservado também não está coberto."
+              : "As reservas somam mais do que há nas contas: parte do dinheiro reservado já foi usada em outras despesas."}
           </p>
         )}
 
