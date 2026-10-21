@@ -23,6 +23,23 @@ export function tomDoDia(dia: Pick<DiaDoExtrato, "linhas"> | null | undefined, h
   return "pago";
 }
 
+/**
+ * O que pede atenção NO dia, em números (a "linha de alerta" da célula do calendário, 21/10/2026): o tom só diz "há algo urgente"; o tesoureiro precisa saber QUANTAS.
+ * Mesmas regras de `tomDoDia`, contadas em vez de só detectadas: débito automático não encontrado = possível falha; débito aguardando = a conferir;
+ * conta em aberto (ou reembolso a pagar) vencida e sem débito automático = vencida.
+ */
+export interface AlertasDoDia { vencidas: number; possivelFalha: number; aConferir: number }
+
+export function alertasDoDia(dia: Pick<DiaDoExtrato, "linhas"> | null | undefined, hoje: string): AlertasDoDia {
+  const linhas = (dia?.linhas ?? []).filter(l => l.situacao !== "cancelada");
+  const emAberto = (l: (typeof linhas)[number]) => l.situacao === "em_aberto" || l.situacao === "paga_parcialmente" || (l.situacao === "reembolso" && l.reembolsoAPagar);
+  return {
+    possivelFalha: linhas.filter(l => l.debito === "nao_encontrado").length,
+    aConferir: linhas.filter(l => l.debito === "aguardando").length,
+    vencidas: linhas.filter(l => emAberto(l) && !l.debito && ((l.diasEmAtraso ?? 0) > 0 || l.data < hoje)).length,
+  };
+}
+
 export interface CelulaDoCalendario { data: string | null; dia: number | null }
 
 const dois = (n: number) => String(n).padStart(2, "0");

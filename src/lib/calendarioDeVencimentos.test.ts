@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gradeDoMes, limitesDoMesDoCalendario, mesDe, somarMeses, tomDoDia } from "./calendarioDeVencimentos";
+import { alertasDoDia, gradeDoMes, limitesDoMesDoCalendario, mesDe, somarMeses, tomDoDia } from "./calendarioDeVencimentos";
 import type { LinhaDoExtrato } from "./extratoDeObrigacoes";
 
 const linha = (o: Partial<LinhaDoExtrato>): LinhaDoExtrato => ({
@@ -58,5 +58,25 @@ describe("tom do dia — o pior que há nele", () => {
   });
   it("a prioridade é a do pior: uma falha pinta o dia de vermelho mesmo com o resto pago", () => {
     expect(tomDoDia(dia({ situacao: "paga" }, { situacao: "em_aberto", debito: "nao_encontrado" }), hoje)).toBe("atraso");
+  });
+});
+
+describe("alertasDoDia — quantas pedem atenção (a linha de alerta da célula)", () => {
+  const hoje = "2026-10-21";
+  it("dia sem alerta: tudo zero (a célula não ganha linha extra)", () => {
+    expect(alertasDoDia(dia({ situacao: "paga" }, { situacao: "em_aberto", data: "2026-10-30" }), hoje)).toEqual({ vencidas: 0, possivelFalha: 0, aConferir: 0 });
+    expect(alertasDoDia(null, hoje)).toEqual({ vencidas: 0, possivelFalha: 0, aConferir: 0 });
+  });
+  it("conta as vencidas em aberto (por data ou por dias em atraso), sem débito automático", () => {
+    const d = dia({ obrigacaoId: "1", situacao: "em_aberto", data: "2026-10-15" }, { obrigacaoId: "2", situacao: "paga_parcialmente", data: "2026-10-20" },
+      { obrigacaoId: "3", situacao: "em_aberto", data: "2026-10-21", diasEmAtraso: 2 }, { obrigacaoId: "4", situacao: "em_aberto", data: "2026-10-21" }, { obrigacaoId: "5", situacao: "paga", data: "2026-10-10" });
+    expect(alertasDoDia(d, hoje).vencidas).toBe(3);
+  });
+  it("débito automático não encontrado é possível falha; aguardando é a conferir — e nenhum dos dois conta como vencida", () => {
+    const d = dia({ situacao: "em_aberto", data: "2026-10-15", debito: "nao_encontrado" }, { obrigacaoId: "b", situacao: "em_aberto", data: "2026-10-15", debito: "aguardando" });
+    expect(alertasDoDia(d, hoje)).toEqual({ vencidas: 0, possivelFalha: 1, aConferir: 1 });
+  });
+  it("cancelada não conta", () => {
+    expect(alertasDoDia(dia({ situacao: "cancelada", data: "2026-10-01" }), hoje).vencidas).toBe(0);
   });
 });

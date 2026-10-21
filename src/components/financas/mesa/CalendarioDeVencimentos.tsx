@@ -9,7 +9,7 @@ import { DiaDoExtratoBloco } from "@/components/financas/extrato/DiasDoExtrato";
 import { useAcoesDeObrigacao } from "@/components/financas/extrato/AcoesDeObrigacao";
 import { agruparPorDia, resumoDoExtrato, type LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
 import {
-  DIAS_CURTOS, NOMES_DOS_MESES, ROTULO_DO_TOM, gradeDoMes, limitesDoMesDoCalendario, mesDe, somarMeses, tomDoDia, type MesDoCalendario, type TomDoDia,
+  DIAS_CURTOS, NOMES_DOS_MESES, alertasDoDia, ROTULO_DO_TOM, gradeDoMes, limitesDoMesDoCalendario, mesDe, somarMeses, tomDoDia, type MesDoCalendario, type TomDoDia,
 } from "@/lib/calendarioDeVencimentos";
 import { CAMPOS_DA_TELA } from "@/lib/perfilDeImpressaoDoExtrato";
 import { carregarExtratoDeObrigacoes } from "@/services/extratoDeObrigacoesService";
@@ -26,8 +26,13 @@ const CLASSE_DO_TOM: Record<TomDoDia, string> = {
 };
 const FORMA_DO_TOM: Record<TomDoDia, string> = { atraso: "▲", aguardando: "◐", aberto: "○", terceiro: "◆", pago: "✓", vazio: "" };
 
-/** "R$ 8.000" no celular não cabe com centavos: o total do dia vai compacto na grade e completo na lista. */
+/**
+ * O total do dia na grade (21/10/2026, opção B): na tela larga, completo e arredondado ao real ("R$ 12.400" — antes "12,4 mil" perdia ~R$ 50); abaixo de `lg` a célula não comporta
+ * "R$ 12.400" e o total vai compacto ("12,4 mil"). Os centavos continuam na lista do dia, logo abaixo.
+ */
 const compacto = (v: number) => (v >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : Math.round(v).toLocaleString("pt-BR"));
+const completo = (v: number) => `R$ ${Math.round(v).toLocaleString("pt-BR")}`;
+const plural = (n: number, um: string, varios: string) => (n === 1 ? um : varios);
 
 export function CalendarioDeVencimentos({ hoje, podeOperar, chaveDeAtualizacao, onMudou }: {
   hoje: string; podeOperar: boolean; chaveDeAtualizacao: number; onMudou?: () => void;
@@ -62,11 +67,11 @@ export function CalendarioDeVencimentos({ hoje, podeOperar, chaveDeAtualizacao, 
     <div data-calendario>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => navegar(-1)} aria-label="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
-        <p className="min-w-[8.5rem] text-center text-sm font-semibold capitalize" aria-live="polite">{NOMES_DOS_MESES[mes.mes - 1]} de {mes.ano}</p>
+        <p className="min-w-[9.5rem] text-center text-base font-semibold capitalize" aria-live="polite">{NOMES_DOS_MESES[mes.mes - 1]} de {mes.ano}</p>
         <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => navegar(1)} aria-label="Próximo mês"><ChevronRight className="h-4 w-4" /></Button>
         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={irParaHoje}>Hoje</Button>
         {carregando && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-label="Carregando" />}
-        <p className="ml-auto text-[11px] text-muted-foreground tabular-nums">
+        <p className="ml-auto text-xs text-muted-foreground tabular-nums">
           {quantidade} {quantidade === 1 ? "obrigação" : "obrigações"} · total <b className="text-foreground">{brl(resumo.valorTotal)}</b> · em aberto <b className="text-foreground">{brl(resumo.emAberto.valor)}</b>
         </p>
       </div>
@@ -81,20 +86,42 @@ export function CalendarioDeVencimentos({ hoje, podeOperar, chaveDeAtualizacao, 
           const tom = tomDoDia(d, hoje);
           const n = d ? d.linhas.filter(l => l.situacao !== "cancelada").length : 0;
           const selecionado = escolhido === c.data;
+          const al = alertasDoDia(d, hoje);
+          const textoDoAlerta = [
+            al.vencidas > 0 && `${al.vencidas} ${plural(al.vencidas, "vencida", "vencidas")}`,
+            al.possivelFalha > 0 && `${al.possivelFalha} ${plural(al.possivelFalha, "possível falha no débito", "possíveis falhas no débito")}`,
+            al.aConferir > 0 && `${al.aConferir} a conferir`,
+          ].filter(Boolean).join(", ");
           return (
             <button key={c.data} type="button" role="gridcell" data-dia={c.data} data-tom={tom} aria-selected={selecionado}
-              aria-label={`${c.dia} de ${NOMES_DOS_MESES[mes.mes - 1]}${n > 0 && d ? `: ${n} ${n === 1 ? "obrigação" : "obrigações"}, ${brl(d.total)} — ${ROTULO_DO_TOM[tom]}` : ": sem obrigações"}`}
+              aria-label={`${c.dia} de ${NOMES_DOS_MESES[mes.mes - 1]}${n > 0 && d ? `: ${n} ${n === 1 ? "obrigação" : "obrigações"}, ${brl(d.total)} — ${ROTULO_DO_TOM[tom]}${textoDoAlerta ? `; ${textoDoAlerta}` : ""}` : ": sem obrigações"}`}
               onClick={() => setEscolhido(selecionado ? null : c.data)}
-              className={`flex min-h-[3.25rem] min-w-0 flex-col items-stretch rounded-md border px-1 py-0.5 text-left transition-colors hover:bg-muted ${CLASSE_DO_TOM[tom]} ${selecionado ? "ring-2 ring-gold" : ""} ${c.data === hoje ? "outline outline-1 outline-offset-0 outline-gold-text" : ""}`}>
-              <span className="flex items-center justify-between text-[11px] font-semibold text-foreground"><span>{c.dia}</span><span aria-hidden className="text-[10px]">{FORMA_DO_TOM[tom]}</span></span>
-              {d && n > 0 && <span className="truncate text-[10.5px] font-semibold tabular-nums leading-tight">{compacto(d.total)}</span>}
-              {d && n > 0 && <span className="text-[9.5px] leading-tight opacity-80">{n}×</span>}
+              className={`flex min-h-[4.25rem] min-w-0 flex-col items-stretch gap-0.5 rounded-md border px-1.5 py-1 text-left lg:min-h-[5rem] transition-colors hover:bg-muted ${CLASSE_DO_TOM[tom]} ${selecionado ? "ring-2 ring-gold" : ""} ${c.data === hoje ? "outline outline-1 outline-offset-0 outline-gold-text" : ""}`}>
+              <span className="flex items-center justify-between text-xs font-semibold text-foreground"><span>{c.dia}</span><span aria-hidden className="text-[11px]">{FORMA_DO_TOM[tom]}</span></span>
+              {/* hierarquia da Tesouraria: 1º o valor do dia (o maior da célula), 2º quantas obrigações, 3º o que pede atenção (escrito, só nos dias que precisam) */}
+              {d && n > 0 && (
+                <span className="truncate text-[13px] font-bold tabular-nums leading-tight lg:text-[15px]">
+                  <span className="lg:hidden">{compacto(d.total)}</span><span className="hidden lg:inline">{completo(d.total)}</span>
+                </span>
+              )}
+              {d && n > 0 && (
+                <span className="truncate text-xs leading-tight opacity-90">
+                  <span className="lg:hidden">{n} obrig.</span><span className="hidden lg:inline">{n} {plural(n, "obrigação", "obrigações")}</span>
+                </span>
+              )}
+              {textoDoAlerta && (
+                <span data-alerta className="mt-auto flex flex-col text-[11px] font-semibold leading-tight">
+                  {al.vencidas > 0 && <span className="truncate text-destructive-text" title={textoDoAlerta}>▲ {al.vencidas} <span className="lg:hidden">venc.</span><span className="hidden lg:inline">{plural(al.vencidas, "vencida", "vencidas")}</span></span>}
+                  {al.possivelFalha > 0 && <span className="truncate text-destructive-text" title={textoDoAlerta}>▲ {al.possivelFalha} <span className="lg:hidden">falha</span><span className="hidden lg:inline">{plural(al.possivelFalha, "possível falha", "possíveis falhas")}</span></span>}
+                  {al.aConferir > 0 && <span className="truncate text-warning-text" title={textoDoAlerta}>◐ {al.aConferir} <span className="lg:hidden">conferir</span><span className="hidden lg:inline">a conferir</span></span>}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-muted-foreground" aria-label="Legenda">
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground" aria-label="Legenda">
         {(["atraso", "aguardando", "aberto", "terceiro", "pago"] as const).map(t => (
           <li key={t} className="flex items-center gap-1"><span className={`inline-block h-2.5 w-2.5 rounded-sm border ${CLASSE_DO_TOM[t]}`} />{FORMA_DO_TOM[t]} {ROTULO_DO_TOM[t]}</li>
         ))}
@@ -102,7 +129,7 @@ export function CalendarioDeVencimentos({ hoje, podeOperar, chaveDeAtualizacao, 
 
       <div className="mt-3" data-dia-aberto={escolhido ?? ""}>
         {diaEscolhido ? (
-          <DiaDoExtratoBloco dia={diaEscolhido} campos={CAMPOS_DA_TELA} onAbrir={abrirLinha} renderAcoes={acoesDaLinha} />
+          <DiaDoExtratoBloco estilo="operacional" dia={diaEscolhido} campos={CAMPOS_DA_TELA} onAbrir={abrirLinha} renderAcoes={acoesDaLinha} />
         ) : (
           <p className="py-3 text-center text-xs text-muted-foreground">{escolhido ? "Nenhuma obrigação neste dia." : "Escolha um dia para ver as obrigações dele."}</p>
         )}

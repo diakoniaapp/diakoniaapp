@@ -80,6 +80,18 @@ describe("Calendário de vencimentos", () => {
     expect(celula(el, "2026-10-25").getAttribute("aria-label")).toContain("2 obrigações");
   });
 
+  it("opção B: valor completo (R$ 1.200) e quantidade por extenso na célula; a linha de alerta só aparece nos dias que pedem atenção", async () => {
+    cenario();
+    const el = await abrir();
+    expect(celula(el, "2026-10-25").textContent).toContain("R$ 1.200");
+    expect(celula(el, "2026-10-25").textContent).toContain("2 obrigações");
+    expect(celula(el, "2026-10-25").querySelector("[data-alerta]")).toBeNull();               // em aberto, ainda no prazo: sem alerta
+    expect(celula(el, "2026-10-05").querySelector("[data-alerta]")).toBeNull();               // tudo pago: célula limpa
+    expect(celula(el, "2026-10-10").querySelector("[data-alerta]")!.textContent).toContain("1 vencida");
+    expect(celula(el, "2026-10-19").querySelector("[data-alerta]")!.textContent).toContain("1 a conferir");
+    expect(celula(el, "2026-10-10").getAttribute("aria-label")).toContain("1 vencida");
+  });
+
   it("o resumo do mês conta tudo (sem as canceladas) e separa o que está em aberto", async () => {
     cenario();
     const el = await abrir();
@@ -96,7 +108,9 @@ describe("Calendário de vencimentos", () => {
     expect(aberto.getAttribute("data-dia-aberto")).toBe("2026-10-25");
     expect(aberto.querySelectorAll("[data-obrigacao]")).toHaveLength(2);
     expect(aberto.textContent).toContain("CEG");
-    expect(aberto.textContent).toContain("TOTAL DO DIA");
+    expect(aberto.textContent).toContain("Total do dia");
+    expect(aberto.querySelector("section")!.getAttribute("data-estilo")).toBe("operacional");           // a Agenda usa a mesma Inter da Mesa, não o título serifado do relatório
+    expect(aberto.querySelector("h3")!.className).not.toContain("font-serif");
     await clicar(celula(el, "2026-10-25"));                                   // clicar de novo recolhe
     expect(el.querySelector("[data-dia-aberto]")!.querySelectorAll("[data-obrigacao]")).toHaveLength(0);
   });

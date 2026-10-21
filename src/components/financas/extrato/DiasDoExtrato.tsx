@@ -89,26 +89,40 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
  * `memo` de propósito (20/10/2026): abrir ou fechar QUALQUER diálogo da página muda o estado do pai, e sem isto cada mudança re-renderizava todas as linhas — medido com 300 linhas e CPU 4× mais lenta
  * (um celular médio): 1,1 s para abrir e 0,8 s para fechar o "Imprimir extrato", e o toque em Cancelar/X parecia não responder. Quem chama passa funções estáveis (`useCallback`).
  */
-export const DiaDoExtratoBloco = memo(function DiaDoExtratoBloco({ dia, campos, renderAcoes, onAbrir, topoFixo, anexosZero }: {
+export const DiaDoExtratoBloco = memo(function DiaDoExtratoBloco({ dia, campos, renderAcoes, onAbrir, topoFixo, anexosZero, estilo = "relatorio" }: {
   dia: DiaDoExtrato; campos: Campos; renderAcoes?: (l: LinhaDoExtrato) => ReactNode; onAbrir?: (l: LinhaDoExtrato) => void; anexosZero?: boolean;
   /** na tela, o cabeçalho do dia fica preso abaixo da barra de filtros enquanto o dia rola (px) */
   topoFixo?: number;
+  /**
+   * `relatorio` (padrão): o documento do Extrato de Obrigações e do PDF — título serifado, em caixa alta e dourado.
+   * `operacional` (21/10/2026, Calendário da Mesa): a mesma Inter do resto da Mesa, caixa normal e cor de texto; o dourado fica só para estado (dia selecionado, hoje).
+   * A Agenda herdou o bloco do relatório e por isso parecia um módulo à parte.
+   */
+  estilo?: "relatorio" | "operacional";
 }) {
   const n = dia.linhas.length;
   const jaPago = Math.round((dia.total - dia.emAberto) * 100) / 100;
+  const operacional = estilo === "operacional";
   return (
-    <section data-dia={dia.data} className="mt-3 first:mt-0">
-      <div className={`flex items-baseline justify-between border-b-[1.5px] border-gold-text bg-card px-1 pb-0.5 ${topoFixo === undefined ? "" : "sticky z-[5]"}`} style={topoFixo === undefined ? undefined : { top: topoFixo }}>
-        <h3 className="font-serif text-sm font-semibold uppercase tracking-wide text-gold-text">{diaDaSemana(dia.data)} <span className="font-sans text-[11px] font-medium normal-case tracking-normal text-muted-foreground">{dataDoExtrato(dia.data)}</span></h3>
-        <span className="text-[11px] text-muted-foreground">{n} {n === 1 ? "obrigação" : "obrigações"}</span>
+    <section data-dia={dia.data} data-estilo={estilo} className="mt-3 first:mt-0">
+      <div className={`flex items-baseline justify-between bg-card px-1 pb-0.5 ${operacional ? "border-b border-border" : "border-b-[1.5px] border-gold-text"} ${topoFixo === undefined ? "" : "sticky z-[5]"}`} style={topoFixo === undefined ? undefined : { top: topoFixo }}>
+        {operacional
+          ? <h3 className="font-sans text-sm font-semibold tracking-normal text-foreground">{diaDaSemana(dia.data)} <span className="text-xs font-normal text-muted-foreground">{dataDoExtrato(dia.data)}</span></h3>
+          : <h3 className="font-serif text-sm font-semibold uppercase tracking-wide text-gold-text">{diaDaSemana(dia.data)} <span className="font-sans text-[11px] font-medium normal-case tracking-normal text-muted-foreground">{dataDoExtrato(dia.data)}</span></h3>}
+        <span className={`${operacional ? "text-xs" : "text-[11px]"} text-muted-foreground`}>{n} {n === 1 ? "obrigação" : "obrigações"}</span>
       </div>
       {dia.linhas.map(l => <ObrigacaoItem key={l.obrigacaoId} l={l} campos={campos} acoes={renderAcoes?.(l)} onAbrir={onAbrir ? () => onAbrir(l) : undefined} anexosZero={anexosZero} />)}
-      {campos.totalDoDia && (
+      {campos.totalDoDia && (operacional ? (
+        <div data-fecha-dia={dia.data} className="flex items-baseline justify-between border-y border-border bg-muted/40 px-2 py-1 text-xs">
+          <span className="font-medium text-muted-foreground">Total do dia</span>
+          <span className="text-sm font-semibold tabular-nums">{brl(dia.total)}{dia.emAberto > 0 && jaPago > 0 && <small className="ml-2 text-[11px] font-normal text-muted-foreground">pago/quitado {brl(jaPago)} · em aberto {brl(dia.emAberto)}</small>}</span>
+        </div>
+      ) : (
         <div data-fecha-dia={dia.data} className="flex items-baseline justify-between border-y border-gold/30 border-t-[1.5px] border-t-gold-text bg-gold/5 px-2 py-0.5 text-[11px] font-bold" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
           <span className="tracking-wide">{dataDoExtrato(dia.data)} <span className="text-gold-text">|</span> TOTAL DO DIA</span>
           <span className="tabular-nums text-[12.5px]">{brl(dia.total)}{dia.emAberto > 0 && jaPago > 0 && <small className="ml-2 text-[10px] font-normal text-muted-foreground">pago/quitado {brl(jaPago)} · em aberto {brl(dia.emAberto)}</small>}</span>
         </div>
-      )}
+      ))}
     </section>
   );
 });
