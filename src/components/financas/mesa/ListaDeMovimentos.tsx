@@ -21,18 +21,27 @@ const COR_DA_HIPOTESE: Record<Resolucao["h"], string> = {
   resolvida: "border-transparent bg-muted/60 text-muted-foreground",
 };
 
-/** O texto curto do chip, como no desenho aprovado: "H0 registrado", "H1 conta", "H2 recorrência", "H3 transf.", "H4 dízimo?", "resolvido". */
+/**
+ * O texto curto do chip — SEM as siglas H0–H4 (21/10/2026: "o tesoureiro não deve precisar entender a arquitetura"): diz o que o sistema acredita que o movimento é
+ * ("Dízimo", "Dízimo?" quando é só provável, "Conta em aberto", "Recorrência"…) e a dica (passar o mouse) explica a sugestão com a confiança e os motivos.
+ */
 export function chipDaLinha(l: LinhaAnalisada, lancadaAgora: boolean, categoriaSugerida?: string | null): { texto: string; classe: string; dica: string } {
   if (lancadaAgora) return { texto: "lançado", classe: "border-success-line bg-success-soft text-success-text", dica: "gravado agora — dá para desfazer" };
   const r = resolverMovimento(l);
   if (r.h === "resolvida") return { texto: "resolvido", classe: COR_DA_HIPOTESE.resolvida, dica: r.motivo === "ignorada" ? "ignorado" : "já registrado pelo mesmo identificador do banco" };
   if (r.h === "H4") {
     const s = l.sugestao;
-    const texto = s && categoriaSugerida ? `H4 ${categoriaSugerida}${s.banda === "identificada" ? "" : "?"}` : "H4 nada achado";
-    return { texto, classe: COR_DA_HIPOTESE.H4, dica: s ? `${ROTULO_DA_HIPOTESE.H4} — ${s.confianca}% · ${s.motivos.join(" · ")}` : ROTULO_DA_HIPOTESE.H4 };
+    if (s && categoriaSugerida) {
+      const certa = s.banda === "identificada";
+      return {
+        texto: `${categoriaSugerida}${certa ? "" : "?"}`, classe: COR_DA_HIPOTESE.H4,
+        dica: `${categoriaSugerida} sugerido — confiança ${s.confianca}%${s.motivos.length ? ` · ${s.motivos.join(" · ")}` : ""}`,
+      };
+    }
+    return { texto: "Sem sugestão", classe: COR_DA_HIPOTESE.H4, dica: "Nada no histórico lembra este movimento — escolha a classificação" };
   }
-  const texto = r.h === "H0" ? (r.modo === "vincular" ? "H0 registrado" : r.modo === "conciliar" ? "H0 conciliar" : "H0 parecidos")
-    : r.h === "H1" ? "H1 conta" : r.h === "H2" ? "H2 recorrência" : r.modo === "debito" ? "H3 débito" : "H3 transf.";
+  const texto = r.h === "H0" ? (r.modo === "vincular" ? "Já registrado" : r.modo === "conciliar" ? "Conciliar" : "Parecidos")
+    : r.h === "H1" ? "Conta em aberto" : r.h === "H2" ? "Recorrência" : r.modo === "debito" ? "Débito automático" : "Transferência";
   return { texto, classe: COR_DA_HIPOTESE[r.h], dica: ROTULO_DA_HIPOTESE[r.h] };
 }
 
@@ -57,7 +66,7 @@ export function ListaDeMovimentos({ itens, selecionada, confirmadas, ocupado, ca
   return (
     <div className="overflow-hidden rounded-md border bg-card text-sm">
       <div className={`hidden gap-2 border-b bg-muted/40 px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground ${COLUNAS}`} aria-hidden>
-        <span>Data</span><span>Movimento</span><span className="text-right">Valor</span><span>Hipótese</span>
+        <span>Data</span><span>Movimento</span><span className="text-right">Valor</span><span>Sugestão</span>
       </div>
       <ul className="divide-y" aria-label="Movimentos do extrato">
         {itens.map(l => {

@@ -51,11 +51,12 @@ export type Filtro =
 
 export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   todas: "Todas",
-  h0: "H0 já registrados",
-  h1: "H1 contas",
-  h2: "H2 recorrências",
-  h3: "H3 transferências",
-  h4: "H4 nada achado",
+  // As siglas H0–H4 são do motor (resolverMovimento) e não aparecem para a Tesouraria — 21/10/2026.
+  h0: "Já registrados",
+  h1: "Contas em aberto",
+  h2: "Recorrências",
+  h3: "Transferências e débitos",
+  h4: "Lançar como novo",
   resolvidos: "resolvidos",
   identificadas: "Identificadas",
   pendencias: "Pendências",

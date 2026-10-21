@@ -34,14 +34,15 @@ function montar(props: Partial<React.ComponentProps<typeof ListaDeMovimentos>> =
 const linha = (fitid: string) => pai!.querySelector(`li[data-fitid="${fitid}"]`) as HTMLElement;
 
 describe("ListaDeMovimentos", () => {
-  it("cada movimento mostra a hipótese num chip: H0 vincular · H1 · H2 · H4 com a confiança · H3 débito · já registrada", () => {
+  it("cada movimento mostra o que o sistema acha num chip, SEM as siglas H0–H4 (21/10/2026)", () => {
     montar();
-    expect(linha("a").textContent).toContain("H0 registrado");
-    expect(linha("b").textContent).toContain("H1 conta");
-    expect(linha("c").textContent).toContain("H2 recorrência");
-    expect(linha("d").textContent).toContain("H4 nada achado");
-    expect(linha("e").textContent).toContain("H3 débito");
+    expect(linha("a").textContent).toContain("Já registrado");
+    expect(linha("b").textContent).toContain("Conta em aberto");
+    expect(linha("c").textContent).toContain("Recorrência");
+    expect(linha("d").textContent).toContain("Sem sugestão");
+    expect(linha("e").textContent).toContain("Débito automático");
     expect(linha("f").textContent).toContain("resolvido");
+    expect(pai!.textContent).not.toMatch(/\bH[0-4]\b/);
   });
 
   it("escolher a linha chama onSelecionar; a selecionada fica marcada e leva o painel inline (celular)", () => {
@@ -57,7 +58,7 @@ describe("ListaDeMovimentos", () => {
     montar();
     expect(pai!.querySelectorAll("[role=checkbox]").length).toBe(0);
     expect(pai!.textContent).toContain("Movimento");
-    expect(pai!.textContent).toContain("Hipótese");
+    expect(pai!.textContent).toContain("Sugestão");
   });
 
   it("a linha lançada agora vira 'lançado' e oferece Desfazer", () => {
@@ -68,10 +69,11 @@ describe("ListaDeMovimentos", () => {
     expect(f.onDesfazer).toHaveBeenCalledWith("d", ["id1"]);
       });
 
-  it("chipDaLinha: H4 mostra a categoria sugerida (com ? se não está identificada); lançada agora ganha o chip verde", () => {
-    expect(chipDaLinha(linhas[3], false, "Dízimo").texto).toBe("H4 Dízimo?");
-    expect(chipDaLinha(linhas[3], false).texto).toBe("H4 nada achado");
-    expect(chipDaLinha({ ...linhas[3], sugestao: { ...sug, banda: "identificada" } } as LinhaAnalisada, false, "Dízimo").texto).toBe("H4 Dízimo");
+  it("chipDaLinha: a categoria sugerida (com ? se não está identificada) e a confiança na dica; lançada agora ganha o chip verde", () => {
+    expect(chipDaLinha(linhas[3], false, "Dízimo").texto).toBe("Dízimo?");
+    expect(chipDaLinha(linhas[3], false, "Dízimo").dica).toContain("Dízimo sugerido — confiança");
+    expect(chipDaLinha(linhas[3], false).texto).toBe("Sem sugestão");
+    expect(chipDaLinha({ ...linhas[3], sugestao: { ...sug, banda: "identificada" } } as LinhaAnalisada, false, "Dízimo").texto).toBe("Dízimo");
     expect(chipDaLinha(linhas[3], true).texto).toBe("lançado");
   });
 });
