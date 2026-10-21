@@ -167,6 +167,8 @@ export interface FinProjeto {
   created_at?: string;
   /** Projeto missionário (migration 20261006180000) — aparece no painel de Missões. */
   missionario?: boolean;
+  /** Projeto com Reserva Financeira (migration 20261021150000): receitas − despesas realizadas dele entram em "Reservado" na Tesouraria. */
+  reserva_financeira?: boolean;
 }
 
 // Um lançamento que serve mais de um centro (a conta de luz do prédio,
@@ -655,7 +657,7 @@ export async function carregarProjeto(id: string): Promise<FinProjeto | null> {
 
 export async function criarProjeto(input: {
   nome: string; descricao?: string | null; meta_valor?: number | null;
-  data_inicio?: string | null; data_fim?: string | null; cor?: string | null;
+  data_inicio?: string | null; data_fim?: string | null; cor?: string | null; reserva_financeira?: boolean;
 }): Promise<FinProjeto> {
   const { data, error } = await supabase.from("fin_projetos").insert(input as any).select("*").single();
   if (error) throw error;

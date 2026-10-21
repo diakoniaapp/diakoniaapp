@@ -58,6 +58,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IndicadoresMissionarios } from "@/components/financas/IndicadoresMissionarios";
 import { carregarDadosDeMissoes, type DadosDeMissoes } from "@/services/missoesService";
+import { fundoComAjustes } from "@/lib/missoesModelo";
+import { IndicadoresDeSaldo } from "@/components/financas/ReservaDeRecursos";
+import { carregarReservaDosProjetos } from "@/services/recursosReservadosService";
+import { itemDoFundoMissionario, montarRecursosReservados, type ItemReservado } from "@/lib/recursosReservados";
 import { categoriaPadraoDeRepasse, ehCategoriaDeRepasse, fundoAcumulado } from "@/lib/indicadoresMissionarios";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { enderecoDaAba } from "@/components/financas/contas/AbasDaConta";
@@ -122,6 +126,13 @@ export default function PainelTesouraria() {
   // 12/09/2026: `resumoFinanceiroMes()` já existe, já alimenta os cards
   // de `/financas` — só nunca tinha sido chamado aqui.
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
+  // Recursos reservados (21/10/2026): projetos "com Reserva Financeira" + Fundo Missionário. Relê a cada recarga do painel (`resumo` muda); falha não derruba a Tesouraria.
+  const [reservaDosProjetos, setReservaDosProjetos] = useState<ItemReservado[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    carregarReservaDosProjetos().then(r => { if (vivo) setReservaDosProjetos(r); }).catch(e => { console.error("Recursos reservados:", e); if (vivo) setReservaDosProjetos([]); });
+    return () => { vivo = false; };
+  }, [resumo]);
   // Fase 10 (Central Operacional), parte 2 (22/09/2026): saldo por conta
   // embutido aqui — até agora só dava pra ver isso indo em `/financas`, a
   // tela que a Central deveria substituir no dia a dia. Ver extrato
@@ -391,6 +402,14 @@ export default function PainelTesouraria() {
     return { arrecadadoTotal: f.arrecadado, enviadoTotal: f.enviado };
   }, [missoes, repassesCategoriaId]);
 
+  // o Fundo Missionário entra em "Reservado" pelo MESMO saldo do painel de Missões (registrado + ajustes), com piso zero
+  const recursos = useMemo(() => {
+    if (!resumo) return null;
+    const f = missoes ? fundoComAjustes(missoes.entradas, missoes.envios, missoes.ajustes) : null;
+    const itens = [...reservaDosProjetos, ...(f ? [itemDoFundoMissionario(f.arrecadado, f.enviado, f.ajustes)] : [])];
+    return montarRecursosReservados(resumo.saldo_total, itens);
+  }, [resumo, reservaDosProjetos, missoes]);
+
   const carregarMissoesRemessa = useCallback(async () => {
     // Categorias ainda carregando → espera. Categoria de ENTRADA ausente (null) não
     // pode deixar o painel em "Carregando…" para sempre: segue só com os repasses.
@@ -533,10 +552,8 @@ export default function PainelTesouraria() {
               ENTRADA que só faltava calcular. */}
           {resumo && (
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Disponível</p>
-                <p className="text-sm font-bold tabular-nums text-success-text">{brl(resumo.saldo_total)}</p>
-              </div>
+              {/* Saldo nas contas · Reservado · Saldo livre — o "Disponível" somava dinheiro que já tem destino (ver ReservaDeRecursos.tsx) */}
+              {recursos && <IndicadoresDeSaldo recursos={recursos} />}
               <div className="w-px h-7 bg-border" />
               <div className="text-right">
                 <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Sai/semana</p>

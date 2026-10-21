@@ -27,7 +27,7 @@ interface Props {
 }
 
 const VAZIO = {
-  nome: "", descricao: "", metaValor: "", dataInicio: "", dataFim: "", semMeta: false,
+  nome: "", descricao: "", metaValor: "", dataInicio: "", dataFim: "", semMeta: false, reserva: false,
 };
 
 export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
@@ -50,6 +50,7 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
         // Reflete o estado atual gravado — editar um projeto que já não
         // tinha meta não pode virar "tem meta zero" sem ninguém pedir.
         semMeta: projeto.meta_valor == null,
+        reserva: !!projeto.reserva_financeira,
       });
     } else {
       setCampos(VAZIO);
@@ -72,6 +73,8 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
         meta_valor: campos.semMeta ? null : (campos.metaValor.trim() ? paraNumero(campos.metaValor) : null),
         data_inicio: campos.dataInicio || null,
         data_fim: campos.dataFim || null,
+        // só vai no payload quando MUDOU (ou num projeto novo marcado): editar outro campo não depende da coluna nova existir no banco
+        ...((projeto?.reserva_financeira ?? false) !== campos.reserva ? { reserva_financeira: campos.reserva } : {}),
       };
 
       if (isEdit && projeto) {
@@ -147,6 +150,17 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
               <CampoData value={campos.dataFim} onChange={(v) => set("dataFim", v)} placeholder="Em andamento" />
             </div>
           </div>
+
+          {/* Pedido dela (21/10/2026): "nem todo projeto deve reservar dinheiro" — desmarcado por padrão; só os marcados entram no card "Reservado" da Tesouraria. */}
+          <label className="flex cursor-pointer items-start gap-2 rounded-md border bg-muted/30 p-2.5">
+            <Checkbox className="mt-0.5" checked={campos.reserva} onCheckedChange={(v) => set("reserva", !!v)} />
+            <span className="text-sm">
+              <span className="font-medium">Projeto com Reserva Financeira</span>
+              <span className="block text-xs text-muted-foreground">
+                O que este projeto arrecadou (menos o que já gastou nele) fica reservado: aparece em "Reservado" na Tesouraria e sai do saldo livre. Não bloqueia pagamentos.
+              </span>
+            </span>
+          </label>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>

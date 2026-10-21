@@ -5819,6 +5819,8 @@ export type Database = {
       }
       fin_projetos: {
         Row: {
+          // migration 20261021150000_projeto_reserva_financeira.sql
+          reserva_financeira: boolean
           // migration 20261006180000_missoes_aditiva.sql
           missionario: boolean
           cor: string | null
@@ -5832,6 +5834,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          reserva_financeira?: boolean
           missionario?: boolean
           cor?: string | null
           created_at?: string
@@ -5844,6 +5847,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          reserva_financeira?: boolean
           missionario?: boolean
           cor?: string | null
           created_at?: string
