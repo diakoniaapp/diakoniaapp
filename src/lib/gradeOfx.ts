@@ -9,7 +9,7 @@
 
 import type { Sugestao } from "./classificacaoOfx";
 
-export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
+export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "vincular" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
 
 import type { EscolhaDeTransferencia } from "./transferenciaOfx";
 
@@ -22,11 +22,24 @@ export interface LinhaDaGrade {
 export interface FavorecidoEscolhido { tipo: "pessoa" | "fornecedor"; id: string; nome: string; /** favorecido que é uma pessoa do cadastro: o lançamento leva as duas ligações */ pessoaId?: string | null }
 
 /** O que a pessoa mudou à mão numa linha (por FITID). `favorecido`: outro favorecido escolhido na linha; `null` = "sem favorecido". */
-export interface Edicao extends EscolhaDeTransferencia { categoriaId?: string; centroId?: string; projetoId?: string; favorecido?: FavorecidoEscolhido | null }
+export interface Edicao extends EscolhaDeTransferencia {
+  categoriaId?: string; centroId?: string; projetoId?: string; favorecido?: FavorecidoEscolhido | null;
+  /** o cartão de uma linha COM candidata (conta em aberto) só abre a classificação de despesa nova depois de "Não é esta conta" */
+  revelarNova?: boolean;
+  /** por que é uma despesa nova apesar de haver candidata — obrigatório nesse caso, gravado no lançamento */
+  motivoNovo?: string;
+}
+
+/** Os motivos de uma chip só; "outro" pede texto. */
+export const MOTIVOS_DE_DESPESA_NOVA = [
+  "É outro pagamento do mesmo favorecido",
+  "A conta que apareceu é de outro contrato",
+  "A conta em aberto já foi paga por outro meio",
+] as const;
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"
-  | "transferencias" | "debitos" | "documentos" | "conciliar" | "ja_registradas" | "ignoradas";
+  | "transferencias" | "debitos" | "documentos" | "conciliar" | "vincular" | "ja_registradas" | "ignoradas";
 
 export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   todas: "Todas",
@@ -38,17 +51,21 @@ export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   debitos: "Débitos automáticos",
   documentos: "Documentos a liquidar",
   conciliar: "A conciliar",
+  vincular: "Já registradas (vincular)",
   ja_registradas: "Já registradas",
   ignoradas: "Ignoradas",
 };
 
 export const ORDEM_DOS_FILTROS: Filtro[] = [
-  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "conciliar", "ja_registradas", "ignoradas",
+  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "conciliar", "vincular", "ja_registradas", "ignoradas",
 ];
 
 export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
   if (f === "todas") return true;
   if (f === "conciliar") return l.situacao === "conciliar";
+  if (f === "vincular") return l.situacao === "vincular";
+  // o movimento que parece já registrado precisa de um olhar antes de qualquer outra coisa: entra nas pendências
+  if (f === "pendencias" && l.situacao === "vincular") return true;
   if (f === "debitos") return l.situacao === "debito_encontrado";
   if (f === "documentos") return l.situacao === "documento";
   if (f === "ja_registradas") return l.situacao === "ja_registrada";

@@ -33,6 +33,7 @@ import {
   acharDebitoCompativel, ehAutomatica, type CandidatoDebito, type DebitoEncontrado,
 } from "@/lib/formaLiquidacao";
 import { acharDocumentosDoExtrato, valeComoLiquidacao, type ContratoDoFornecedor, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
+import { acharJaRegistrados, fitidsDasObservacoes, type JaRegistrado, type LancamentoComDono } from "@/lib/movimentoJaRegistrado";
 
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
@@ -96,7 +97,7 @@ export async function carregarContexto(): Promise<ContextoOfx> {
 
 // ── a análise do arquivo ────────────────────────────────────────────────────
 
-export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
+export type SituacaoLinha = "conciliar" | "ja_registrada" | "vincular" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
 
 export interface LinhaAnalisada {
   tx: OFXTransacao;
@@ -119,6 +120,8 @@ export interface LinhaAnalisada {
   documentos?: DocumentoDoExtrato[];
   /** `nova`: o mesmo valor entrou/saiu em OUTRA conta da igreja em data próxima — pode ser transferência interna, não receita/despesa. */
   transferenciaProvavel?: ProvavelTransferencia;
+  /** `vincular` (H0): o lançamento que JÁ representa este movimento (gravado por outra exportação, à mão ou pela recorrência). `lancamentoId` é o dele. */
+  jaRegistrado?: JaRegistrado;
 }
 
 // ── linhas ignoradas (migration 20261008140000): a decisão fica guardada por conta + FITID ──────────────
@@ -159,7 +162,7 @@ export async function reativarIgnorada(contaId: string, fitid: string): Promise<
 
 const MARCA_OFX = /\[ofx:([^\]]+)\]/g;
 
-async function fitidsJaImportados(contaId: string, de: string, ate: string): Promise<Set<string>> {
+async function fitidsJaImportados(contaId: string, de: string, ate: string, doArquivo: string[] = []): Promise<Set<string>> {
   const set = new Set<string>();
   for (let p = 0; ; p++) {
     const { data, error } = await supabase.from("fin_lancamentos").select("observacoes")
@@ -175,6 +178,16 @@ async function fitidsJaImportados(contaId: string, de: string, ate: string): Pro
       .eq("conta_id", contaId).not("ofx_fitid", "is", null).limit(5000);
     if (!error) for (const l of (liq ?? []) as { ofx_fitid: string | null }[]) if (l.ofx_fitid) set.add(l.ofx_fitid);
   } catch { /* tabela ausente: segue como antes */ }
+  // o vínculo ATIVO (migration 20261013120000) vale em qualquer data: a linha que a tesouraria ligou à mão a um lançamento de outro mês
+  // (busca e associação manual) não aparece na janela por `data` acima e voltaria à fila como "nova"
+  try {
+    for (let i = 0; i < doArquivo.length; i += 100) {
+      const { data, error } = await supabase.from("fin_extrato_vinculos" as never).select("fitid")
+        .eq("conta_id" as never, contaId as never).is("desfeito_em" as never, null as never).in("fitid" as never, doArquivo.slice(i, i + 100) as never);
+      if (error) break;
+      for (const v of (data ?? []) as unknown as { fitid: string }[]) set.add(v.fitid);
+    }
+  } catch { /* sem a tabela: só a janela */ }
   return set;
 }
 
@@ -201,20 +214,43 @@ async function previstosParaExtrato(de: string, ate: string): Promise<(PrevistoP
 }
 
 /** Dos ids de liquidação, os que guardam o identificador de uma linha do banco (fin_liquidacoes.ofx_fitid). Falha da consulta = nenhum (recua para "sem dono"). */
-async function liquidacoesComIdentificador(ids: string[]): Promise<Set<string>> {
-  const out = new Set<string>();
+async function liquidacoesComIdentificador(ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
   const unicos = [...new Set(ids)];
   try {
     for (let i = 0; i < unicos.length; i += 150) {
       const { data, error } = await supabase.from("fin_liquidacoes" as never).select("id, ofx_fitid").in("id" as never, unicos.slice(i, i + 150) as never);
-      if (error) return new Set();
-      for (const l of ((data ?? []) as unknown as { id: string; ofx_fitid: string | null }[])) if (l.ofx_fitid) out.add(l.id);
+      if (error) return new Map();
+      for (const l of ((data ?? []) as unknown as { id: string; ofx_fitid: string | null }[])) if (l.ofx_fitid) out.set(l.id, l.ofx_fitid);
     }
-  } catch { return new Set(); }
+  } catch { return new Map(); }
   return out;
 }
 
-export async function analisar(contaId: string, txs: OFXTransacao[], contexto: ContextoOfx): Promise<LinhaAnalisada[]> {
+/** Os lançamentos que já têm DONO (marca [ofx:…] ou liquidação com identificador do banco), na forma que o pareamento por impressão digital lê. */
+function comDono(lista: { id: string; tipo: string; valor: unknown; data: string; data_pagamento?: string | null; observacoes: string | null; origem?: string | null; status: string; created_at?: string; liquidacao_id?: string | null; fornecedor_nome?: string | null; descricao?: string | null }[],
+  fitidDaLiquidacao: ReadonlyMap<string, string>): LancamentoComDono[] {
+  const out: LancamentoComDono[] = [];
+  for (const l of lista) {
+    const fitids = [...fitidsDasObservacoes(l.observacoes)];
+    const daLiq = l.liquidacao_id ? fitidDaLiquidacao.get(l.liquidacao_id) : undefined;
+    if (daLiq && !fitids.includes(daLiq)) fitids.push(daLiq);
+    if (fitids.length === 0) continue;
+    out.push({
+      id: l.id, tipo: l.tipo === "entrada" ? "entrada" : "saida", valor: Number(l.valor), data: String(l.data).slice(0, 10),
+      data_pagamento: l.data_pagamento ? String(l.data_pagamento).slice(0, 10) : null, fitids, origem: String(l.origem ?? ""), status: l.status,
+      criadoEm: l.created_at ?? "", rotulo: l.fornecedor_nome ?? (l.descricao ? l.descricao.slice(0, 40) : null),
+    });
+  }
+  return out;
+}
+
+export interface OpcoesDaAnalise {
+  /** linhas em que a tesouraria disse "não é este movimento": seguem o fluxo normal (nova despesa, com o motivo) */
+  semJaRegistrado?: ReadonlySet<string>;
+}
+
+export async function analisar(contaId: string, txs: OFXTransacao[], contexto: ContextoOfx, opcoes: OpcoesDaAnalise = {}): Promise<LinhaAnalisada[]> {
   const datas = txs.map(t => t.data).sort();
   const de = daquiADias(datas[0], -5);
   const ate = daquiADias(datas[datas.length - 1], 5);
@@ -222,7 +258,7 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
     // SEM o teto de 300: um mês do Bradesco tem 350+ lançamentos, e o corte silencioso tirava do páreo justamente os mais antigos
     listarLancamentosSemTeto({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
     listarLancamentosSemTeto({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
-    fitidsJaImportados(contaId, de, ate),
+    fitidsJaImportados(contaId, de, ate, txs.map(t => t.fitid)),
     debitosAutomaticosPrevistos(de, ate),
     previstosParaExtrato(de, ate),
     listarIgnoradas(contaId),
@@ -268,8 +304,26 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
     return !/\[ofx:/.test(l.observacoes ?? "") && (!liq || !liqComBanco.has(liq));
   });
   const jaConc = casarComLancamentos(semRealizado.map(r => r.tx), semDono);
+
+  // H0 (20/10/2026) — o movimento JÁ está registrado? O FITID do Bradesco muda a cada exportação, então o lançamento que veio de outro arquivo
+  // carrega uma marca diferente: a regra acima (só "sem dono") o escondia e a linha virava lançamento NOVO (52 duplicados num dia). Aqui o par
+  // é achado por sentido + valor + dia, 1 para 1, entre os lançamentos que JÁ têm dono e cuja marca não pertence a nenhuma linha deste arquivo.
+  // É só uma proposta: a tesouraria vincula, ou diz "é outro pagamento".
+  const fitidsDoArquivo = new Set(txs.map(t => t.fitid));
+  const candidatosH0 = comDono([...realizados, ...conciliados] as never[], liqComBanco);
+  const paraH0 = semRealizado.filter((_, k) => jaConc[k].status !== "encontrado" && !opcoes.semJaRegistrado?.has(semRealizado[k].tx.fitid));
+  const jaRegistrados = acharJaRegistrados(paraH0.map(r => ({ fitid: r.tx.fitid, tipo: r.tx.tipo, valor: r.tx.valor, data: r.tx.data })), candidatosH0, fitidsDoArquivo);
+
   jaConc.forEach((c, k) => {
     const { tx, i } = semRealizado[k];
+    if (c.status !== "encontrado" && jaRegistrados.has(tx.fitid)) {
+      const h0 = jaRegistrados.get(tx.fitid)!;
+      out[i] = {
+        tx, situacao: "vincular", lancamentoId: h0.lancamento.id, jaRegistrado: h0,
+        sugestao: sugerir({ fitid: tx.fitid, tipo: tx.tipo, data: tx.data, valor: tx.valor, memo: tx.memo }, contexto.ctx),
+      };
+      return;
+    }
     if (c.status === "encontrado") {
       // D4 (13/10/2026): "conferido" ≠ "conciliado". Um lançamento marcado à mão (ou vindo do Omie) que casa com a linha do extrato NÃO é "já registrado":
       // falta provar no banco. Vira "conciliar" — um clique grava a marca [ofx:FITID] (o gatilho cria o vínculo) e mantém o status. Antes ficava "já registrada"
@@ -444,23 +498,59 @@ export interface ParaRegistrar {
   projetoId?: string;
   pessoaId?: string;
   fornecedorId?: string;
+  /** Por que isto é uma despesa NOVA apesar de haver candidata (conta em aberto ou movimento já registrado). Obrigatório nesses casos; fica gravado no lançamento. */
+  motivoNovo?: string;
 }
 
-export interface ResultadoLoteOfx { loteId: string; ids: string[]; erros: string[] }
+export interface ResultadoLoteOfx { loteId: string; ids: string[]; erros: string[]; /** linhas que o banco já tem sob outro identificador e foram RECUSADAS (sem motivo) */ recusadas: string[] }
 
 const TAMANHO_BLOCO = 40;
+
+export interface OpcoesDoLote {
+  /** Todos os identificadores do arquivo em análise: liga a guarda final contra duplicidade (sem isto o lote grava sem a conferência). */
+  fitidsDoArquivo?: ReadonlySet<string>;
+}
+
+/** A marca de motivo cabe numa linha e nunca fecha o colchete da marca. */
+const motivoEmLinha = (m: string) => m.replace(/[\r\n\]\[]+/g, " ").trim().slice(0, 140);
+
+/**
+ * A ÚLTIMA guarda, no ponto onde o lançamento nasce (qualquer tela que chame `registrarLote` a herda): se o banco já tem, sob outro identificador,
+ * um lançamento com o mesmo sentido, valor e dia, a linha NÃO é criada — a menos que traga o motivo ("é outro pagamento"). Cobre análise velha
+ * (duas abas, arquivo reimportado) e o lote em massa, onde ninguém olha linha por linha.
+ */
+async function gemeosNoBanco(contaId: string, itens: ParaRegistrar[], fitidsDoArquivo: ReadonlySet<string>): Promise<Map<string, JaRegistrado>> {
+  if (itens.length === 0) return new Map();
+  const datas = itens.map(i => i.tx.data).sort();
+  const de = daquiADias(datas[0], -5), ate = daquiADias(datas[datas.length - 1], 5);
+  const lista = [
+    ...await listarLancamentosSemTeto({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
+    ...await listarLancamentosSemTeto({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
+  ];
+  const liq = await liquidacoesComIdentificador(lista.map(l => (l as { liquidacao_id?: string | null }).liquidacao_id).filter((x): x is string => !!x));
+  return acharJaRegistrados(itens.map(i => ({ fitid: i.tx.fitid, tipo: i.tx.tipo, valor: i.tx.valor, data: i.tx.data })), comDono(lista as never[], liq), fitidsDoArquivo);
+}
 
 /**
  * Cria os lançamentos como `conciliado` — a linha SAIU do extrato do banco, então já está
  * batida com ele —, marcados com o FITID e o lote. `onProgresso(feitos, total)` a cada bloco.
  */
 export async function registrarLote(
-  contaId: string, itens: ParaRegistrar[], onProgresso?: (f: number, t: number) => void,
+  contaId: string, itens: ParaRegistrar[], onProgresso?: (f: number, t: number) => void, opcoes: OpcoesDoLote = {},
 ): Promise<ResultadoLoteOfx> {
   const loteId = `${Date.now().toString(36)}`;
-  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const userId = (await supabase.auth.getUser().then(r => r.data.user?.id ?? null));
   const agora = new Date().toISOString();
-  const resultado: ResultadoLoteOfx = { loteId, ids: [], erros: [] };
+  const resultado: ResultadoLoteOfx = { loteId, ids: [], erros: [], recusadas: [] };
+
+  if (opcoes.fitidsDoArquivo) {
+    const gemeos = await gemeosNoBanco(contaId, itens.filter(i => !i.motivoNovo), opcoes.fitidsDoArquivo);
+    if (gemeos.size > 0) {
+      resultado.recusadas = itens.filter(i => gemeos.has(i.tx.fitid)).map(i => i.tx.fitid);
+      resultado.erros.push(`${gemeos.size} movimento${gemeos.size > 1 ? "s já parecem" : " já parece"} registrado${gemeos.size > 1 ? "s" : ""} no sistema (mesmo valor e dia, outro identificador do banco) e não ${gemeos.size > 1 ? "foram" : "foi"} criado${gemeos.size > 1 ? "s" : ""} — vincule ao lançamento existente ou informe o motivo de ser outro pagamento`);
+      itens = itens.filter(i => !gemeos.has(i.tx.fitid));
+    }
+  }
 
   for (let i = 0; i < itens.length; i += TAMANHO_BLOCO) {
     const bloco = itens.slice(i, i + TAMANHO_BLOCO);
@@ -470,7 +560,7 @@ export async function registrarLote(
       pessoa_id: it.pessoaId ?? null, fornecedor_id: it.fornecedorId ?? null,
       forma_pagamento: (inferirFormaPagamento(it.tx.memo) ?? null) as FinFormaPagamento | null,
       descricao: it.tx.memo, origem: "importado_ofx",
-      observacoes: `[ofx:${it.tx.fitid}] [lote-ofx:${loteId}]`,
+      observacoes: `[ofx:${it.tx.fitid}] [lote-ofx:${loteId}]${it.motivoNovo ? ` [motivo-novo:${motivoEmLinha(it.motivoNovo)}]` : ""}`,
       audit_user_id: userId, audit_em: agora,
     }));
     const { data, error } = await supabase.from("fin_lancamentos").insert(linhas as never).select("id");
@@ -549,4 +639,88 @@ export async function conciliarPagamentos(itens: PagamentoParaConciliar[]): Prom
     else res.conciliados.push(it.lancamentoId);
   }
   return res;
+}
+
+// ── H0: vincular a linha do extrato ao lançamento que JÁ a representa ───────────────────────────────────────────────────────────────────────
+// Não cria, não apaga, não muda valor nem status: só acrescenta a marca [ofx:FITID] ao lançamento (o gatilho abre o vínculo e RECUSA a linha que já
+// pertence a outra despesa). Sem nenhuma marca ainda, é a conciliação de sempre (`conciliarPagamentos`: grava a marca e o dia do banco).
+
+export async function vincularMovimentos(itens: PagamentoParaConciliar[]): Promise<ResultadoConciliacao> {
+  const res: ResultadoConciliacao = { conciliados: [], erros: [] };
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const agora = new Date().toISOString();
+  for (const it of itens) {
+    const { data: atual, error: e1 } = await supabase.from("fin_lancamentos").select("observacoes, status").eq("id", it.lancamentoId).maybeSingle();
+    if (e1) { res.erros.push(e1.message); continue; }
+    if (!atual) { res.erros.push("um lançamento já não existe: reabra o extrato"); continue; }
+    if (atual.status === "previsto") { res.erros.push("este lançamento ainda é uma conta em aberto — use \"Liquidar\" em vez de vincular"); continue; }
+    const marcas = fitidsDasObservacoes(atual.observacoes);
+    if (marcas.includes(it.tx.fitid)) { res.conciliados.push(it.lancamentoId); continue; }
+    if (marcas.length === 0) {
+      const r = await conciliarPagamentos([it]);
+      res.conciliados.push(...r.conciliados); res.erros.push(...r.erros);
+      continue;
+    }
+    const observacoes = [(atual.observacoes ?? "").trim(), `[ofx:${it.tx.fitid}]`].filter(Boolean).join("\n");
+    const { data, error } = await supabase.from("fin_lancamentos").update({ observacoes, audit_user_id: userId, audit_em: agora } as never).eq("id", it.lancamentoId).select("id");
+    if (error) res.erros.push(error.message);
+    else if (!data || data.length === 0) res.erros.push("um lançamento não pôde ser vinculado (permissão ou já alterado)");
+    else res.conciliados.push(it.lancamentoId);
+  }
+  return res;
+}
+
+/** Desfaz um vínculo recém-feito: tira do lançamento a marca daquela linha (o gatilho fecha o vínculo; o lançamento volta a ser como era). */
+export async function desvincularMovimento(lancamentoId: string, fitid: string): Promise<void> {
+  const { data: atual, error } = await supabase.from("fin_lancamentos").select("observacoes").eq("id", lancamentoId).maybeSingle();
+  if (error) throw error;
+  const obs = (atual?.observacoes ?? "").split("\n").map(l => l.replace(`[ofx:${fitid}]`, "").trim()).filter(Boolean).join("\n");
+  const r = conferir(await supabase.from("fin_lancamentos").update({ observacoes: obs || null } as never).eq("id", lancamentoId).select("id"), "O lançamento");
+  if (!r.ok) throw new Error(r.erro);
+}
+
+// ── busca e associação manual: o que o motor não achou, a pessoa acha ──────────────────────────────────────────────────────────────────────
+
+export interface CandidatoManual {
+  id: string;
+  /** conta em aberto (será liquidada) ou lançamento já registrado (será vinculado) */
+  natureza: "em_aberto" | "registrado";
+  data: string;
+  valor: number;
+  rotulo: string;
+  status: string;
+  origem: string;
+  /** o lançamento já carrega a marca de OUTRA linha do banco */
+  temMarca: boolean;
+  fornecedor_id: string | null;
+  pessoa_id: string | null;
+  recorrencia_id: string | null;
+}
+
+/**
+ * Procura, para a linha do extrato, o lançamento que ela pagou: contas EM ABERTO (qualquer conta) e lançamentos já registrados NESTA conta,
+ * do mesmo sentido, num período largo (por padrão 60 dias para cada lado). Texto e valor refinam; sem eles, os mais próximos em valor e data.
+ */
+export async function buscarParaAssociar(
+  contaId: string, tx: OFXTransacao, filtro: { texto?: string; valor?: number; dias?: number } = {},
+): Promise<CandidatoManual[]> {
+  const dias = filtro.dias ?? 60;
+  const lista = await listarLancamentosSemTeto({ tipo: tx.tipo, dataInicio: daquiADias(tx.data, -dias), dataFim: daquiADias(tx.data, dias) });
+  const texto = (filtro.texto ?? "").trim().toLowerCase();
+  const sem = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const alvoValor = filtro.valor ?? tx.valor;
+  const dd = (a: string, b: string) => Math.abs(Math.round((Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000));
+  return lista
+    .filter(l => (l.status === "previsto") || ((l.status === "realizado" || l.status === "conciliado") && l.conta_id === contaId && l.origem !== "transferencia"))
+    .filter(l => !fitidsDasObservacoes(l.observacoes).includes(tx.fitid))
+    .map((l): CandidatoManual => ({
+      id: l.id, natureza: l.status === "previsto" ? "em_aberto" : "registrado", data: String(l.data).slice(0, 10), valor: Number(l.valor),
+      rotulo: l.fornecedor_nome ?? l.descricao ?? "(sem descrição)", status: l.status, origem: String(l.origem ?? ""),
+      temMarca: fitidsDasObservacoes(l.observacoes).length > 0, fornecedor_id: l.fornecedor_id ?? null, pessoa_id: l.pessoa_id ?? null,
+      recorrencia_id: (l as { recorrencia_id?: string | null }).recorrencia_id ?? null,
+    }))
+    .filter(c => !texto || sem(`${c.rotulo}`.toLowerCase()).includes(sem(texto)))
+    .filter(c => filtro.valor === undefined || Math.abs(c.valor - filtro.valor) < 0.005)
+    .sort((a, b) => (Math.abs(a.valor - alvoValor) - Math.abs(b.valor - alvoValor)) || (dd(a.data, tx.data) - dd(b.data, tx.data)))
+    .slice(0, 40);
 }

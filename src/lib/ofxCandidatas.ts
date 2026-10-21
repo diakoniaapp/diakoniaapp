@@ -37,7 +37,7 @@ export interface PedidoDeConfirmacao {
  * Das linhas que estão para virar lançamento novo, as que têm candidata e ainda NÃO foram reconhecidas como "outro pagamento" pela tesouraria.
  * `reconhecidas` = os FITIDs em que ela já disse "criar mesmo assim" — a pergunta não se repete.
  */
-export function pedidosDeConfirmacao(linhas: LinhaParaGuarda[], reconhecidas: ReadonlySet<string>): PedidoDeConfirmacao[] {
+export function pedidosDeConfirmacao(linhas: LinhaParaGuarda[], reconhecidas: { has(fitid: string): boolean }): PedidoDeConfirmacao[] {
   const out: PedidoDeConfirmacao[] = [];
   for (const l of linhas) {
     const c = candidataDaLinha(l);

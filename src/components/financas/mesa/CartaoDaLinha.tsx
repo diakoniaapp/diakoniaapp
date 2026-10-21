@@ -4,12 +4,12 @@
 // vista, a categoria sugerida com as alternativas a um clique, o centro e o botão Confirmar. O formulário completo só
 // abre em "Editar". Aprendido na comparação com o Omie: decidir na própria linha, com o que foi achado ao lado.
 
-import { ArrowRightLeft, BanIcon, CheckCircle2, Pencil } from "lucide-react";
+import { ArrowRightLeft, BanIcon, CheckCircle2, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { brl, type FinCategoria, type FinProjeto } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
-import { favorecidoEfetivo, podeGravar, rotuloDaConfianca, valoresEfetivos, type Edicao, type FavorecidoEscolhido } from "@/lib/gradeOfx";
+import { MOTIVOS_DE_DESPESA_NOVA, favorecidoEfetivo, podeGravar, rotuloDaConfianca, valoresEfetivos, type Edicao, type FavorecidoEscolhido } from "@/lib/gradeOfx";
 import { alvoDaTransferencia, ehDepositoEmDinheiro, type OutraPonta } from "@/lib/transferenciaOfx";
 import { montarHipotese, nomeCurtoDaCategoria } from "@/lib/hipoteseOfx";
 import { EscolhaDeFavorecido } from "./EscolhaDeFavorecido";
@@ -49,6 +49,8 @@ interface Props {
   /** abre a liquidação do documento a pagar que este pagamento provavelmente quitou */
   onLiquidar: () => void;
   onIgnorar: () => void;
+  /** busca e associação manual: ligar a linha a uma conta em aberto ou a um lançamento que já existe */
+  onBuscar: () => void;
 }
 
 export function CartaoDaLinha(p: Props) {
@@ -76,6 +78,14 @@ export function CartaoDaLinha(p: Props) {
     categoriaId: v.categoriaId, nomeDaCategoria: p.nomeDaCategoria,
   });
 
+  // H1: existe conta compatível → a pergunta é "é esta conta?". A classificação de despesa NOVA (favorecido, categoria, centro, projeto) só aparece
+  // depois de "Não é esta conta" e com o motivo — criar despesa nova é o último caminho, não o padrão (decisão dela, 20/10/2026).
+  const candidata = !!documento && !modoTransf;
+  const mostrarNova = !candidata || !!edicao?.revelarNova;
+  const motivoNovo = (edicao?.motivoNovo ?? "").trim();
+  const motivoPronto = !candidata || motivoNovo.length > 0;
+  const outroMotivo = !!motivoNovo && !(MOTIVOS_DE_DESPESA_NOVA as readonly string[]).includes(motivoNovo);
+
   return (
     <div className="space-y-2">
       <div className="flex min-w-0 items-center gap-2">
@@ -88,12 +98,49 @@ export function CartaoDaLinha(p: Props) {
         </span>
       </div>
 
-      <HipoteseDaLinha h={hipotese} />
+      {candidata && documento && !mostrarNova && (
+        <div className="space-y-2 pl-6">
+          <div className={`rounded-md border p-2.5 text-xs ${obrigacaoExata ? "border-success-line bg-success-soft/40" : "border-info-line bg-info-soft/40"}`} role="note">
+            <p className={`text-sm font-semibold ${obrigacaoExata ? "text-success-text" : "text-info-text"}`}>
+              {obrigacaoExata ? "✅ Já existe uma conta compatível" : "Pode ser o pagamento desta conta"}
+            </p>
+            <p className="mt-0.5">
+              <b>{documento.documento.fornecedor_nome ?? documento.documento.descricao ?? "conta a pagar"}</b> · vence {dataCurta(documento.documento.data)} · <b className="tabular-nums">{brl(documento.documento.valor)}</b>
+              {obrigacaoExata ? " (valor igual)" : ` (o extrato difere em ${brl(Math.abs(documento.diferenca))})`}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">{documento.motivo}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onLiquidar}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> {obrigacaoExata ? "Liquidar esta conta" : "Liquidar esta conta (explicar a diferença)"}
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}>
+              <Search className="h-3 w-3" /> Buscar outra conta ou lançamento
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>
+              Não é esta conta — registrar nova despesa
+            </Button>
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
+          </div>
+        </div>
+      )}
 
-      <div className="flex flex-wrap items-center gap-2 pl-6">
-        <EscolhaDeFavorecido atual={atual} sugerido={!!atual && !favorecidoTrocado} disabled={ocupado}
-          onChange={(f: FavorecidoEscolhido | null) => p.onEditar({ favorecido: f })} />
-      </div>
+      {(mostrarNova || modoTransf) && (
+        <>
+          {candidata && (
+            <div className="flex flex-wrap items-center gap-2 pl-6 text-xs">
+              <span className="text-warning-text">Existe uma conta que parece ser esta ({documento!.documento.fornecedor_nome ?? documento!.documento.descricao ?? "conta"}, {brl(documento!.documento.valor)}).</span>
+              <button type="button" className="underline underline-offset-2" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: false, motivoNovo: undefined })}>← voltar para a conta</button>
+            </div>
+          )}
+          <HipoteseDaLinha h={hipotese} />
+
+          <div className="flex flex-wrap items-center gap-2 pl-6">
+            <EscolhaDeFavorecido atual={atual} sugerido={!!atual && !favorecidoTrocado} disabled={ocupado}
+              onChange={(f: FavorecidoEscolhido | null) => p.onEditar({ favorecido: f })} />
+          </div>
+        </>
+      )}
 
       {modoTransf ? (
         <div className="space-y-2 pl-6">
@@ -116,10 +163,11 @@ export function CartaoDaLinha(p: Props) {
               Não é transferência
             </Button>
             <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onTransferencia}><Pencil className="h-3 w-3" /> Formulário</Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}><Search className="h-3 w-3" /> Buscar lançamento existente</Button>
             {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3.5 w-3.5" /> Ignorar</Button>}
           </div>
         </div>
-      ) : (
+      ) : mostrarNova && (
         <>
           {provavel && (
             <p className="pl-6 text-xs text-info-text" role="note">
@@ -128,6 +176,24 @@ export function CartaoDaLinha(p: Props) {
                 onClick={() => p.onEditar({ transferirPara: { contaId: provavel.contaId, contaNome: provavel.contaNome, lancamentoId: provavel.lancamentoId }, abrirTransferencia: true, naoETransferencia: false })}>é transferência?</button>
             </p>
           )}
+
+          {candidata ? (
+            <div className="space-y-1.5 pl-6" role="group" aria-label="Por que é uma despesa nova">
+              <p className="text-xs font-medium">Por que não é essa conta? <span className="text-destructive-text">(obrigatório)</span></p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {MOTIVOS_DE_DESPESA_NOVA.map(m => (
+                  <button key={m} type="button" disabled={ocupado} aria-pressed={motivoNovo === m} onClick={() => p.onEditar({ motivoNovo: m })}
+                    className={`h-8 rounded-md border px-2.5 text-xs ${motivoNovo === m ? "border-primary bg-primary/10 font-medium text-primary" : "border-input bg-background hover:bg-muted"}`}>{m}</button>
+                ))}
+                <input type="text" aria-label="Outro motivo" placeholder="Outro motivo…" maxLength={140} disabled={ocupado}
+                  value={outroMotivo ? motivoNovo : ""} onChange={e => p.onEditar({ motivoNovo: e.target.value })}
+                  className="h-8 w-52 min-w-0 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+            </div>
+          ) : (
+            <p className="pl-6 text-xs text-muted-foreground">Nenhuma conta em aberto nem recorrência compatível foi encontrada — é uma despesa nova.</p>
+          )}
+
           <div className="flex flex-wrap items-center gap-1.5 pl-6" role="group" aria-label="Categoria">
             {ids.map(id => (
               <button key={id} type="button" disabled={ocupado} aria-pressed={v.categoriaId === id} onClick={() => p.onEditar({ categoriaId: id })}
@@ -155,22 +221,13 @@ export function CartaoDaLinha(p: Props) {
             )}
           </div>
 
-          {documento && (
-            <p className={`pl-6 text-xs ${obrigacaoExata ? "text-success-text" : "text-info-text"}`}>
-              {obrigacaoExata ? <b>✅ Obrigação prevista de valor igual</b> : <>Pode ser o pagamento de</>}{" "}
-              <b>{documento.documento.fornecedor_nome ?? documento.documento.descricao ?? "documento"}</b> (venc. {dataCurta(documento.documento.data)}, {brl(documento.documento.valor)})
-              {obrigacaoExata ? " — liquide-a para baixá-la da lista de contas a pagar; \"Lançar como novo\" deixaria a obrigação aberta." : " — o valor difere; abra \"Liquidar\" para explicar a diferença."}
-            </p>
-          )}
-
           <div className="flex flex-wrap items-center gap-1.5 pl-6">
-            {documento && (
-              <Button type="button" size="sm" variant={obrigacaoExata ? "default" : "outline"} className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onLiquidar}>
-                <CheckCircle2 className="h-3.5 w-3.5" /> {obrigacaoExata ? "Liquidar obrigação prevista" : "Liquidar documento"}
-              </Button>
-            )}
-            <Button type="button" size="sm" variant={obrigacaoExata ? "outline" : "default"} className="h-8 gap-1 text-xs" disabled={ocupado || !gravavel} onClick={p.onConfirmar}>
-              <CheckCircle2 className="h-3.5 w-3.5" /> {obrigacaoExata ? "Lançar como novo" : "Confirmar"}
+            <Button type="button" size="sm" variant={candidata ? "outline" : "default"} className="h-8 gap-1 text-xs" disabled={ocupado || !gravavel || !motivoPronto} onClick={p.onConfirmar}
+              title={!motivoPronto ? "Diga por que não é a conta em aberto" : undefined}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> Registrar como nova despesa
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}>
+              <Search className="h-3 w-3" /> Buscar e associar a um lançamento que já existe
             </Button>
             <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onFormulario}><Pencil className="h-3 w-3" /> Editar</Button>
             {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}

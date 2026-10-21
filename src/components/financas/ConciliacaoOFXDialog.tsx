@@ -24,19 +24,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { pedidosDeConfirmacao, type PedidoDeConfirmacao } from "@/lib/ofxCandidatas";
+import type { DocumentoDoExtrato } from "@/lib/documentoDoExtrato";
 import { toast } from "sonner";
 import {
-  FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon,
+  FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon, Search,
 } from "lucide-react";
 import { conciliarEmLote, excluirLancamentosEmLote, listarContas, brl, type FinMovimentoTipo } from "@/services/finService";
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
 import { sincronizarOrdemComOfx } from "@/services/auditoriaExtratoService";
 import {
-  analisar, carregarContexto, conciliarDebitos, conciliarPagamentos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, registrarTransferenciaDoExtrato, ROTULO_DO_MOTIVO,
-  type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type OutraPonta, type ParaRegistrar,
+  analisar, carregarContexto, conciliarDebitos, conciliarPagamentos, desfazerLote, desvincularMovimento, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, registrarTransferenciaDoExtrato,
+  vincularMovimentos, ROTULO_DO_MOTIVO,
+  type CandidatoManual, type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type OutraPonta, type ParaRegistrar,
 } from "@/services/importacaoOfxService";
 import {
-  ORDEM_DOS_FILTROS, ROTULO_DO_FILTRO, contarPorFiltro, favorecidoEfetivo, foiCorrigida, identificadasParaConfirmar, marcadasIniciais,
+  MOTIVOS_DE_DESPESA_NOVA, ORDEM_DOS_FILTROS, ROTULO_DO_FILTRO, contarPorFiltro, favorecidoEfetivo, foiCorrigida, identificadasParaConfirmar, marcadasIniciais,
   marcadasParaGravar, paginar, pertenceAoFiltro, podeGravar, valoresEfetivos,
   type Edicao, type Filtro, type LinhaDaGrade,
 } from "@/lib/gradeOfx";
@@ -45,6 +47,7 @@ import { agruparPorClasse, resumirAgrupamentos, resumirMedicao, type Desfecho, t
 import { LancamentoForm } from "./LancamentoForm";
 import { LiquidarPeloExtratoDialog } from "./LiquidarPeloExtratoDialog";
 import { TransferenciaForm } from "./TransferenciaForm";
+import { BuscarEAssociarDialog } from "./mesa/BuscarEAssociarDialog";
 import { CartaoDaLinha } from "./mesa/CartaoDaLinha";
 import { AvisoDosGrupos } from "./mesa/AvisoDosGrupos";
 import { CartaoDoGrupo } from "./mesa/CartaoDoGrupo";
@@ -104,11 +107,22 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const desfazedores = useRef(new Map<string, () => Promise<void>>());
   const semDocumento = useRef(new Set<string>());   // linhas que a tesouraria disse "não é este documento"
   // D3 (13/10/2026): linha nova que tem uma conta em aberto candidata nunca vira lançamento sem o clique "é outro pagamento"
-  const reconhecidas = useRef(new Set<string>());
+  // 20/10/2026: o "outro pagamento" agora traz o MOTIVO (fitid → motivo): vai gravado no lançamento e é o que libera a linha na guarda final de registrarLote
+  const reconhecidas = useRef(new Map<string, string>());
   const [guarda, setGuarda] = useState<{ pedidos: PedidoDeConfirmacao[]; seguir: () => void } | null>(null);
+  const [motivoDaGuarda, setMotivoDaGuarda] = useState("");
+  // linhas em que a tesouraria disse "não é este movimento" (H0): seguem o fluxo de despesa nova, com o motivo
+  const semJaRegistrado = useRef(new Set<string>());
+  const [naoEJaRegistrada, setNaoEJaRegistrada] = useState<LinhaAnalisada | null>(null);
+  const [motivoH0, setMotivoH0] = useState("");
+  const [buscandoLinha, setBuscandoLinha] = useState<LinhaAnalisada | null>(null);
+  const [confirmandoVinculo, setConfirmandoVinculo] = useState<LinhaAnalisada[] | null>(null);
   function comGuarda(alvo: LinhaAnalisada[], seguir: () => void): boolean {
+    // quem já escolheu o motivo no próprio cartão não precisa responder de novo
+    for (const l of alvo) { const m = edicoes[l.tx.fitid]?.motivoNovo?.trim(); if (m) reconhecidas.current.set(l.tx.fitid, m); }
     const pedidos = pedidosDeConfirmacao(alvo, reconhecidas.current);
     if (pedidos.length === 0) return false;
+    setMotivoDaGuarda("");
     setGuarda({ pedidos, seguir });
     return true;
   }
@@ -190,7 +204,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     const ctx = !contexto || recarregarContexto ? await carregarContexto() : contexto;
     setContexto(ctx);
     listarContas().then(cs => setOutrasContas(cs.filter(c => c.id !== contaId).map(c => ({ id: c.id, nome: c.nome })))).catch(() => { /* sem a lista, só o formulário completo */ });
-    const [res, ign] = await Promise.all([analisar(contaId, txs, ctx), listarIgnoradas(contaId)]);
+    const [res, ign] = await Promise.all([analisar(contaId, txs, ctx, { semJaRegistrado: semJaRegistrado.current }), listarIgnoradas(contaId)]);
     setIgnorarDisponivel(ign.disponivel);
     for (const x of res) if (x.situacao === "documento" && semDocumento.current.has(x.tx.fitid)) { x.situacao = "nova"; x.documentos = undefined; }
     setLinhas(res);
@@ -242,6 +256,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const debitosEncontrados = linhas?.filter(l => l.situacao === "debito_encontrado") ?? [];
   const documentosEncontrados = linhas?.filter(l => l.situacao === "documento") ?? [];
   const divergentes = documentosEncontrados.filter(l => l.documentos?.[0] && !l.documentos[0].exato);
+  const aVincular = linhas?.filter(l => l.situacao === "vincular" && !confirmadas.has(l.tx.fitid)) ?? [];
 
   const marcar = (fitid: string, r: RegistroDaMedicao) => setRegistros(prev => new Map(prev).set(fitid, r));
   const registroDe = (l: LinhaAnalisada, desfecho: Desfecho, extra: Partial<RegistroDaMedicao> = {}): RegistroDaMedicao =>
@@ -291,6 +306,72 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     }
   }
 
+  // ── H0: vincular ao que já existe ──
+
+  async function vincular(lista: LinhaAnalisada[]) {
+    const alvo = lista.filter(l => l.situacao === "vincular" && l.lancamentoId);
+    setConfirmandoVinculo(null);
+    if (alvo.length === 0 || !transacoes) return;
+    setConciliando(true);
+    try {
+      const r = await vincularMovimentos(alvo.map(l => ({ lancamentoId: l.lancamentoId!, tx: l.tx })));
+      if (r.conciliados.length > 0) {
+        alterou.current = true;
+        toast.success(`${r.conciliados.length} movimento${r.conciliados.length > 1 ? "s" : ""} vinculado${r.conciliados.length > 1 ? "s" : ""} ao que já existia — nada foi criado`, {
+          action: { label: "Desfazer", onClick: async () => {
+            try { for (const l of alvo) await desvincularMovimento(l.lancamentoId!, l.tx.fitid); toast.success("Vínculo desfeito"); await analisarDeNovo(transacoes, false); }
+            catch (e: any) { toast.error(e?.message ?? "Não foi possível desfazer"); }
+          } },
+        });
+      }
+      if (r.erros.length > 0) toast.error(r.erros[0] + (r.erros.length > 1 ? ` (+${r.erros.length - 1})` : ""));
+      await analisarDeNovo(transacoes, false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao vincular");
+    } finally {
+      setConciliando(false);
+    }
+  }
+
+  /** "Não é este movimento": a linha segue o fluxo de despesa nova — com o motivo, que fica gravado no lançamento. */
+  async function confirmarNaoEJaRegistrada() {
+    const l = naoEJaRegistrada; const m = motivoH0.trim();
+    if (!l || !m) return;
+    semJaRegistrado.current.add(l.tx.fitid);
+    reconhecidas.current.set(l.tx.fitid, m);
+    editar(l.tx.fitid, { motivoNovo: m });
+    setNaoEJaRegistrada(null); setMotivoH0("");
+    if (transacoes) await analisarDeNovo(transacoes, false);
+  }
+
+  // ── busca e associação manual ──
+  function liquidarEscolhida(l: LinhaAnalisada, c: CandidatoManual) {
+    const diferenca = Math.round((l.tx.valor - c.valor) * 100) / 100;
+    const doc: DocumentoDoExtrato = {
+      documento: { id: c.id, valor: c.valor, data: c.data, fornecedor_id: c.fornecedor_id, pessoa_id: c.pessoa_id, descricao: c.rotulo, fornecedor_nome: c.rotulo, recorrencia_id: c.recorrencia_id },
+      diferenca, exato: Math.abs(diferenca) < 0.005, incerto: false, confianca: 100, contrato: c.rotulo, segundoContrato: false, ambiguo: false,
+      outrosAbertos: [], contratoSemDocumento: null, motivo: "conta escolhida à mão pela tesouraria",
+    };
+    setBuscandoLinha(null);
+    setLiquidarLinha({ ...l, situacao: "documento", documentos: [doc] });
+  }
+
+  async function vincularEscolhido(l: LinhaAnalisada, c: CandidatoManual) {
+    setBuscandoLinha(null);
+    if (!transacoes) return;
+    setConciliando(true);
+    try {
+      const r = await vincularMovimentos([{ lancamentoId: c.id, tx: l.tx }]);
+      if (r.conciliados.length > 0) { alterou.current = true; toast.success("Vinculado ao lançamento escolhido — nada foi criado"); }
+      if (r.erros.length > 0) toast.error(r.erros[0]);
+      await analisarDeNovo(transacoes, false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao vincular");
+    } finally {
+      setConciliando(false);
+    }
+  }
+
   // ── gravação ──
 
   /** O que será gravado para uma linha, com o que a pessoa escolheu por cima do que foi sugerido. */
@@ -304,8 +385,16 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       tx: l.tx, categoriaId: v.categoriaId!, centroId: v.centroId, projetoId: ed?.projetoId || undefined,
       pessoaId: fav.pessoa?.id ?? (escolhido?.tipo === "fornecedor" ? escolhido.pessoaId ?? undefined : undefined),
       fornecedorId: fav.fornecedor?.id,
+      motivoNovo: reconhecidas.current.get(l.tx.fitid) ?? (ed?.motivoNovo?.trim() || undefined),
     };
   }
+
+  /** A guarda final (registrarLote) recusou linhas que o banco já tem sob outro identificador: ficam na fila, como "já registradas (vincular)". */
+  async function avisarRecusadas(r: { recusadas: string[] }) {
+    if (r.recusadas.length === 0 || !transacoes) return;
+    await analisarDeNovo(transacoes, false);
+  }
+  const fitidsDoArquivo = () => new Set((transacoes ?? []).map(t => t.fitid));
 
   /** "Confirmar" na própria linha: grava na hora e deixa o "Desfazer" à mão. */
   async function confirmarLinha(l: LinhaAnalisada) {
@@ -314,8 +403,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     if (comGuarda([l], () => void confirmarLinha(l))) return;
     setSalvandoLinha(true);
     try {
-      const r = await registrarLote(contaId, [itemDaLinha(l)]);
-      if (r.erros.length > 0 || r.ids.length !== 1) { toast.error(r.erros[0] ?? "Não foi possível lançar esta linha"); return; }
+      const r = await registrarLote(contaId, [itemDaLinha(l)], undefined, { fitidsDoArquivo: fitidsDoArquivo() });
+      if (r.erros.length > 0 || r.ids.length !== 1) { toast.error(r.erros[0] ?? "Não foi possível lançar esta linha"); await avisarRecusadas(r); return; }
       alterou.current = true;
       setConfirmadas(m => new Map(m).set(l.tx.fitid, r.ids));
       setMarcadas(m => { const n = new Set(m); n.delete(l.tx.fitid); return n; });
@@ -368,11 +457,12 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     if (comGuarda(doGrupo, () => void confirmarGrupo(grupo, escolha))) return;
     setSalvandoLinha(true);
     try {
-      const itens: ParaRegistrar[] = doGrupo.map(l => ({ tx: l.tx, categoriaId: escolha.categoriaId, centroId: escolha.centroId, projetoId: escolha.projetoId }));
-      const r = await registrarLote(contaId, itens);
+      const itens: ParaRegistrar[] = doGrupo.map(l => ({ tx: l.tx, categoriaId: escolha.categoriaId, centroId: escolha.centroId, projetoId: escolha.projetoId, motivoNovo: reconhecidas.current.get(l.tx.fitid) }));
+      const r = await registrarLote(contaId, itens, undefined, { fitidsDoArquivo: fitidsDoArquivo() });
       if (r.erros.length > 0 || r.ids.length !== itens.length) {
         toast.error(`Parte do grupo não foi gravada: ${r.erros[0] ?? "confira"}`);
-        if (r.ids.length > 0 && transacoes) { alterou.current = true; await analisarDeNovo(transacoes, true); }
+        if (r.ids.length > 0) alterou.current = true;
+        if ((r.ids.length > 0 || r.recusadas.length > 0) && transacoes) await analisarDeNovo(transacoes, true);
         return;
       }
       alterou.current = true;
@@ -449,7 +539,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     const itens = alvo.map(itemDaLinha);
     setGravando({ feitos: 0, total: itens.length });
     try {
-      const r = await registrarLote(contaId, itens, (feitos, total) => setGravando({ feitos, total }));
+      const r = await registrarLote(contaId, itens, (feitos, total) => setGravando({ feitos, total }), { fitidsDoArquivo: fitidsDoArquivo() });
       if (r.erros.length > 0) toast.error(`Parte não foi gravada: ${r.erros[0]}`);
       if (r.ids.length > 0) {
         alterou.current = true;
@@ -580,6 +670,18 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                   Fora da fila: {contagem.conciliar} a conciliar com lançamentos já feitos · {contagem.ja_registradas} já registrada{contagem.ja_registradas !== 1 ? "s" : ""} (não serão criadas de novo) · {contagem.ignoradas} ignorada{contagem.ignoradas !== 1 ? "s" : ""} · {contagem.transferencias} parece{contagem.transferencias !== 1 ? "m" : ""} transferência entre contas.
                 </p>
               )}
+              {aVincular.length > 0 && (
+                <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 flex flex-wrap items-center gap-2" role="status">
+                  <p className="text-sm flex-1 min-w-0">
+                    <b className="tabular-nums">{aVincular.length}</b> de {total} movimentos <b>já estão registrados</b> no sistema, vindos de outra importação (o banco numera cada exportação de um jeito).
+                    Vincule-os ao que já existe — <b>nada será criado</b>. Se algum for outro pagamento, diga na própria linha.
+                  </p>
+                  <Button type="button" size="sm" className="gap-1.5" disabled={ocupado} onClick={() => setConfirmandoVinculo(aVincular)}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Vincular todos ({aVincular.length})
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" disabled={ocupado} onClick={() => setFiltro("vincular")}>Ver a lista</Button>
+                </div>
+              )}
               {documentosEncontrados.length > 0 && (
                 <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 flex flex-wrap items-center gap-2">
                   <p className="text-sm flex-1 min-w-0">
@@ -692,7 +794,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
                           onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
                           outrasContas={outrasContas} contaNome={contaNome} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
-                          onLiquidar={() => setLiquidarLinha(l)}
+                          onLiquidar={() => setLiquidarLinha(l)} onBuscar={() => setBuscandoLinha(l)}
                           onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
                       ) : (
                         <>
@@ -711,6 +813,28 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                                 ? "Casa com um lançamento já CONFERIDO, sem vínculo com o banco — será ligada ao extrato (fica Conciliada)."
                                 : "Casa com um lançamento já registrado — será conciliada."}
                             </p>
+                          )}
+                          {l.situacao === "vincular" && l.jaRegistrado && (
+                            <div className="pl-6 space-y-1.5">
+                              <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 text-xs">
+                                <p className="text-sm font-semibold text-warning-text">⚠ Este movimento já parece estar registrado</p>
+                                <p className="mt-0.5">
+                                  <b>{l.jaRegistrado.lancamento.rotulo ?? "lançamento existente"}</b> · <b className="tabular-nums">{brl(l.jaRegistrado.lancamento.valor)}</b> · {dataBr((l.jaRegistrado.lancamento.data_pagamento ?? l.jaRegistrado.lancamento.data).slice(0, 10))}
+                                </p>
+                                <p className="mt-0.5 text-muted-foreground">{l.jaRegistrado.motivo}</p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => setConfirmandoVinculo([l])}>
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Vincular ao lançamento existente
+                                </Button>
+                                <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => setBuscandoLinha(l)}>
+                                  <Search className="h-3 w-3" /> Buscar e associar a outro
+                                </Button>
+                                <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => { setMotivoH0(""); setNaoEJaRegistrada(l); }}>
+                                  Não é este movimento — é outro pagamento
+                                </Button>
+                              </div>
+                            </div>
                           )}
                           {l.situacao === "ja_registrada" && (
                             <p className="pl-6 text-xs text-muted-foreground">Já registrada: {l.motivoJaRegistrada}. Não será criada de novo.</p>
@@ -870,14 +994,26 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                         </li>
                       ))}
                     </ul>
+                    <div className="space-y-1.5" role="group" aria-label="Por que é uma despesa nova">
+                      <p className="text-xs font-medium">Para criar como nova despesa, diga por quê <span className="text-destructive-text">(obrigatório)</span></p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {MOTIVOS_DE_DESPESA_NOVA.map(m => (
+                          <button key={m} type="button" aria-pressed={motivoDaGuarda === m} onClick={() => setMotivoDaGuarda(m)}
+                            className={`h-8 rounded-md border px-2.5 text-xs ${motivoDaGuarda === m ? "border-primary bg-primary/10 font-medium text-primary" : "border-input bg-background hover:bg-muted"}`}>{m}</button>
+                        ))}
+                        <input type="text" aria-label="Outro motivo" placeholder="Outro motivo…" maxLength={140}
+                          value={(MOTIVOS_DE_DESPESA_NOVA as readonly string[]).includes(motivoDaGuarda) ? "" : motivoDaGuarda} onChange={e => setMotivoDaGuarda(e.target.value)}
+                          className="h-8 w-52 min-w-0 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                      </div>
+                    </div>
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="gap-2 sm:gap-2">
                 <AlertDialogCancel>Voltar</AlertDialogCancel>
-                <Button type="button" variant="outline" onClick={() => {
+                <Button type="button" variant="outline" disabled={!motivoDaGuarda.trim()} onClick={() => {
                   const g = guarda; setGuarda(null);
-                  for (const p of g.pedidos) reconhecidas.current.add(p.fitid);
+                  for (const p of g.pedidos) reconhecidas.current.set(p.fitid, motivoDaGuarda.trim());
                   g.seguir();
                 }}>{um ? "É outro pagamento — criar mesmo assim" : "São outros pagamentos — criar mesmo assim"}</Button>
                 <Button type="button" onClick={() => {
@@ -891,6 +1027,54 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         })()}
       </AlertDialogContent>
     </AlertDialog>
+
+    {/* H0: vincular — nada é criado; só liga a linha do banco ao lançamento que já existe */}
+    <AlertDialog open={!!confirmandoVinculo} onOpenChange={v => { if (!v) setConfirmandoVinculo(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Vincular {confirmandoVinculo?.length ?? 0} movimento{(confirmandoVinculo?.length ?? 0) !== 1 ? "s" : ""} ao que já existe?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Cada linha do extrato será ligada ao lançamento que já a registra (mesmo valor e mesmo dia). <b>Nenhum lançamento é criado, apagado ou alterado</b> — só acrescenta-se o identificador
+            desta exportação, para a próxima importação reconhecer. Logo depois dá para desfazer.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Voltar</AlertDialogCancel>
+          <AlertDialogAction onClick={() => confirmandoVinculo && void vincular(confirmandoVinculo)}>Vincular</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* "Não é este movimento": o motivo é obrigatório e fica gravado no lançamento novo */}
+    <AlertDialog open={!!naoEJaRegistrada} onOpenChange={v => { if (!v) { setNaoEJaRegistrada(null); setMotivoH0(""); } }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Por que este movimento é outro pagamento?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2 text-sm">
+              {naoEJaRegistrada?.jaRegistrado && <p>O sistema acha que ele já está registrado como <b>{naoEJaRegistrada.jaRegistrado.lancamento.rotulo ?? "lançamento existente"}</b> ({brl(naoEJaRegistrada.jaRegistrado.lancamento.valor)}). Para criar uma despesa nova, diga por quê:</p>}
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Motivo">
+                {["Dois pagamentos iguais no mesmo dia", "O lançamento existente é de outro pagamento"].map(m => (
+                  <button key={m} type="button" aria-pressed={motivoH0 === m} onClick={() => setMotivoH0(m)}
+                    className={`h-8 rounded-md border px-2.5 text-xs ${motivoH0 === m ? "border-primary bg-primary/10 font-medium text-primary" : "border-input bg-background hover:bg-muted"}`}>{m}</button>
+                ))}
+              </div>
+              <input type="text" aria-label="Outro motivo" placeholder="Ou escreva o motivo…" maxLength={140} value={motivoH0} onChange={e => setMotivoH0(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Voltar</AlertDialogCancel>
+          <Button type="button" disabled={!motivoH0.trim()} onClick={() => void confirmarNaoEJaRegistrada()}>Seguir como despesa nova</Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <BuscarEAssociarDialog linha={buscandoLinha} contaId={contaId} ocupado={ocupado}
+      onFechar={() => setBuscandoLinha(null)}
+      onLiquidar={c => buscandoLinha && liquidarEscolhida(buscandoLinha, c)}
+      onVincular={c => buscandoLinha && void vincularEscolhido(buscandoLinha, c)} />
 
     <IgnorarLinhaDialog linha={ignorando} ocupado={salvandoLinha} onFechar={() => setIgnorando(null)} onConfirmar={ignorar} />
 

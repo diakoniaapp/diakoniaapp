@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conciliação por obrigação — proposta visual</title>
+<style>
+  :root {
+    --fundo: #f6f2ec; --papel: #fffdf9; --tinta: #2b211c; --suave: #7a6d64; --linha: #e3d9cd;
+    --ouro: #b8893a; --ouro-fundo: #f3e7cf; --marrom: #5a3a2e;
+    --ruim: #b3382c; --ruim-fundo: #fbe9e6; --bom: #2f7d4f; --bom-fundo: #e6f3ea; --aviso: #a8741a; --aviso-fundo: #faf0d9; --info: #2f5f93; --info-fundo: #e8eff8;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--tinta); font: 15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .pagina { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+  h1 { font: 600 28px/1.2 Georgia, "Times New Roman", serif; margin: 0 0 6px; }
+  h2 { font: 600 20px/1.3 Georgia, serif; margin: 38px 0 6px; }
+  p { margin: 0 0 10px; } .sub { color: var(--suave); max-width: 72ch; }
+  code { background: #efe7db; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .achado { background: var(--papel); border: 1px solid var(--linha); border-left: 4px solid var(--ruim); border-radius: 8px; padding: 14px 16px; margin: 18px 0; }
+  .achado strong { color: var(--ruim); }
+  .par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-top: 12px; }
+  @media (max-width: 860px) { .par { grid-template-columns: 1fr; } }
+  .rot { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-bottom: 6px; }
+  .rot.antes { color: var(--ruim); } .rot.depois { color: var(--bom); }
+
+  /* o cartão */
+  .cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .banco { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; border-bottom: 1px solid var(--linha); padding-bottom: 8px; margin-bottom: 8px; min-width: 0; }
+  .banco b { font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .banco span { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ruim); white-space: nowrap; }
+  .banco small { color: var(--suave); display: block; font-size: 11.5px; font-weight: 400; }
+  .caixa { border: 1px solid var(--linha); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; background: #fbf7f0; margin-bottom: 8px; }
+  .caixa dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; } .caixa dt { color: var(--suave); } .caixa dd { margin: 0; }
+  .ctl { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chip { font-size: 11.5px; border: 1px solid var(--linha); border-radius: 99px; padding: 2px 10px; background: #fff; white-space: nowrap; }
+  .chip.on { background: var(--ouro-fundo); border-color: var(--ouro); color: var(--marrom); }
+  .sel { font-size: 11.5px; border: 1px solid var(--linha); border-radius: 6px; padding: 3px 8px; background: #fff; color: var(--suave); }
+  .nota-pequena { font-size: 11.5px; color: var(--info); padding-left: 4px; margin: 4px 0 8px; }
+  .botoes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn { font-size: 12px; border: 1px solid var(--linha); border-radius: 6px; padding: 5px 11px; background: #fff; white-space: nowrap; }
+  .btn.cheio { background: #2c6b45; color: #fff; border-color: #2c6b45; } .btn.azul { background: var(--info); color: #fff; border-color: var(--info); }
+  .btn.fantasma { border-color: transparent; color: var(--suave); }
+
+  /* a resposta no topo */
+  .resposta { border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .resposta.sim { background: var(--bom-fundo); border: 1px solid #bfdfca; }
+  .resposta.ja { background: var(--aviso-fundo); border: 1px solid #ecd9a8; }
+  .resposta.nao { background: var(--info-fundo); border: 1px solid #c8d8ec; }
+  .resposta .t { font-weight: 700; font-size: 13.5px; } .resposta .d { font-size: 12.5px; color: var(--tinta); margin-top: 2px; }
+  .resposta .d small { color: var(--suave); }
+  .mais { font-size: 12px; color: var(--suave); margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .mais u { text-decoration: underline dotted; cursor: default; }
+
+  .tabela { width: 100%; border-collapse: collapse; font-size: 12.5px; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; }
+  .tabela th, .tabela td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  .tabela th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); background: #f3ece1; }
+  .tabela td.v { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .ok { color: var(--bom); font-weight: 600; } .no { color: var(--ruim); font-weight: 600; }
+
+  /* visão por obrigação */
+  .mesa { display: grid; grid-template-columns: minmax(0,1fr) 28px minmax(0,1fr); gap: 0; align-items: stretch; }
+  .mesa .seta { display: grid; place-items: center; color: var(--suave); font-size: 18px; }
+  .mesa .lin { background: var(--papel); border: 1px solid var(--linha); padding: 7px 10px; font-size: 12.5px; min-width: 0; }
+  .mesa .lin b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mesa .lin span { color: var(--suave); font-size: 11.5px; }
+  .mesa .lin.ob { border-radius: 8px 0 0 8px; } .mesa .lin.bk { border-radius: 0 8px 8px 0; }
+  .mesa .lin.vaz { background: #f3ece1; color: var(--suave); border-style: dashed; }
+  .mesa .acao { grid-column: 1 / -1; display: flex; justify-content: flex-end; padding: 4px 0 8px; }
+  .topo { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 10px; }
+  .pill { border: 1px solid var(--linha); border-radius: 99px; padding: 2px 10px; background: #fff; white-space: nowrap; } .pill.b { background: var(--bom-fundo); color: var(--bom); border-color: #bfdfca; } .pill.a { background: var(--aviso-fundo); color: var(--aviso); border-color: #ecd9a8; } .pill.i { background: var(--info-fundo); color: var(--info); border-color: #c8d8ec; }
+  ul.l { margin: 6px 0 0; padding-left: 18px; font-size: 13px; } ul.l li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <h1>Conciliação por obrigação</h1>
+  <p class="sub">Proposta visual — <b>nada disto está no sistema</b>. Datas, valores e descrições dos movimentos vêm do extrato de 01–19/10 e do banco em 20/10/2026; <b>categoria, nome de contrato e contagens dentro dos cartões são ilustrativos</b> (marcados com «ilustr.» onde importa). A análise completa está em <code>docs/ANALISE_CONCILIACAO_POR_OBRIGACAO_2026-10-20.md</code>.</p>
+
+  <div class="achado">
+    <strong>O que a medição achou antes do desenho.</strong> Hoje o OFX gravou 52 movimentos que já existiam (12 saídas = R$ 13.109,50; 40 entradas = R$ 19.039,68), porque o identificador do Bradesco muda de uma exportação para outra e o motor só procura contas <i>em aberto</i>. Nove das saídas são recorrências que já tinham sido baixadas dia 8–14. Por isso o desenho abaixo começa por uma pergunta que a tela atual não faz: <b>"esse movimento já está registrado?"</b>
+  </div>
+
+  <h2>1 · O cartão de uma saída: antes × depois</h2>
+  <p class="sub">Caso real: <b>PAGTO ELETRON COBRANCA VERISURE — R$ 278,22, 05/10</b>. O banco já tinha a recorrência da Verisure baixada em 08/10 com outro identificador.</p>
+
+  <div class="par">
+    <div>
+      <div class="rot antes">Hoje</div>
+      <div class="cartao">
+        <div class="banco"><b>PAGTO ELETRON COBRANCA VERISU<small>05/10 · Bradesco · saída</small></b><span>− R$ 278,22</span></div>
+        <div class="caixa"><dl><dt>Valor atual</dt><dd>R$ 278,22</dd><dt>Sugestão</dt><dd>Verisure Brasil Monitoramento (ilustr.)</dd><dt>Confiança</dt><dd>— (ilustr.)</dd><dt>Motivos</dt><dd>nome no extrato; valor do histórico</dd></dl></div>
+        <div class="ctl"><span class="sel">Favorecido: Verisure Brasil ▾</span><span class="chip on">Categoria sugerida</span><span class="chip">Outra categoria</span><span class="chip">Outra…</span><span class="chip">Transferência entre contas</span></div>
+        <div class="ctl"><span class="sel">Centro de custo ▾</span><span class="sel">Projeto ▾</span></div>
+        <div class="botoes"><span class="btn cheio">Confirmar</span><span class="btn">Editar</span><span class="btn fantasma">Ignorar</span></div>
+        <p class="nota-pequena">(nenhum aviso — a recorrência já estava baixada, não "em aberto")</p>
+      </div>
+      <ul class="l"><li>12 controles antes de a primeira pergunta de verdade.</li><li>"Confirmar" é o botão cheio; confirma <i>o quê</i>?</li><li>O candidato, quando existe, é a frase pequena de baixo.</li></ul>
+    </div>
+    <div>
+      <div class="rot depois">Proposto — H0: já registrada</div>
+      <div class="cartao">
+        <div class="banco"><b>PAGTO ELETRON COBRANCA VERISU<small>05/10 · Bradesco · saída</small></b><span>− R$ 278,22</span></div>
+        <div class="resposta ja">
+          <div class="t">⚠ Este movimento já parece estar registrado</div>
+          <div class="d">Verisure Brasil Monitoramento · R$ 278,22 · 05/10 <small>— recorrência baixada em 08/10 por outro arquivo (id N11F17; este é N105B3)</small></div>
+        </div>
+        <div class="botoes"><span class="btn cheio">Vincular ao lançamento existente</span><span class="btn fantasma">Não é este — ver outras opções ▾</span></div>
+        <div class="mais"><u>Ver os 2 lançamentos lado a lado</u><u>Por que a tela acha isso?</u></div>
+      </div>
+      <ul class="l"><li>Uma resposta, um botão.</li><li>Vincular só grava a marca do banco; <b>não cria lançamento</b>.</li><li>"Não é este" abre o caminho de nova despesa, pedindo o motivo em 1 linha.</li></ul>
+    </div>
+  </div>
+
+  <div class="par">
+    <div>
+      <div class="rot depois">Proposto — H1: liquidar obrigação aberta</div>
+      <div class="cartao">
+        <div class="banco"><b>PIX ENVIADO DES: CAIO MARCELO<small>02/10 · Bradesco · saída</small></b><span>− R$ 4.138,00</span></div>
+        <div class="resposta sim">
+          <div class="t">✅ Existe conta compatível</div>
+          <div class="d">Caio Marcelo · vence 05/10 · <b>R$ 4.138,00</b> <small>(valor igual · recorrência mensal)</small></div>
+        </div>
+        <div class="botoes"><span class="btn cheio">Liquidar esta conta</span><span class="btn fantasma">Não é esta ▾</span></div>
+        <div class="mais"><span>Categoria, centro e projeto vêm da conta.</span><u>Corrigir classificação</u></div>
+      </div>
+    </div>
+    <div>
+      <div class="rot depois">Proposto — H4: nada compatível</div>
+      <div class="cartao">
+        <div class="banco"><b>PIX ENVIADO DES: DANIEL ALVES<small>02/10 · Bradesco · saída</small></b><span>− R$ 600,00</span></div>
+        <div class="resposta nao">
+          <div class="t">◻ Nenhuma conta ou recorrência compatível</div>
+          <div class="d"><small>Procurei nas contas abertas e nos contratos do favorecido (ilustr.: «N contas, N contratos»); nada de R$ 600 em ±20 dias.</small></div>
+        </div>
+        <div class="ctl"><span class="sel">Favorecido: Daniel Alves ▾</span><span class="chip on">Categoria sugerida</span><span class="chip">Outra…</span><span class="sel">Centro ▾</span></div>
+        <div class="botoes"><span class="btn azul">Registrar como nova despesa</span><span class="btn fantasma">⋯</span></div>
+      </div>
+      <ul class="l"><li>A classificação só aparece aqui, onde é necessária.</li><li>Se houvesse candidata e a pessoa escolhesse este botão, pediria o motivo (chips).</li></ul>
+    </div>
+  </div>
+
+  <h2>2 · As hipóteses, na ordem em que o motor responde</h2>
+  <table class="tabela">
+    <thead><tr><th>#</th><th>Hipótese</th><th>Botão cheio</th><th>Quando</th></tr></thead>
+    <tbody>
+      <tr><td>H0</td><td>Já registrada (mesmo movimento, outro arquivo, à mão ou Omie)</td><td>Vincular ao lançamento existente</td><td>conta + data + sentido + valor + ordinal iguais a lançamento não previsto</td></tr>
+      <tr><td>H1</td><td>Obrigação aberta compatível</td><td>Liquidar «Conta · vence»</td><td>regra atual de <code>documentoDoExtrato</code>, agora promovida a principal também com valor ≠</td></tr>
+      <tr><td>H2</td><td>Recorrência sem obrigação aberta</td><td>Gerar e liquidar a ocorrência / Vincular à baixada</td><td>contrato ativo do favorecido, dia do mês próximo</td></tr>
+      <tr><td>H3</td><td>Débito automático / transferência</td><td>como hoje</td><td>sem mudança</td></tr>
+      <tr><td>H4</td><td>Nenhuma compatível</td><td>Registrar como nova despesa</td><td>só depois de H0–H3 descartadas, mostrando o que foi procurado</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3 · A tela inteira: de "linhas do banco" para "contas a pagar"</h2>
+  <p class="sub">Visão por obrigação como padrão. À esquerda, o que a Tesouraria espera; à direita, o que o banco mostrou. A fila de exceção (o que sobra) é onde se cria despesa nova.</p>
+  <div class="topo"><b>Na rodada (ilustr.)</b><span class="pill b">N liquidaram uma conta</span><span class="pill i">N vinculadas a registro existente</span><span class="pill a">N viraram despesa nova</span><span class="pill">medido: setembro 17 de 91 saídas com conta prévia; outubro 7 de 43</span></div>
+  <div class="mesa">
+    <div class="lin ob"><b>Verisure · vence 05/10 · R$ 278,22</b><span>recorrência mensal</span></div><div class="seta">⇄</div><div class="lin bk"><b>PAGTO ELETRON COBRANCA VERISU</b><span>05/10 · − R$ 278,22</span></div>
+    <div class="acao"><span class="btn cheio">Liquidar</span></div>
+    <div class="lin ob"><b>Light · vence 15/10 · R$ 3.583,22 (ilustr.)</b><span>conta de luz</span></div><div class="seta">⇄</div><div class="lin bk"><b>CONTA DE LUZ LIGHT-RJ-010</b><span>15/10 · − R$ 3.583,22</span></div>
+    <div class="acao"><span class="btn cheio">Liquidar</span></div>
+    <div class="lin ob"><b>Ecoprint · vence 20/10 · R$ 360,00</b><span>aguardando pagamento · hoje</span></div><div class="seta">⇄</div><div class="lin bk vaz"><b>— nenhuma linha do banco ainda —</b><span>não foi paga ou não entrou neste extrato</span></div>
+    <div class="acao"></div>
+  </div>
+  <p class="sub" style="margin-top:6px">E abaixo, <b>"Movimentos do banco sem conta" (29)</b> — a fila de exceção, com <i>Criar recorrência</i> quando o mesmo favorecido aparece pela 3ª vez.</p>
+
+  <h2>4 · Para decidir</h2>
+  <ul class="l">
+    <li><b>Primeiro passo:</b> H0 + aviso de janela na importação (só código) — fecha o caso de hoje antes de qualquer redesenho.</li>
+    <li><b>Cartão novo</b> (H0→H4, resposta no topo, classificação só em H4)?</li>
+    <li><b>Motivo obrigatório</b> ao registrar nova despesa quando existe candidata?</li>
+    <li><b>Visão por obrigação</b> como padrão, ou como aba opcional primeiro?</li>
+    <li><b>Guarda no banco</b> (gatilho que recusa duplicar sem "motivo") — exige migration que você aplica.</li>
+  </ul>
+</div>
+</body>
+</html>

@@ -24,8 +24,18 @@ describe("filtros da grade", () => {
 
   it("conta cada linha na faixa certa; transferência não entra em identificadas/revisar", () => {
     expect(contarPorFiltro(linhas)).toEqual({
-      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, conciliar: 1, ja_registradas: 1, ignoradas: 0,
+      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, conciliar: 1, vincular: 0, ja_registradas: 1, ignoradas: 0,
     });
+  });
+
+  it("H0: o movimento que parece já registrado tem filtro próprio, conta nas pendências e NUNCA é gravado em lote", () => {
+    const v: LinhaDaGrade = { fitid: "v", situacao: "vincular", sugestao: sug() };
+    expect(pertenceAoFiltro(v, "vincular")).toBe(true);
+    expect(pertenceAoFiltro(v, "pendencias")).toBe(true);
+    expect(pertenceAoFiltro(v, "identificadas")).toBe(false);
+    expect(podeGravar(v)).toBe(false);
+    expect(identificadasParaConfirmar([v], {}, new Set(["v"]))).toEqual([]);
+    expect(marcadasIniciais([v]).size).toBe(0);
   });
 
   it("documento a liquidar (saída do extrato que quitou um previsto) tem filtro próprio e NUNCA é gravado em lote", () => {
