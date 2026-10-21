@@ -1,14 +1,13 @@
 // ─── ConciliacaoDaConta — a aba "Conciliação" da conta: conferir e importar o extrato do banco ──────────────────────────────────────────────────────────
 // Fase D (20/10/2026): era o `ConciliacaoDrawer`, uma gaveta sobre o Painel da Tesouraria. Agora é uma ABA da própria conta (uma casa só para tudo o que é banco). A lista, a seleção e o
-// `conciliarEmLote()` são os de sempre; "Importar OFX" continua sendo o `ConciliacaoOFXDialog`.
+// `conciliarEmLote()` são os de sempre; "Importar OFX" mora no cabeçalho da conta (`BotaoDeImportar`), em qualquer aba.
 //
 // D4 (13/10/2026): marcar à mão é CONFERIR (validação humana); CONCILIAR é ter o vínculo com a linha do banco (OFX ou PDF) — duas provas diferentes.
 import { useCallback, useEffect, useState } from "react";
-import { FileUp, Loader2, Scale } from "lucide-react";
+import { Loader2, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { hojeMaisDias } from "@/lib/data";
 import { conciliarEmLote, listarLancamentosSemTeto, nomeExtrato, brl, type FinLancamentoExtenso } from "@/services/finService";
 import { DIAS_JANELA_COMPROVANTE } from "@/services/painelTesourariaService";
@@ -20,7 +19,6 @@ export function ConciliacaoDaConta({ contaId, contaNome, onChange }: { contaId: 
   const [carregando, setCarregando] = useState(true);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [conferindo, setConferindo] = useState(false);
-  const [ofxAberto, setOfxAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -62,7 +60,6 @@ export function ConciliacaoDaConta({ contaId, contaNome, onChange }: { contaId: 
           <Checkbox checked={lancamentos.length > 0 && selecionados.size === lancamentos.length} onCheckedChange={alternarTodos} disabled={lancamentos.length === 0} />
           Selecionar todos
         </label>
-        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setOfxAberto(true)}><FileUp className="h-3.5 w-3.5" /> Importar OFX</Button>
       </div>
 
       {carregando ? (
@@ -99,7 +96,6 @@ export function ConciliacaoDaConta({ contaId, contaNome, onChange }: { contaId: 
         </div>
       )}
 
-      <ConciliacaoOFXDialog open={ofxAberto} onOpenChange={setOfxAberto} contaId={contaId} contaNome={contaNome} onSaved={() => { void carregar(); onChange?.(); }} />
     </section>
   );
 }

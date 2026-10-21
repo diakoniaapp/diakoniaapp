@@ -39,14 +39,13 @@ import {
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
-import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
+import { BotaoDeImportar } from "@/components/financas/contas/BotaoDeImportar";
 import { calcularExtrato, dataEfetiva, fechamentosDoDia, vencimentoDiferente, saldoAntesDe } from "@/services/saldoService";
 import { FechamentoDoDiaCelular, LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
 import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
 import { AbasDaConta } from "@/components/financas/contas/AbasDaConta";
-import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ChipsDeFiltros, FiltrosAvancadosPopover } from "@/components/financas/extrato/FiltrosAvancadosPopover";
 import { ColunasPopover } from "@/components/financas/extrato/ColunasPopover";
 import { ResumoEmLinha } from "@/components/financas/extrato/ResumoEmLinha";
@@ -184,8 +183,6 @@ export default function FinancasConta() {
   // o painel de detalhes da despesa como uma entidade só (documento, pagamento, OFX, conciliação, comprovante, malote)
   const [detalhesDe, setDetalhesDe] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
-  const [ofxOpen, setOfxOpen] = useState(false);
-  const [faturaOpen, setFaturaOpen] = useState(false);
   // Conciliação manual (item 6 do roadmap do ERP): seleção só de
   // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
   // (previsto), que foi cancelado, ou que ainda espera aprovação.
@@ -871,24 +868,9 @@ export default function FinancasConta() {
             )}
           </>
         )}
-        {/* Importar OFX/Fatura e Transferir pedem uma conta-alvo
-            certa — somem no modo "Todas as Contas" (mesmo critério do
-            `ExtratoContaDrawer`); continuam disponíveis abrindo uma
-            conta específica. */}
-        {!isTodasContas && conta?.tipo === "banco" && (
-          <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className={`gap-1.5 ${botaoIcone}`} title="Importar OFX" aria-label="Importar OFX">
-            <FileUp className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Importar OFX</span>
-          </Button>
-        )}
-        {/* Pedido da Telma (15/09/2026): pagamentos de 2024 do cartão, que
-            não passaram pelo Omie — só existem em PDF de fatura. Só faz
-            sentido pra conta tipo "cartao", mesma lógica do OFX só pra
-            "banco" acima. */}
-        {!isTodasContas && conta?.tipo === "cartao" && (
-          <Button variant="outline" size="sm" onClick={() => setFaturaOpen(true)} className={`gap-1.5 ${botaoIcone}`} title="Importar fatura" aria-label="Importar fatura">
-            <FileUp className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Importar Fatura</span>
-          </Button>
-        )}
+        {/* Importar arquivo (OFX no banco, fatura no cartão): UM botão, o mesmo do cabeçalho das outras abas da conta (`BotaoDeImportar`) — 21/10/2026.
+            Pede uma conta-alvo certa: some em "Todas as Contas". */}
+        {!isTodasContas && conta && <BotaoDeImportar contaId={contaId} contaNome={conta.nome} tipo={conta.tipo} onSaved={carregar} compacto />}
         {!isTodasContas && (
           <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className={`gap-1.5 text-info-text hover:text-info-text ${botaoIcone}`} title="Transferir" aria-label="Transferir">
             <ArrowRightLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Transferir</span>
@@ -1094,20 +1076,6 @@ export default function FinancasConta() {
             open={transfOpen}
             onOpenChange={setTransfOpen}
             contaOrigemPadrao={contaId}
-            onSaved={carregar}
-          />
-          <ConciliacaoOFXDialog
-            open={ofxOpen}
-            onOpenChange={setOfxOpen}
-            contaId={contaId}
-            contaNome={conta?.nome ?? ""}
-            onSaved={carregar}
-          />
-          <ImportacaoFaturaDialog
-            open={faturaOpen}
-            onOpenChange={setFaturaOpen}
-            contaId={contaId}
-            contaNome={conta?.nome ?? ""}
             onSaved={carregar}
           />
         </>

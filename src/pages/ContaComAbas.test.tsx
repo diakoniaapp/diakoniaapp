@@ -20,6 +20,7 @@ vi.mock("@/hooks/useNavegacao", () => ({ useRotuloDaTela: () => {} }));
 vi.mock("@/components/financas/contas/ConciliacaoDaConta", () => ({ ConciliacaoDaConta: ({ contaNome }: { contaNome: string }) => <p data-teste="conciliacao">conciliando {contaNome}</p> }));
 vi.mock("@/components/financas/contas/DiagnosticoDoExtrato", () => ({ DiagnosticoDoExtrato: ({ contaNome }: { contaNome: string }) => <p data-teste="diagnostico">diagnóstico {contaNome}</p> }));
 vi.mock("@/components/financas/contas/ImportacoesDaConta", () => ({ ImportacoesDaConta: ({ tipo }: { tipo: string }) => <p data-teste="importacoes">importando {tipo}</p> }));
+vi.mock("@/components/financas/contas/BotaoDeImportar", () => ({ BotaoDeImportar: ({ tipo }: { tipo: string }) => <button data-botao-importar={tipo}>importar</button> }));
 vi.mock("@/components/ListState", () => ({ PaginaSkeleton: () => <p data-teste="carregando" /> }));
 
 import ContaComAbas from "./ContaComAbas";
@@ -50,13 +51,24 @@ describe("ContaComAbas", () => {
   it("abre a aba pedida, com a conta no cabeçalho e as abas da conta", async () => {
     const el = await ir("/financas/conta/b/conciliacao");
     expect(el.querySelector("[data-teste=conciliacao]")!.textContent).toBe("conciliando Bradesco");
-    expect([...el.querySelectorAll("nav a")].map(a => a.textContent!.trim())).toEqual(["Extrato", "Conciliação", "Diagnóstico", "Importações"]);
+    expect([...el.querySelectorAll("nav a")].map(a => a.textContent!.trim())).toEqual(["Extrato", "Conciliação", "Diagnóstico"]);   // banco: sem a aba Importações (21/10/2026)
     expect(el.querySelector("[aria-current=page]")!.textContent!.trim()).toBe("Conciliação");
   });
   it("cada aba mostra o seu conteúdo", async () => {
     expect(qual(await ir("/financas/conta/b/diagnostico"))).toBe("diagnostico");
     reiniciar();
     expect(qual(await ir("/financas/conta/v/importacoes"))).toBe("importacoes");
+  });
+  it("o botão de importar é UM só, no cabeçalho, em qualquer aba: OFX no banco, fatura no cartão", async () => {
+    for (const [url, tipo] of [["/financas/conta/b/conciliacao", "banco"], ["/financas/conta/b/diagnostico", "banco"], ["/financas/conta/v/importacoes", "cartao"]] as const) {
+      const el = await ir(url);
+      expect(el.querySelectorAll("[data-botao-importar]"), url).toHaveLength(1);
+      expect(el.querySelector("[data-botao-importar]")!.getAttribute("data-botao-importar")).toBe(tipo);
+      reiniciar();
+    }
+  });
+  it("conta de banco não tem a aba Importações: o endereço antigo volta para o extrato", async () => {
+    expect((await ir("/financas/conta/b/importacoes")).querySelector("[data-teste=extrato]")!.textContent).toBe("/financas/conta/b");
   });
   it("aba que a conta não tem (diagnóstico de cartão) volta para o extrato", async () => {
     expect((await ir("/financas/conta/v/diagnostico")).querySelector("[data-teste=extrato]")!.textContent).toBe("/financas/conta/v");

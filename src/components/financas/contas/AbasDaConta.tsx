@@ -1,7 +1,7 @@
 // ─── AbasDaConta — Extrato · Conciliação · Diagnóstico · Importações: uma casa só para tudo o que é banco ──────────────────────────────────────────────
 // Fase D (20/10/2026). Antes o extrato, a conciliação, a auditoria do extrato e a importação viviam em quatro lugares (página, duas gavetas do Painel e uma página solta); agora são
 // as abas da própria conta, cada uma com endereço (`/financas/conta/:id`, `/financas/conta/:id/conciliacao`…), que dá para fixar, voltar e compartilhar.
-// Quais abas existem depende do tipo da conta: OFX e diagnóstico só fazem sentido no banco; a fatura só no cartão; as demais contas têm só o extrato.
+// Quais abas existem depende do tipo da conta: conciliação e diagnóstico só fazem sentido no banco; o histórico de faturas só no cartão; as demais contas têm só o extrato.
 import { Link } from "react-router-dom";
 import { FileSearch, FileUp, Receipt, Scale } from "lucide-react";
 import type { FinContaTipo } from "@/services/finService";
@@ -12,7 +12,8 @@ const TODAS: { aba: AbaDaConta; rotulo: string; icone: typeof Scale; tipos: FinC
   { aba: "extrato", rotulo: "Extrato", icone: Receipt, tipos: "todos" },
   { aba: "conciliacao", rotulo: "Conciliação", icone: Scale, tipos: ["banco"] },
   { aba: "diagnostico", rotulo: "Diagnóstico", icone: FileSearch, tipos: ["banco"] },
-  { aba: "importacoes", rotulo: "Importações", icone: FileUp, tipos: ["banco", "cartao"] },
+  // Importações = o histórico das faturas do cartão. No banco a aba saiu (21/10/2026): o OFX não deixa registro de arquivo e o botão "Importar OFX" já está no cabeçalho da conta.
+  { aba: "importacoes", rotulo: "Importações", icone: FileUp, tipos: ["cartao"] },
 ];
 
 export const ABAS_VALIDAS: AbaDaConta[] = TODAS.map(a => a.aba);

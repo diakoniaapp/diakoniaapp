@@ -1,22 +1,17 @@
 // ─── ImportacoesDaConta — a aba "Importações": trazer um arquivo para a conta e ver o que já foi trazido ──────────────────────────────────────────────
-// Fase D (20/10/2026). O botão "Importar OFX" / "Importar fatura" continua nos mesmos diálogos de sempre; a novidade é o REGISTRO: os arquivos que a conta já recebeu, para a pessoa
-// saber se um arquivo é novo antes de importar (a trava de arquivo repetido segue sendo a do banco, `unique(conta_id, arquivo_hash)`).
+// Fase D (20/10/2026): o REGISTRO dos arquivos que a conta já recebeu, para a pessoa saber se um arquivo é novo antes de importar (a trava de arquivo repetido segue sendo a do banco,
+// `unique(conta_id, arquivo_hash)`). Desde 21/10/2026 a aba só existe no cartão (histórico de faturas) e NÃO tem botão: "Importar fatura" fica no cabeçalho da conta, em qualquer aba.
 import { useCallback, useEffect, useState } from "react";
 import { FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
-import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { listarArquivosImportados, type ArquivoImportado } from "@/services/importacaoArquivosService";
 import type { FinContaTipo } from "@/services/finService";
 
 const dataBr = (s: string) => s.slice(0, 10).split("-").reverse().join("/");
 
-export function ImportacoesDaConta({ contaId, contaNome, tipo, onChange }: { contaId: string; contaNome: string; tipo: FinContaTipo; onChange?: () => void }) {
+export function ImportacoesDaConta({ contaId, contaNome, tipo }: { contaId: string; contaNome: string; tipo: FinContaTipo }) {
   const [arquivos, setArquivos] = useState<ArquivoImportado[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [ofxAberto, setOfxAberto] = useState(false);
-  const [faturaAberta, setFaturaAberta] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -26,21 +21,17 @@ export function ImportacoesDaConta({ contaId, contaNome, tipo, onChange }: { con
   }, [contaId]);
   useEffect(() => { void carregar(); }, [carregar]);
 
-  const aoSalvar = () => { void carregar(); onChange?.(); };
-
   return (
     <section aria-label={`Importações de ${contaNome}`} className="rounded-lg border bg-card" data-aba="importacoes">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b p-4">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-sm font-bold"><FileUp className="h-4 w-4 text-gold" /> Importações — {contaNome}</h2>
           <p className="text-xs text-muted-foreground">
-            {tipo === "banco"
-              ? "O extrato OFX é conferido na hora, na aba Conciliação, e por isso não deixa registro de arquivo. Esta lista mostra as faturas e os lotes antigos que a conta recebeu."
-              : "Faturas do cartão já importadas. Um arquivo repetido é recusado antes de gravar qualquer lançamento."}
+            {tipo === "cartao"
+              ? "Faturas do cartão já importadas. Um arquivo repetido é recusado antes de gravar qualquer lançamento. Para importar uma nova, use \"Importar fatura\" no alto da conta."
+              : "Arquivos que a conta já recebeu."}
           </p>
         </div>
-        {tipo === "banco" && <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setOfxAberto(true)}><FileUp className="h-3.5 w-3.5" /> Importar OFX</Button>}
-        {tipo === "cartao" && <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setFaturaAberta(true)}><FileUp className="h-3.5 w-3.5" /> Importar fatura</Button>}
       </header>
 
       {carregando ? (
@@ -63,8 +54,6 @@ export function ImportacoesDaConta({ contaId, contaNome, tipo, onChange }: { con
         </ul>
       )}
 
-      {tipo === "banco" && <ConciliacaoOFXDialog open={ofxAberto} onOpenChange={setOfxAberto} contaId={contaId} contaNome={contaNome} onSaved={aoSalvar} />}
-      {tipo === "cartao" && <ImportacaoFaturaDialog open={faturaAberta} onOpenChange={setFaturaAberta} contaId={contaId} contaNome={contaNome} onSaved={aoSalvar} />}
     </section>
   );
 }

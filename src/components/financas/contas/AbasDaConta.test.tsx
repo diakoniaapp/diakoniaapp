@@ -12,8 +12,8 @@ afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHT
 const rotulos = (tipo: Parameters<typeof abasDaConta>[0]) => abasDaConta(tipo).map(a => a.aba);
 
 describe("quais abas cada conta tem", () => {
-  it("banco: as quatro, nesta ordem", () => expect(rotulos("banco")).toEqual(["extrato", "conciliacao", "diagnostico", "importacoes"]));
-  it("cartão: extrato e importações (a fatura); OFX e diagnóstico são do banco", () => expect(rotulos("cartao")).toEqual(["extrato", "importacoes"]));
+  it("banco: extrato, conciliação e diagnóstico (a aba Importações saiu — o botão Importar OFX fica no cabeçalho)", () => expect(rotulos("banco")).toEqual(["extrato", "conciliacao", "diagnostico"]));
+  it("cartão: extrato e importações (o histórico das faturas); conciliação e diagnóstico são do banco", () => expect(rotulos("cartao")).toEqual(["extrato", "importacoes"]));
   it("caixa, pix, aplicação…: só o extrato", () => {
     for (const t of ["caixa", "pix", "aplicacao", "cofre", "envelope"] as const) expect(rotulos(t), t).toEqual(["extrato"]);
   });
@@ -38,7 +38,7 @@ describe("a barra de abas", () => {
   it("marca só a aba atual e liga cada uma ao seu endereço", () => {
     const el = montar("banco", "conciliacao");
     const links = [...el.querySelectorAll("a")];
-    expect(links.map(a => a.getAttribute("href"))).toEqual(["/financas/conta/c1", "/financas/conta/c1/conciliacao", "/financas/conta/c1/diagnostico", "/financas/conta/c1/importacoes"]);
+    expect(links.map(a => a.getAttribute("href"))).toEqual(["/financas/conta/c1", "/financas/conta/c1/conciliacao", "/financas/conta/c1/diagnostico"]);
     expect(links.filter(a => a.getAttribute("aria-current") === "page").map(a => a.textContent!.trim())).toEqual(["Conciliação"]);
   });
   it("não desenha nada quando a conta só tem o extrato, e some no papel", () => {

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PaginaSkeleton } from "@/components/ListState";
 import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { AbasDaConta, ABAS_VALIDAS, abasDaConta, enderecoDaAba, type AbaDaConta } from "@/components/financas/contas/AbasDaConta";
+import { BotaoDeImportar } from "@/components/financas/contas/BotaoDeImportar";
 import { ConciliacaoDaConta } from "@/components/financas/contas/ConciliacaoDaConta";
 import { DiagnosticoDoExtrato } from "@/components/financas/contas/DiagnosticoDoExtrato";
 import { ImportacoesDaConta } from "@/components/financas/contas/ImportacoesDaConta";
@@ -23,6 +24,8 @@ export default function ContaComAbas() {
   const [contas, setContas] = useState<FinConta[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [recarga, setRecarga] = useState(0);
+  // depois de importar um arquivo, a aba aberta remonta (relê a lista de lançamentos ou de arquivos); ações feitas DENTRO da aba não remontam (`recarga`, só o cabeçalho)
+  const [importou, setImportou] = useState(0);
   useRotuloDaTela(conta?.nome ? `${conta.nome} · ${ROTULO[aba as AbaDaConta] ?? "Conta"}` : undefined);
 
   useEffect(() => { listarContas().then(setContas).catch(() => setContas([])); }, []);
@@ -43,8 +46,10 @@ export default function ContaComAbas() {
 
   return (
     <div className="mx-auto max-w-[120rem] space-y-4 p-3 md:p-5">
-      <div className="space-y-2 border-b">
-        <div className="min-w-0">
+      {/* o mesmo cabeçalho do Extrato (conta + saldo, abas, ações): o botão de importar é UM só e acompanha a conta em qualquer aba */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b">
+       <div className="flex min-w-0 flex-wrap items-end gap-x-5">
+        <div className="min-w-0 pb-1">
           <Select value={conta.id} onValueChange={id => navigate(enderecoDaAba(id, atual))}>
             <SelectTrigger aria-label="Conta" className="-mx-1 h-auto w-fit max-w-full gap-1.5 rounded-md border-0 p-0 px-1 font-serif text-lg shadow-none hover:bg-muted/40 [&>svg]:opacity-50">
               <DollarSign className="h-5 w-5 shrink-0 text-gold" />
@@ -68,11 +73,15 @@ export default function ContaComAbas() {
           </p>
         </div>
         <AbasDaConta contaId={conta.id} tipo={conta.tipo} aba={atual} />
+       </div>
+        <div className="pb-1.5">
+          <BotaoDeImportar contaId={conta.id} contaNome={conta.nome} tipo={conta.tipo} onSaved={() => { setImportou(n => n + 1); aoMudar(); }} />
+        </div>
       </div>
 
-      {atual === "conciliacao" && <ConciliacaoDaConta key={conta.id} contaId={conta.id} contaNome={conta.nome} onChange={aoMudar} />}
+      {atual === "conciliacao" && <ConciliacaoDaConta key={`${conta.id}-${importou}`} contaId={conta.id} contaNome={conta.nome} onChange={aoMudar} />}
       {atual === "diagnostico" && <DiagnosticoDoExtrato key={conta.id} contaId={conta.id} contaNome={conta.nome} />}
-      {atual === "importacoes" && <ImportacoesDaConta key={conta.id} contaId={conta.id} contaNome={conta.nome} tipo={conta.tipo} onChange={aoMudar} />}
+      {atual === "importacoes" && <ImportacoesDaConta key={`${conta.id}-${importou}`} contaId={conta.id} contaNome={conta.nome} tipo={conta.tipo} />}
     </div>
   );
 }
