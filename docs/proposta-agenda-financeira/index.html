@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda Financeira — proposta de legibilidade</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#faf8f5; --card:#fff; --fg:#2b2622; --muted:#7a7068; --line:#e4ddd4; --gold:#8a5a3c;
+    --red-bg:#fdecec; --red-line:#f1b8b8; --red:#a82a2a;
+    --green-bg:#eef7f1; --green-line:#b9dcc5; --green:#23693f;
+    --blue-bg:#e9f0fa; --blue-line:#b5cbe8; --blue:#245a98;
+    --amber-bg:#fff4dc; --amber-line:#efd08a; --amber:#8a5a00;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#1c1917; --card:#26211e; --fg:#f1ebe4; --muted:#a39a90; --line:#3b342f; --gold:#d9a77f;
+      --red-bg:#3a1f1f; --red-line:#7a3434; --red:#f0a0a0; --green-bg:#1d2e24; --green-line:#355e45; --green:#8fd1a6;
+      --blue-bg:#1c2836; --blue-line:#37557a; --blue:#9cc2f0; --amber-bg:#35290f; --amber-line:#7a5f1c; --amber:#e8c26a;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 Inter,system-ui,sans-serif}
+  main{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+  h1{font:600 22px/1.2 Inter;margin:0 0 4px} h2{font:600 16px/1.3 Inter;margin:36px 0 10px} h3{font:600 13px Inter;margin:0 0 6px}
+  p{margin:0 0 10px} .muted{color:var(--muted)} .small{font-size:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  table{border-collapse:collapse;width:100%;font-size:13px} th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top} th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted)}
+  /* título do dia: hoje x proposto */
+  .dia-hoje{font:600 14px 'Cormorant Garamond',Georgia,serif;text-transform:uppercase;letter-spacing:.04em;color:var(--gold);border-bottom:1.5px solid var(--gold);padding-bottom:4px}
+  .dia-hoje span{font:500 11px Inter;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:4px}
+  .dia-novo{font:600 14px Inter;color:var(--fg);border-bottom:1px solid var(--line);padding-bottom:4px;display:flex;justify-content:space-between}
+  .dia-novo span{font-weight:400;color:var(--muted);margin-left:6px}
+  /* calendário */
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+  .cal .dow{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:center;font-weight:600}
+  .c{border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-width:0;text-align:left;display:flex;flex-direction:column;justify-content:flex-start}
+  .c.red{background:var(--red-bg);border-color:var(--red-line)} .c.green{background:var(--green-bg);border-color:var(--green-line)} .c.blue{background:var(--blue-bg);border-color:var(--blue-line)}
+  .c .n{display:flex;justify-content:space-between;font-weight:600;color:var(--fg)}
+  .red .v,.red .q{color:var(--red)} .green .v,.green .q{color:var(--green)} .blue .v,.blue .q{color:var(--blue)}
+  .vazio{border-color:transparent}
+  .v,.q,.n,.al{font-variant-numeric:tabular-nums}
+  /* hoje (atual) */
+  .atual .c{min-height:52px} .atual .n{font-size:11px} .atual .v{font-size:10.5px;font-weight:600} .atual .q{font-size:9.5px;opacity:.8}
+  /* A */
+  .A .c{min-height:76px} .A .n{font-size:12px} .A .v{font-size:15px;font-weight:700;margin-top:2px;white-space:nowrap} .A .q{font-size:12px;opacity:.9}
+  /* B */
+  .B .c{min-height:92px} .B .n{font-size:12px} .B .v{font-size:15px;font-weight:700;margin-top:2px;white-space:nowrap} .B .q{font-size:12px}
+  .B .al{font-size:11px;font-weight:600;margin-top:auto;white-space:nowrap}
+  .B .al.r{color:var(--red)} .B .al.a{color:var(--amber)}
+  /* C */
+  .C .c{min-height:76px} .C .n{font-size:12px} .C .v{font-size:15px;font-weight:700;margin-top:2px;white-space:nowrap} .C .q{font-size:11px;opacity:.9}
+  .C .bar{height:4px;border-radius:2px;background:currentColor;opacity:.35;margin-top:auto}
+  .C .red .bar{color:var(--red)} .C .green .bar{color:var(--green)} .C .blue .bar{color:var(--blue)}
+  .rec{border-left:3px solid var(--gold);padding-left:12px}
+  .mob{max-width:360px}
+  .mob .cal{gap:3px} .mob .c{min-height:58px;padding:3px 4px} .mob .n{font-size:11px} .mob .v{font-size:12px;font-weight:700} .mob .q{font-size:10.5px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Agenda Financeira — legibilidade e identidade</h1>
+  <p class="muted">Calendário de Obrigações da Mesa do Tesoureiro. Só análise e desenho — nada foi implementado. Os valores dos dias vêm do seu print de outubro/2026 (arredondados); os alertas por dia (vencidas, a conferir) são ilustrativos — no sistema saem do mesmo cálculo que já pinta o tom do dia.</p>
+
+  <h2>1. Por que a Agenda parece outro módulo (tipografia)</h2>
+  <div class="grid2">
+    <div class="box">
+      <h3>Hoje</h3>
+      <div class="dia-hoje">Quarta-feira <span>07/10/2026</span></div>
+      <p class="small muted" style="margin-top:10px">Cormorant Garamond (serifada), 14px, MAIÚSCULAS, dourado, linha dourada embaixo.</p>
+    </div>
+    <div class="box">
+      <h3>Proposto</h3>
+      <div class="dia-novo"><b>Quarta-feira<span>07/10/2026</span></b><span class="small muted">3 obrigações</span></div>
+      <p class="small muted" style="margin-top:10px">Inter (a fonte do resto da Mesa), 14px, semibold, caixa normal, cor de texto, linha neutra.</p>
+    </div>
+  </div>
+  <p style="margin-top:12px"><b>Causa medida no código:</b> o dia usa <code>&lt;h3 class="font-serif …"&gt;</code> dentro de <code>DiaDoExtratoBloco</code>, componente que a Agenda <i>emprestou</i> do <b>Extrato de Obrigações</b> (o relatório que também sai impresso). Além disso, o <code>index.css</code> manda <code>h1–h4</code> em serifada por padrão (<code>font-serif tracking-tight</code>). O Extrato é um documento; a Mesa é uma tela de operação — a Agenda herdou a aparência de relatório.</p>
+  <table>
+    <tr><th>Elemento</th><th>Fonte hoje</th><th>Escala hoje</th><th>Proposta</th></tr>
+    <tr><td>Título do mês ("Outubro de 2026")</td><td>Inter</td><td>14px semibold</td><td>Inter 16px semibold (sobe um degrau)</td></tr>
+    <tr><td>Título do dia ("QUARTA-FEIRA 07/10/2026")</td><td><b>Cormorant Garamond</b>, caixa alta, dourado</td><td>14px / data 11px</td><td><b>Inter</b> 14px semibold, caixa normal, cor de texto</td></tr>
+    <tr><td>Número do dia nas células</td><td>Inter</td><td>11px</td><td>Inter 12px</td></tr>
+    <tr><td>Valor do dia nas células</td><td>Inter</td><td><b>10,5px</b>, "12,4 mil"</td><td>Inter <b>15px bold</b>, "R$ 12.400"</td></tr>
+    <tr><td>Quantidade nas células</td><td>Inter</td><td><b>9,5px</b>, "4×"</td><td>Inter 12px, "4 obrigações"</td></tr>
+    <tr><td>Linhas da lista do dia</td><td>Inter</td><td>12–14px</td><td>igual (já é o padrão da Mesa)</td></tr>
+    <tr><td>Rodapé "TOTAL DO DIA"</td><td>Inter bold, caixa alta</td><td>11px / valor 12,5px</td><td>valor 14px semibold, rótulo "Total do dia" em caixa normal</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:8px">Cuidado para não quebrar o relatório: a serifada continua no <b>Extrato de Obrigações</b> e no PDF. A mudança é uma variante "operacional" do bloco do dia, usada só pela Agenda.</p>
+
+  <h2>2. Hierarquia: hoje × proposta</h2>
+  <table>
+    <tr><th>Ordem de importância para a Tesouraria</th><th>Hoje</th><th>Proposta</th></tr>
+    <tr><td>1. Quanto vence no dia</td><td>10,5px, abreviado — quase tão pequeno quanto a quantidade (9,5px)</td><td>15px bold, valor completo — o maior da célula</td></tr>
+    <tr><td>2. Quantas obrigações</td><td>9,5px, "4×" (exige interpretar)</td><td>12px por extenso</td></tr>
+    <tr><td>3. Quais dias pedem atenção</td><td>só a cor do fundo e um ▲ de 10px</td><td>linha de alerta escrita ("▲ 2 vencidas") só nos dias que precisam</td></tr>
+    <tr><td>4. Navegação / decoração</td><td>o título do dia (dourado, serifado, maiúsculo) é o que mais chama o olho</td><td>título neutro; o dourado fica só no dia selecionado e no "hoje"</td></tr>
+  </table>
+  <p style="margin-top:8px">Hoje o elemento mais <i>chamativo</i> da área é o título do dia, e o mais <i>importante</i> (o valor) é o mais fraco. A proposta inverte isso (Problema 3).</p>
+
+  <h2>3. Três alternativas para as células dos dias</h2>
+  <p class="muted small">Mesmos dias do seu print. Na tela larga a célula tem ~200 px de largura × 62 px de altura: sobra espaço — a fonte pequena de hoje não é falta de lugar.</p>
+
+  <h3>Hoje</h3>
+  <div class="atual"><div class="cal">
+    <div class="dow">Qui</div><div class="dow">Sex</div><div class="dow">Sáb</div><div class="dow">Seg</div><div class="dow">Ter</div><div class="dow">Qua</div><div class="dow">Qui</div>
+    <div class="c green"><div class="n"><span>9</span><span>✓</span></div><div class="v">28</div><div class="q">1×</div></div>
+    <div class="c green"><div class="n"><span>10</span><span>✓</span></div><div class="v">1,4 mil</div><div class="q">3×</div></div>
+    <div class="c red"><div class="n"><span>13</span><span>▲</span></div><div class="v">6 mil</div><div class="q">17×</div></div>
+    <div class="c green"><div class="n"><span>14</span><span>✓</span></div><div class="v">255</div><div class="q">3×</div></div>
+    <div class="c red"><div class="n"><span>15</span><span>▲</span></div><div class="v">12,4 mil</div><div class="q">4×</div></div>
+    <div class="c red"><div class="n"><span>20</span><span>▲</span></div><div class="v">10 mil</div><div class="q">7×</div></div>
+    <div class="c blue"><div class="n"><span>21</span><span>○</span></div><div class="v">3,1 mil</div><div class="q">1×</div></div>
+  </div></div>
+
+  <h3 style="margin-top:18px">Opção A — valor completo e quantidade por extenso</h3>
+  <div class="A"><div class="cal">
+    <div class="c green"><div class="n"><span>9</span><span>✓</span></div><div class="v">R$ 28</div><div class="q">1 obrigação</div></div>
+    <div class="c green"><div class="n"><span>10</span><span>✓</span></div><div class="v">R$ 1.400</div><div class="q">3 obrigações</div></div>
+    <div class="c red"><div class="n"><span>13</span><span>▲</span></div><div class="v">R$ 6.000</div><div class="q">17 obrigações</div></div>
+    <div class="c green"><div class="n"><span>14</span><span>✓</span></div><div class="v">R$ 255</div><div class="q">3 obrigações</div></div>
+    <div class="c red"><div class="n"><span>15</span><span>▲</span></div><div class="v">R$ 12.400</div><div class="q">4 obrigações</div></div>
+    <div class="c red"><div class="n"><span>20</span><span>▲</span></div><div class="v">R$ 10.000</div><div class="q">7 obrigações</div></div>
+    <div class="c blue"><div class="n"><span>21</span><span>○</span></div><div class="v">R$ 3.100</div><div class="q">1 obrigação</div></div>
+  </div></div>
+  <p class="small muted">Bate o olho no valor e na quantidade. Atenção continua só na cor e no ▲.</p>
+
+  <h3 style="margin-top:18px">Opção B — A + linha de alerta escrita nos dias que exigem atenção</h3>
+  <div class="B"><div class="cal">
+    <div class="c green"><div class="n"><span>9</span><span>✓</span></div><div class="v">R$ 28</div><div class="q">1 obrigação</div></div>
+    <div class="c green"><div class="n"><span>10</span><span>✓</span></div><div class="v">R$ 1.400</div><div class="q">3 obrigações</div></div>
+    <div class="c red"><div class="n"><span>13</span><span>▲</span></div><div class="v">R$ 6.000</div><div class="q">17 obrigações</div><div class="al r">▲ 17 vencidas</div></div>
+    <div class="c green"><div class="n"><span>14</span><span>✓</span></div><div class="v">R$ 255</div><div class="q">3 obrigações</div></div>
+    <div class="c red"><div class="n"><span>15</span><span>▲</span></div><div class="v">R$ 12.400</div><div class="q">4 obrigações</div><div class="al r">▲ 1 vencida</div></div>
+    <div class="c red"><div class="n"><span>20</span><span>▲</span></div><div class="v">R$ 10.000</div><div class="q">7 obrigações</div><div class="al r">▲ 2 vencidas</div></div>
+    <div class="c blue"><div class="n"><span>21</span><span>○</span></div><div class="v">R$ 3.100</div><div class="q">1 obrigação</div><div class="al a">◐ 1 a conferir</div></div>
+  </div></div>
+  <p class="small muted">Os dias normais ficam limpos; só quem precisa de atenção ganha a terceira linha. (Alertas de exemplo.)</p>
+
+  <h3 style="margin-top:18px">Opção C — mínima: valor + peso do dia no mês (barra)</h3>
+  <div class="C"><div class="cal">
+    <div class="c green"><div class="n"><span>9</span><span>✓</span></div><div class="v">R$ 28</div><div class="q">+1</div><div class="bar" style="width:3%"></div></div>
+    <div class="c green"><div class="n"><span>10</span><span>✓</span></div><div class="v">R$ 1.400</div><div class="q">+3</div><div class="bar" style="width:12%"></div></div>
+    <div class="c red"><div class="n"><span>13</span><span>▲</span></div><div class="v">R$ 6.000</div><div class="q">+17</div><div class="bar" style="width:48%"></div></div>
+    <div class="c green"><div class="n"><span>14</span><span>✓</span></div><div class="v">R$ 255</div><div class="q">+3</div><div class="bar" style="width:5%"></div></div>
+    <div class="c red"><div class="n"><span>15</span><span>▲</span></div><div class="v">R$ 12.400</div><div class="q">+4</div><div class="bar" style="width:100%"></div></div>
+    <div class="c red"><div class="n"><span>20</span><span>▲</span></div><div class="v">R$ 10.000</div><div class="q">+7</div><div class="bar" style="width:80%"></div></div>
+    <div class="c blue"><div class="n"><span>21</span><span>○</span></div><div class="v">R$ 3.100</div><div class="q">+1</div><div class="bar" style="width:25%"></div></div>
+  </div></div>
+  <p class="small muted">Compara dias de relance (a barra é o peso do dia, proporcional ao maior dia do mês), mas "+3" exige interpretação — o que você pediu para eliminar.</p>
+
+  <h2>4. Celular (375 px: cada célula tem ~48 px)</h2>
+  <div class="mob B"><div class="cal">
+    <div class="c red"><div class="n"><span>13</span><span>▲</span></div><div class="v">R$ 6 mil</div><div class="q">17</div></div>
+    <div class="c green"><div class="n"><span>14</span><span>✓</span></div><div class="v">R$ 255</div><div class="q">3</div></div>
+    <div class="c red"><div class="n"><span>15</span><span>▲</span></div><div class="v">R$ 12 mil</div><div class="q">4</div></div>
+  </div></div>
+  <p class="small muted">No celular não cabe "R$ 12.400 / 4 obrigações": valor compacto (12px, em vez de 10,5) e só o número de obrigações; a linha de alerta vira o ▲ de hoje. O texto completo continua na lista do dia, logo abaixo.</p>
+
+  <h2>5. Recomendação</h2>
+  <div class="rec">
+    <p><b>Opção B</b>, com três regras:</p>
+    <p>1. <b>Tipografia:</b> título do dia em Inter semibold, caixa normal, cor de texto ("Quarta-feira 07/10/2026" + "3 obrigações" à direita) — como uma variante "operacional" do bloco do dia, só na Agenda; o Extrato de Obrigações e o PDF mantêm a serifada de relatório.</p>
+    <p>2. <b>Célula:</b> número do dia 12px · <b>valor completo 15px bold</b> · "N obrigações" 12px · linha de alerta só quando há atraso/possível falha ou algo aguardando conferência. Dias sem alerta não ganham linha extra (a grade continua leve).</p>
+    <p>3. <b>Dourado só para estado:</b> dia selecionado e "hoje". Sai do título do dia.</p>
+    <p class="small muted">Por que não C: "+3" e a barra pedem interpretação, que é o problema que você descreveu. Por que não só A: o ▲ de 10px continua sendo o único aviso de atenção; B o escreve.</p>
+  </div>
+
+  <h2>6. Ganho de legibilidade esperado</h2>
+  <table>
+    <tr><th>Medida</th><th>Hoje</th><th>Proposta</th></tr>
+    <tr><td>Fonte do valor do dia</td><td>10,5px</td><td>15px (+43%)</td></tr>
+    <tr><td>Fonte da quantidade</td><td>9,5px</td><td>12px (+26%; chega ao tamanho mínimo de texto da Mesa (12px), que a célula hoje não respeita)</td></tr>
+    <tr><td>Valor do dia</td><td>abreviado ("12,4 mil" — perde ~R$ 50)</td><td>completo ("R$ 12.400"), arredondado ao real</td></tr>
+    <tr><td>Quantidade</td><td>"4×"</td><td>"4 obrigações"</td></tr>
+    <tr><td>Aviso de atenção</td><td>cor + ▲ 10px</td><td>cor + texto ("▲ 1 vencida")</td></tr>
+    <tr><td>Altura da célula (tela larga)</td><td>52px</td><td>76px normal / 92px com alerta (o mês de 5 semanas cresce ~100px)</td></tr>
+    <tr><td>Fontes diferentes na seção</td><td>2 (Inter + serifada)</td><td>1 (Inter)</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:8px">Custo: o calendário fica ~100 px mais alto no computador; a lista do dia continua logo abaixo. Se preferir, a altura extra só vale na tela larga.</p>
+</main>
+</body>
+</html>
