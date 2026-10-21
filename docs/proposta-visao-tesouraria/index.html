@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visão do perfil Tesouraria</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root{--bg:#f4f1ec;--card:#fff;--fg:#2b2622;--muted:#7a7068;--line:#e4ddd4;--side:#6b4226;--side2:#7d5233;--sidefg:#f3e7da;--gold:#b8863b;--red:#a82a2a;--green:#23693f;--blue:#245a98;--amber:#8a5a00}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 Inter,system-ui,sans-serif}
+  .aviso{max-width:1180px;margin:14px auto 0;padding:10px 14px;border:1px solid var(--line);background:#fff8e8;border-radius:8px;font-size:12.5px}
+  .app{display:grid;grid-template-columns:230px 1fr;max-width:1180px;margin:12px auto 24px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg);min-height:620px}
+  @media(max-width:860px){.app{grid-template-columns:1fr}.side{display:none}}
+  .side{background:var(--side);color:var(--sidefg);padding:14px 10px;font-size:12.5px}
+  .logo{font:700 20px 'Cormorant Garamond',serif;letter-spacing:.02em;text-align:center;padding:6px 0 12px;border-bottom:1px solid rgba(255,255,255,.15)}
+  .logo small{display:block;font:500 9px Inter;letter-spacing:.2em;opacity:.7;margin-top:2px}
+  .grupo{margin-top:12px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.65;padding:0 8px}
+  .item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:6px;margin-top:2px}
+  .item.ativo{background:var(--side2);outline:1px solid rgba(255,255,255,.25)}
+  .item.novo::after{content:"novo";font-size:9px;background:var(--gold);color:#fff;border-radius:999px;padding:0 6px}
+  .item .b{background:#fff;color:var(--side);font-size:10px;font-weight:700;border-radius:999px;padding:0 6px}
+  .nao{margin-top:12px;border-top:1px solid rgba(255,255,255,.15);padding:8px;font-size:11px;opacity:.75}
+  .nao s{opacity:.7}
+  main{padding:18px 20px}
+  .topo{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:flex-start}
+  h1{font:600 22px 'Cormorant Garamond',serif;margin:0}
+  .data{color:var(--muted);font-size:12px}
+  .saldos{display:flex;gap:14px;align-items:center;text-align:right}
+  .saldos div{padding:0 2px} .saldos small{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .saldos b{font-size:14px;font-variant-numeric:tabular-nums}
+  .sep{width:1px;height:28px;background:var(--line)}
+  .abas{display:flex;gap:18px;border-bottom:1px solid var(--line);margin:14px 0 12px;font-weight:600}
+  .abas span{padding:6px 0;color:var(--muted)} .abas .a{color:var(--fg);border-bottom:2px solid var(--gold)}
+  .alerta{border:1px solid #f1b8b8;background:#fdecec;color:var(--red);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12.5px}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  @media(max-width:860px){.cards{grid-template-columns:repeat(2,1fr)}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .card small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .card b{font-size:17px;font-variant-numeric:tabular-nums} .card em{display:block;font-style:normal;font-size:11px;color:var(--muted)}
+  .cal{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px}
+  .cal h3{margin:0 0 8px;font:600 14px Inter}
+  .g{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .g .d{border:1px solid var(--line);border-radius:6px;padding:3px 5px;min-height:62px;font-size:11px}
+  .g .d b{display:block;font-size:14px;margin-top:2px}.g .d span{font-size:10.5px}
+  .r{background:#fdecec;border-color:#f1b8b8;color:var(--red)} .v{background:#eef7f1;border-color:#b9dcc5;color:var(--green)} .z{background:#e9f0fa;border-color:#b5cbe8;color:var(--blue)} .e{border-color:transparent}
+  .nota{margin:16px 0 0;font-size:12px;color:var(--muted)}
+  h2{font:600 15px Inter;margin:22px 0 8px}
+  table{border-collapse:collapse;width:100%;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:12.5px} th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .sim{color:var(--green);font-weight:700}.nao-t{color:var(--red);font-weight:700}
+  main.wrap{max-width:1180px;margin:0 auto;padding:0 12px 30px;display:block}
+</style>
+</head>
+<body>
+<div class="aviso"><b>Como ler:</b> esta é uma <b>representação</b> do que o perfil <b>Tesouraria</b> encontra ao entrar, montada a partir do menu e das regras de acesso do sistema (não é uma captura de tela do usuário real). Os números são <b>exemplos</b>. Para ver a tela de verdade: menu do usuário → <b>Ver como outro perfil → Tesouraria</b>.</div>
+
+<div class="app">
+  <nav class="side" aria-label="Menu do perfil Tesouraria">
+    <div class="logo">DIAKONIA<small>GESTÃO MINISTERIAL</small></div>
+    <div class="item" style="margin-top:12px">Home</div>
+    <div class="item ativo">Painel da Tesouraria <span class="b">8</span></div>
+    <div class="item">Agenda</div>
+
+    <div class="grupo">Pessoas</div>
+    <div class="item">Painel de Pessoas</div><div class="item">Catálogo</div><div class="item">Visitantes</div><div class="item">Famílias</div><div class="item">Ministérios</div><div class="item">Organograma</div><div class="item">Membresia</div>
+
+    <div class="grupo">Discipulado</div>
+    <div class="item">EBD</div><div class="item">Pequenos Grupos</div>
+
+    <div class="grupo">Financeiro</div>
+    <div class="item">Tesouraria</div><div class="item">Contas</div><div class="item">Módulo Fiscal</div>
+    <div class="item novo">Visão Executiva</div><div class="item novo">DRE Eclesiástica</div>
+    <div class="item">Prestação de Contas</div><div class="item">Extrato de Obrigações</div><div class="item">Espaços</div>
+
+    <div class="grupo">Liderança</div>
+    <div class="item">Reuniões e Atas</div><div class="item">Assuntos</div>
+
+    <div class="nao"><b>Não aparece para ele:</b><br><s>Painel Pastoral</s> · <s>Painel da Secretaria</s> · <s>Bazar e Cantina</s> · <s>Estrutura</s> · <s>Usuários e Administração</s></div>
+  </nav>
+
+  <main>
+    <div class="topo">
+      <div>
+        <h1>Workspace Financeiro</h1>
+        <div class="data">Quarta-feira, 21 de outubro de 2026</div>
+      </div>
+      <div class="saldos" aria-label="Saldos">
+        <div><small>Saldo nas contas</small><b style="color:var(--red)">−R$ 3.428,81</b></div><span class="sep"></span>
+        <div><small>Reservado ›</small><b style="color:var(--blue)">R$ 2.950,60</b></div><span class="sep"></span>
+        <div><small>Saldo livre</small><b style="color:var(--red)">−R$ 6.379,41</b></div><span class="sep"></span>
+        <div><small>Sai/semana</small><b style="color:var(--red)">R$ 3.086,32</b></div>
+      </div>
+    </div>
+    <div class="abas"><span class="a">1 Operações</span><span>2 Gestão</span><span>3 Cadastros</span><span>4 Fechamento</span></div>
+
+    <div class="alerta">▲ Atenção: 4 obrigações fiscais atrasadas, 10 alertas críticos.</div>
+
+    <div class="cards">
+      <div class="card"><small>Atrasadas</small><b style="color:var(--red)">R$ 18.353</b><em>obrigações vencidas</em></div>
+      <div class="card"><small>Vencem hoje</small><b>R$ 3.086</b><em>1 obrigação</em></div>
+      <div class="card"><small>Débitos a conferir</small><b style="color:var(--amber)">2</b><em>aguardando o banco</em></div>
+      <div class="card"><small>Falta pagar na semana</small><b>R$ 3.086</b><em>até domingo</em></div>
+    </div>
+
+    <div class="cal">
+      <h3>Calendário de vencimentos — outubro de 2026</h3>
+      <div class="g">
+        <div class="d v">13<b>R$ 6.031</b><span>17 obrigações</span></div>
+        <div class="d r">14<b>R$ 255</b><span>3 obrigações</span></div>
+        <div class="d r">15<b>R$ 10.600</b><span>4 obrigações</span></div>
+        <div class="d e">16</div><div class="d e">17</div>
+        <div class="d r">20<b>R$ 9.959</b><span>7 obrigações</span></div>
+        <div class="d z">21<b>R$ 3.086</b><span>1 obrigação</span></div>
+      </div>
+    </div>
+
+    <h2>O que a Tesouraria faz daqui</h2>
+    <p class="nota" style="margin-top:0">Novo lançamento · Registrar recebimento · Transferir · Importar extrato · Fila · Preparar envio · Calendário · Débitos automáticos · Conciliação · Documentação das despesas · Prontidão do malote. A seção <b>Leitura estratégica</b> do painel agora também leva à <b>Visão Executiva</b> e à <b>DRE Eclesiástica</b>.</p>
+  </main>
+</div>
+
+<main class="wrap">
+  <h2>Resumo de acesso do perfil Tesouraria</h2>
+  <table>
+    <tr><th>Área</th><th>Acesso</th><th>Observação</th></tr>
+    <tr><td>Painel da Tesouraria (entrada), Contas, Extrato, Conciliação</td><td class="sim">SIM</td><td>é a tela inicial dele</td></tr>
+    <tr><td>Visão Executiva · DRE Eclesiástica</td><td class="sim">SIM (novo)</td><td>liberado em 21/10/2026</td></tr>
+    <tr><td>Módulo Fiscal · Prestação de Contas · Extrato de Obrigações · Projetos · Centros de custo · Reservado</td><td class="sim">SIM</td><td>—</td></tr>
+    <tr><td>Doadores · Sustento</td><td class="sim">SIM</td><td>só tesouraria e administração</td></tr>
+    <tr><td>Pessoas, Famílias, Ministérios, EBD, Pequenos Grupos, Reuniões e Atas</td><td class="sim">SIM</td><td>leitura do que o perfil alcança</td></tr>
+    <tr><td>Painel Pastoral · Painel da Secretaria · Estratégico</td><td class="nao-t">NÃO</td><td>—</td></tr>
+    <tr><td>Bazar e Cantina · Estrutura · Usuários · Administração</td><td class="nao-t">NÃO</td><td>—</td></tr>
+  </table>
+  <p class="nota">O menu e as rotas seguem o código de navegação. O que ele pode gravar ou apagar em cada tabela é decidido no banco (permissões por tabela) e não aparece aqui.</p>
+</main>
+</body>
+</html>
