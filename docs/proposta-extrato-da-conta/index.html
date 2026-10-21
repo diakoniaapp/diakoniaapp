@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extrato da conta — proposta de layout</title>
+<style>
+  :root { --fundo:#f6f2ec; --papel:#fffdf9; --tinta:#2b211c; --suave:#7a6d64; --linha:#e3d9cd; --ouro:#b8893a; --marrom:#5a3a2e; --ruim:#b3382c; --ruim-f:#fbe9e6; --bom:#2f7d4f; --bom-f:#e6f3ea; --aviso:#a8741a; --aviso-f:#faf0d9; --info:#2f5f93; --info-f:#e8eff8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fundo); color:var(--tinta); font:15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  .pagina { max-width:1240px; margin:0 auto; padding:28px 20px 64px; }
+  h1 { font:600 28px/1.2 Georgia,serif; margin:0 0 6px; } h2 { font:600 20px/1.3 Georgia,serif; margin:38px 0 6px; }
+  p { margin:0 0 10px; } .sub { color:var(--suave); max-width:76ch; } code { background:#efe7db; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .aviso { background:var(--papel); border:1px solid var(--linha); border-left:4px solid var(--ouro); border-radius:8px; padding:12px 16px; margin:16px 0; font-size:13.5px; }
+  .duas { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; } @media (max-width:900px){ .duas{grid-template-columns:1fr;} }
+  .rot { font-size:12px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-bottom:6px; } .rot.a{color:var(--ruim);} .rot.d{color:var(--bom);}
+
+  /* a tela medida em 1600×1010: 1 px do desenho = 0,4 px real */
+  .tela { position:relative; width:100%; height:404px; background:#fff; border:1px solid var(--linha); border-radius:8px; overflow:hidden; }
+  .faixa { position:absolute; left:0; right:0; display:flex; align-items:center; padding:0 10px; font-size:11px; border-bottom:1px solid rgba(0,0,0,.06); }
+  .f-topo { background:#efe7db; } .f-abas { background:#f3ece1; } .f-filtros { background:var(--aviso-f); } .f-resumo { background:var(--info-f); } .f-th { background:#e9e4dc; font-weight:600; }
+  .f-lista { background:repeating-linear-gradient(#fff 0 18px, #f6f2ec 18px 19px); color:var(--suave); justify-content:center; font-size:12px; font-weight:600; }
+  .f-lista.novo { background:repeating-linear-gradient(#e6f3ea 0 18px, #fffdf9 18px 19px); color:var(--bom); }
+  .num { position:absolute; right:8px; font-weight:700; color:var(--tinta); }
+
+  .barra { display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--papel); border:1px solid var(--linha); border-radius:10px; padding:8px 10px; margin-top:12px; font-size:13px; }
+  .campo { border:1px solid var(--linha); border-radius:6px; background:#fff; padding:4px 10px; white-space:nowrap; }
+  .campo.busca { flex:1; min-width:180px; color:var(--suave); }
+  .atalho { border:1px solid var(--linha); border-radius:99px; padding:2px 10px; background:#fff; font-size:12px; } .atalho.on { background:var(--tinta); color:#fff; border-color:var(--tinta); }
+  .bt { border:1px solid var(--linha); border-radius:6px; background:#fff; padding:4px 10px; font-size:13px; } .bt b { background:var(--aviso); color:#fff; border-radius:99px; padding:0 6px; font-size:11px; margin-left:4px; }
+  .strip { display:flex; flex-wrap:wrap; gap:6px 18px; background:var(--papel); border:1px solid var(--linha); border-radius:8px; padding:6px 12px; margin-top:8px; font-size:12.5px; } .strip b { font-variant-numeric:tabular-nums; } .e{color:var(--bom);} .s{color:var(--ruim);}
+  .cab1 { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; background:var(--papel); border:1px solid var(--linha); border-radius:10px; padding:8px 12px; margin-top:12px; }
+  .cab1 .conta { font:600 17px Georgia,serif; } .cab1 .abas { display:flex; gap:14px; font-size:13px; color:var(--suave); } .cab1 .abas .on { color:var(--tinta); border-bottom:2px solid var(--marrom); font-weight:600; } .cab1 .acoes { margin-left:auto; display:flex; gap:6px; }
+  .pop { background:var(--papel); border:1px solid var(--linha); border-radius:10px; padding:12px 14px; box-shadow:0 6px 18px rgba(0,0,0,.08); font-size:13px; }
+  .pop h3 { margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--suave); }
+  .grade2 { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; } .grade2 label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--suave); display:block; }
+  .chk { display:flex; gap:8px; align-items:center; padding:2px 0; } .chk i { width:14px; height:14px; border:1px solid var(--marrom); border-radius:3px; display:inline-block; background:var(--marrom); position:relative; } .chk i.off { background:#fff; }
+  table.t { width:100%; border-collapse:collapse; font-size:13px; background:var(--papel); border:1px solid var(--linha); border-radius:8px; overflow:hidden; }
+  .t th, .t td { padding:6px 10px; text-align:left; border-bottom:1px solid var(--linha); vertical-align:top; } .t th { background:#f3ece1; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--suave); }
+  .t td.n { font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; } .si{color:var(--bom);font-weight:600;} .no{color:var(--ruim);font-weight:600;} .em{color:var(--aviso);font-weight:600;}
+  .wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<div class="pagina">
+  <h1>Extrato da conta — mais espaço para os lançamentos</h1>
+  <p class="sub">Proposta de UX, <b>sem nada implementado</b>. As alturas são <b>medidas</b> na tela real (1600 × 1010 px, a sua) em 21/10/2026; o desenho da direita é estimativa a partir de componentes que já existem.</p>
+  <div class="aviso">Os valores e nomes dos desenhos são os do extrato do Bradesco de 01/09 a 31/10. Cabeçalho do sistema (menu lateral) não entra na conta.</div>
+
+  <h2>1 · O espaço hoje × o espaço proposto (a tela que você vê)</h2>
+  <div class="duas">
+    <div>
+      <div class="rot a">Hoje — a lista começa em 495 px</div>
+      <div class="tela">
+        <div class="faixa f-topo" style="top:0;height:70px">Voltar · Home › Financeiro › … · Bradesco · Extrato completo · Favoritar — Bradesco  Banco  Saldo atual · Importar OFX · Transferir · Resumido|Analítico · Imprimir · Novo lançamento <span class="num" style="top:6px">176</span></div>
+        <div class="faixa f-abas" style="top:70px;height:17px">Extrato · Conciliação · Diagnóstico · Importações <span class="num" style="top:2px">41</span></div>
+        <div class="faixa f-filtros" style="top:92px;height:64px">Período · Data inicial · Data final · Tipo · Categoria · Centro de custo · Favorecido · Buscar descrição · Atualizar <span class="num" style="top:24px">160</span></div>
+        <div class="faixa f-resumo" style="top:162px;height:26px">Saldo inicial · Entradas · Saídas · Movimento · Saldo final <span class="num" style="top:6px">64</span></div>
+        <div class="faixa f-th" style="top:198px;height:16px">Data · Descrição · Categoria · Centro · Valor · Saldo <span class="num" style="top:1px">39</span></div>
+        <div class="faixa f-lista" style="top:214px;height:197px">≈ 10 linhas visíveis (493 px)</div>
+      </div>
+    </div>
+    <div>
+      <div class="rot d">Proposto — a lista começa em ≈ 222 px</div>
+      <div class="tela">
+        <div class="faixa f-topo" style="top:0;height:46px">Voltar · Home › Financeiro › … · Bradesco · Extrato completo · Favoritar <span class="num" style="top:6px">70</span></div>
+        <div class="faixa f-abas" style="top:46px;height:18px;background:#e6f3ea">Bradesco ▾ saldo · Extrato · Conciliação · Diagnóstico · Importações ··· Importar OFX · Transferir · Imprimir · Novo <span class="num" style="top:3px">44</span></div>
+        <div class="faixa f-filtros" style="top:68px;height:18px;background:#e6f3ea">Data inicial – Data final · Hoje Semana Mês 30d · 🔍 Buscar · ⚙ Filtros · ⚙ Colunas · ↻ <span class="num" style="top:3px">44</span></div>
+        <div class="faixa f-resumo" style="top:90px;height:14px;background:#e6f3ea">Saldo inicial · Entradas · Saídas · Movimento · Saldo final (uma linha) <span class="num" style="top:0">34</span></div>
+        <div class="faixa f-th" style="top:108px;height:16px">Data · Descrição · … · Valor · Saldo <span class="num" style="top:1px">39</span></div>
+        <div class="faixa f-lista novo" style="top:124px;height:287px">≈ 16 linhas visíveis (766 px) — +6 linhas</div>
+      </div>
+    </div>
+  </div>
+  <div class="wrap" style="margin-top:12px"><table class="t">
+    <thead><tr><th>Faixa (1600 × 1010)</th><th>Hoje (medido)</th><th>Proposto (estimado)</th><th>Ganho</th></tr></thead>
+    <tbody>
+      <tr><td>Cabeçalho + conta + ações + abas</td><td class="n">216 px</td><td class="n">114 px</td><td class="n si">−102 px</td></tr>
+      <tr><td>Filtros (8 controles em 2 linhas)</td><td class="n">160 px + 14</td><td class="n">44 px + 8</td><td class="n si">−122 px</td></tr>
+      <tr><td>Resumo do período (5 cartões)</td><td class="n">64 px + 14</td><td class="n">34 px + 8</td><td class="n si">−48 px</td></tr>
+      <tr><td><b>Onde a lista começa</b></td><td class="n"><b>495 px</b></td><td class="n"><b>≈ 222 px</b></td><td class="n si"><b>−273 px</b></td></tr>
+      <tr><td><b>Área da lista (até o pé da tela)</b></td><td class="n"><b>493 px ≈ 10 linhas</b></td><td class="n"><b>≈ 766 px ≈ 16 linhas</b></td><td class="n si"><b>+55% · +6 linhas</b></td></tr>
+      <tr><td>No celular (375 × 812): onde a 1ª linha aparece</td><td class="n no">y = 1.147 — abaixo da tela</td><td class="n">≈ y 400 — ~8 linhas na 1ª tela</td><td class="n si">de 0 para ~8 linhas</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub" style="margin-top:8px">No celular hoje o card de filtros sozinho tem 398 px e os cartões do resumo 205 px: a lista só aparece depois de rolar mais de uma tela inteira.</p>
+
+  <h2>2 · A barra única</h2>
+  <div class="cab1">
+    <span class="conta">$ Bradesco ▾</span><span style="color:var(--suave);font-size:12px">Saldo atual <b style="color:var(--bom)">R$ 4.140,76</b></span>
+    <span class="abas"><span class="on">Extrato</span><span>Conciliação</span><span>Diagnóstico</span><span>Importações</span></span>
+    <span class="acoes"><span class="bt">Importar OFX</span><span class="bt">Transferir</span><span class="bt">Imprimir / PDF</span><span class="bt" style="background:var(--marrom);color:#fff;border-color:var(--marrom)">+ Novo lançamento</span></span>
+  </div>
+  <div class="barra">
+    <span class="campo">📅 01/09/2026</span><span>–</span><span class="campo">📅 31/10/2026</span>
+    <span class="atalho">Hoje</span><span class="atalho">Semana</span><span class="atalho">Mês</span><span class="atalho on">30 dias</span>
+    <span class="campo busca">🔍 Buscar descrição ou favorecido…</span>
+    <span class="bt">⚙ Filtros <b>2</b></span><span class="bt">⚙ Colunas</span><span class="bt">↻</span>
+  </div>
+  <div class="barra" style="margin-top:6px;background:var(--aviso-f)"><span style="font-size:12px"><b>Filtros ativos:</b></span><span class="atalho">Categoria: Dízimos ✕</span><span class="atalho">Tipo: Entradas ✕</span><span style="font-size:12px;color:var(--suave)">— só aparece quando há filtro avançado; nunca fica escondido</span></div>
+  <div class="strip"><span>Saldo inicial <b>R$ 1,00</b></span><span class="e">Entradas <b>R$ 186.797,47</b></span><span class="s">Saídas <b>R$ 182.657,71</b></span><span>Movimento <b>R$ 4.139,76</b></span><span>Saldo final <b>R$ 4.140,76</b></span></div>
+
+  <h2>3 · Filtros avançados e Colunas</h2>
+  <div class="duas">
+    <div class="pop">
+      <h3>⚙ Filtros avançados</h3>
+      <div class="grade2">
+        <div><label>Tipo</label><span class="campo" style="display:block">Todos</span></div>
+        <div><label>Categoria (42)</label><span class="campo" style="display:block">Dízimos ▾ <small>(com busca)</small></span></div>
+        <div><label>Centro de custo (44)</label><span class="campo" style="display:block">Todos ▾</span></div>
+        <div><label>Situação</label><span class="campo" style="display:block">Realizados + previstos ▾ · <b>Só vencidos em aberto</b></span></div>
+        <div><label>Valor de / até</label><span class="campo" style="display:block">R$ — a R$ —</span></div>
+        <div><label>Data exata</label><span class="campo" style="display:block">—</span></div>
+      </div>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--suave)">Favorecido e Projeto <b>saem</b>: a busca já acha pelo nome do favorecido, e só há 1 projeto cadastrado. “Atrasados” vira a situação “só vencidos em aberto”.</p>
+    </div>
+    <div class="pop">
+      <h3>⚙ Colunas</h3>
+      <div class="chk"><i></i> Data <small style="color:var(--suave)">(fixa)</small></div>
+      <div class="chk"><i></i> Descrição <small style="color:var(--suave)">(fixa)</small></div>
+      <div class="chk"><i></i> Valor <small style="color:var(--suave)">(fixa)</small></div>
+      <div class="chk"><i></i> Saldo</div>
+      <div class="chk"><i></i> Categoria</div>
+      <div class="chk"><i></i> Centro de custo</div>
+      <div class="chk"><i class="off"></i> Favorecido <small style="color:var(--suave)">(hoje só dentro da descrição)</small></div>
+      <div class="chk"><i class="off"></i> Projeto</div>
+      <div class="chk"><i class="off"></i> Documento / conciliação</div>
+      <div style="margin-top:8px;display:flex;gap:6px;font-size:12px"><span class="atalho on">Compacto</span><span class="atalho">Completo</span><span style="color:var(--suave)">— atalhos que só marcam as caixas</span></div>
+    </div>
+  </div>
+
+  <h2>4 · Resumido × Analítico × Colunas</h2>
+  <div class="wrap"><table class="t">
+    <thead><tr><th></th><th>Hoje: Resumido</th><th>Hoje: Analítico</th><th>Opção A — ⚙ Colunas</th></tr></thead>
+    <tbody>
+      <tr><td><b>Mostra</b></td><td>Data · Descrição · Valor</td><td>+ Categoria · Centro · Saldo (+ Conta em “todas as contas”) + linha de apoio e juros/multa</td><td>cada coluna liga/desliga; <b>Favorecido, Projeto e Documento viram coluna</b> (hoje impossível)</td></tr>
+      <tr><td><b>Saldo</b></td><td class="no">some — o extrato bancário sem saldo</td><td>aparece</td><td class="si">escolha (vem ligado)</td></tr>
+      <tr><td><b>Cliques para mudar uma coluna</b></td><td colspan="2">2 modos fixos, sem meio-termo</td><td class="si">1 clique na coluna</td></tr>
+      <tr><td><b>Celular</b></td><td>serve</td><td class="no">colunas escondidas por largura, mas ainda pesado</td><td class="si">o padrão do celular é Compacto, lembrado no aparelho</td></tr>
+      <tr><td><b>Manutenção</b></td><td colspan="2">25 pontos do código ramificam por <code>modoResumido</code></td><td class="si">uma lista de colunas, uma regra</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sub" style="margin-top:8px"><b>Recomendação:</b> Opção A. A Opção B repete o defeito atual (dois modos fixos), e o “Resumido” dela já inclui o Saldo — o que o Resumido de hoje não tem.</p>
+</div>
+</body>
+</html>
