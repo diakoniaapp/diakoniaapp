@@ -156,6 +156,28 @@ function casarEstrito(nomeBruto: string, candidatos: CandidatoNome[]): { candida
     if (porPrefixo.length > 1) return null;
   }
 
+  // Nível 2d — nome TRUNCADO NO MEIO DE UMA PALAVRA: o banco corta em 20 letras e o corte cai dentro de um sobrenome ("LUCIA MARIA NUNES MA" é "Lucia Maria Nunes Guimaraes Marques").
+  // O 2b não pega (o cadastro tem mais palavras entre o "Nunes" e o "Ma…"). Aqui: o nome tem cara de cortado (18+ letras), o 1º nome e as palavras inteiras batem na ordem, e o
+  // pedaço final é o COMEÇO de uma palavra que vem depois. Só vale com UM candidato — com dois ("Marques" e "Machado") é ambíguo e não adivinha.
+  if (alvoTokens.length >= 3 && alvo.length >= 18 && alvoJunto.length >= 14) {
+    const pedaco = alvoTokens[alvoTokens.length - 1];
+    const inteiras = alvoTokens.slice(0, -1);
+    if (pedaco.length >= 2) {
+      const porPedaco = candidatos.filter(c => {
+        const ct = normalizarNome(c.nome).split(" ").filter(Boolean);
+        if (ct[0] !== inteiras[0]) return false;
+        let i = 1;
+        for (let j = 1; j < ct.length; j++) {
+          if (i < inteiras.length) { if (ct[j] === inteiras[i]) i++; }
+          else if (ct[j].startsWith(pedaco)) return true;
+        }
+        return false;
+      });
+      if (porPedaco.length === 1) return { candidato: porPedaco[0], nivel: "truncado" };
+      if (porPedaco.length > 1) return null;
+    }
+  }
+
   // Nível 2c — nome TRUNCADO **e** com uma letra perdida/trocada pelo banco: "L cio Paulo Paz Barre" é "Lúcio Paulo Paz Barreto"
   // (o acento some, deixa um espaço, e o fim é cortado). Mesmo critério do 2b (14+ letras, UM só candidato), com 1 erro de tolerância.
   // Só quando o texto TEM a marca do acento perdido — uma letra solta ("L cio"). Sem essa marca, uma diferença de uma letra

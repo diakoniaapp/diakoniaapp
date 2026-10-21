@@ -247,8 +247,9 @@ describe("tarifa bancária dispensa documento", () => {
     expect(dispensaDocumento({ categoria_nome: "Impostos e Taxas" })).toBe(false);
   });
 
-  it("é por categoria, não por fornecedor: o mesmo banco com outra categoria exige documento", () => {
-    expect(dispensaDocumento({ categoria_nome: "Título de Capitalização", fornecedor_nome: "Banco Bradesco S.A. 237" } as any)).toBe(false);
+  it("é por categoria, não por fornecedor: o mesmo banco com outra categoria exige documento (Título de Capitalização passou a dispensar em 21/10/2026, decisão dela)", () => {
+    expect(dispensaDocumento({ categoria_nome: "Título de Capitalização", fornecedor_nome: "Banco Bradesco S.A. 237" } as any)).toBe(true);
+    expect(dispensaDocumento({ categoria_nome: "Material de Consumo", fornecedor_nome: "Banco Bradesco S.A. 237" } as any)).toBe(false);
     expect(dispensaDocumento({ categoria_nome: null, fornecedor_nome: "Banco Bradesco S.A. 237" } as any)).toBe(false);
     expect(dispensaDocumento({ categoria_nome: "Tarifas Bancárias", fornecedor_nome: "Qualquer Um" } as any)).toBe(true);
   });

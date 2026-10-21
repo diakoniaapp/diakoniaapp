@@ -209,7 +209,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
   /** `recarregarContexto`: depois de gravar, o que foi gravado passa a fazer parte da memória. */
   async function analisarDeNovo(txs: OFXTransacao[], recarregarContexto: boolean, primeira = false) {
-    const ctx = !contexto || recarregarContexto ? await carregarContexto() : contexto;
+    const ctx = !contexto || recarregarContexto ? await carregarContexto(contaNome) : contexto;
     setContexto(ctx);
     listarContas().then(cs => setOutrasContas(cs.filter(c => c.id !== contaId).map(c => ({ id: c.id, nome: c.nome })))).catch(() => { /* sem a lista, só o formulário completo */ });
     const [res, ign] = await Promise.all([analisar(contaId, txs, ctx, { semJaRegistrado: semJaRegistrado.current }), listarIgnoradas(contaId)]);

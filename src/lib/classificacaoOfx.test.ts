@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  chaveDoMemo, maisVotado, montarContexto, regraDoDizimo, resumirPainel, sugerir,
+  favorecidoDoBanco, chaveDoMemo, maisVotado, montarContexto, regraDoDizimo, resumirPainel, sugerir,
   type CategoriaRef, type Historico, type Linha, type RecorrenciaRegra,
 } from "./classificacaoOfx";
 
@@ -272,5 +272,37 @@ describe("recorrência como regra de classificação da despesa (aprovado em 08/
   it("sem recorrência ativa que case, o comportamento antigo continua", () => {
     const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES EMPRESA QUE NUNCA VIMOS" }), comRec([rec()]));
     expect(s.banda).toBe("nao_identificada");
+  });
+});
+
+describe("favorecido = o banco, nos movimentos do próprio banco (21/10/2026)", () => {
+  const FORN = [{ id: "f-brad", nome: "Banco Bradesco S.A." }, { id: "f-light", nome: "Light Serviços de Eletricidade" }];
+  const cats = [...CATS, { id: "cap", nome: "Título de Capitalização", tipo: "saida" as const }, { id: "inv", nome: "Investimentos", tipo: "saida" as const }];
+  const comBanco = (nomeConta?: string, forn = FORN) => montarContexto({ ...CADASTRO, fornecedores: forn }, cats, [], [], nomeConta);
+
+  it("acha o fornecedor do banco pelo nome da conta (uma palavra bate com UM fornecedor)", () => {
+    expect(favorecidoDoBanco("Bradesco", FORN)).toEqual({ id: "f-brad", nome: "Banco Bradesco S.A." });
+    expect(favorecidoDoBanco("Conta Corrente Bradesco", FORN)).toEqual({ id: "f-brad", nome: "Banco Bradesco S.A." });
+  });
+  it("com mais de um, vale o único que tem 'banco'; ambíguo ou sem correspondência = nenhum (nunca inventa)", () => {
+    expect(favorecidoDoBanco("Bradesco", [...FORN, { id: "x", nome: "Bradesco Seguros" }])?.id).toBe("f-brad");
+    expect(favorecidoDoBanco("Bradesco", [{ id: "a", nome: "Bradesco Seguros" }, { id: "b", nome: "Bradesco Saúde" }])).toBeUndefined();
+    expect(favorecidoDoBanco("Caixinha Administrativo", FORN)).toBeUndefined();
+    expect(favorecidoDoBanco(undefined, FORN)).toBeUndefined();
+  });
+  it("tarifa na conta Bradesco já vem com o favorecido Banco Bradesco", () => {
+    const s = sugerir(linha({ tipo: "saida", valor: 29, memo: "TARIFA BANCARIA LIQUIDACAO QRCODE PIX" }), comBanco("Bradesco"));
+    expect(s.categoriaId).toBe("tar");
+    expect(s.fornecedor).toEqual({ id: "f-brad", nome: "Banco Bradesco S.A." });
+  });
+  it("rendimento (entrada) também", () => {
+    const s = sugerir(linha({ tipo: "entrada", valor: 0.4, memo: "RENTAB.INVEST FACILCRED" }), comBanco("Bradesco"));
+    expect(s.categoriaId).toBe("ren");
+    expect(s.fornecedor?.id).toBe("f-brad");
+  });
+  it("sem fornecedor do banco no cadastro, continua sem favorecido; e uma despesa comum não ganha o banco", () => {
+    expect(sugerir(linha({ tipo: "saida", valor: 29, memo: "TARIFA BANCARIA" }), comBanco("Bradesco", [])).fornecedor).toBeUndefined();
+    const luz = sugerir(linha({ tipo: "saida", valor: 300, memo: "PAGTO LIGHT SERVICOS" }), comBanco("Bradesco"));
+    expect(luz.fornecedor?.id).not.toBe("f-brad");
   });
 });

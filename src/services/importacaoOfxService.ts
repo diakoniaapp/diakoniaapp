@@ -68,7 +68,7 @@ async function carregarRecorrenciasComoRegra(cadastro: { pessoas: { id: string; 
   } catch { return []; }
 }
 
-export async function carregarContexto(): Promise<ContextoOfx> {
+export async function carregarContexto(contaNome?: string): Promise<ContextoOfx> {
   const desde = daquiADias(hojeLocal(), -30 * MESES_DE_HISTORICO);
   const historico: Historico[] = [];
   for (let p = 0; ; p++) {
@@ -92,7 +92,7 @@ export async function carregarContexto(): Promise<ContextoOfx> {
     carregarCadastro(), listarCategorias(), listarCentrosCusto(), listarProjetos().catch(() => [] as FinProjeto[]),
   ]);
   const recorrencias = await carregarRecorrenciasComoRegra(cadastro);
-  const ctx = montarContexto(cadastro, categorias.map(c => ({ id: c.id, nome: c.nome, tipo: c.tipo })), historico, recorrencias);
+  const ctx = montarContexto(cadastro, categorias.map(c => ({ id: c.id, nome: c.nome, tipo: c.tipo })), historico, recorrencias, contaNome);
   return { ctx, categorias, centros, projetos };
 }
 

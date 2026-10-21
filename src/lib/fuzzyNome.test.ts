@@ -103,3 +103,24 @@ describe("nome truncado E com letra perdida pelo banco (08/10/2026)", () => {
   });
 });
 
+
+describe("nome truncado NO MEIO de uma palavra (o banco corta em 20 letras)", () => {
+  const cad: CandidatoNome[] = [
+    { id: "1", nome: "Lucia Maria Nunes Guimarães Marques" },
+    { id: "2", nome: "Lucia Helena Nunes Machado" },
+    { id: "3", nome: "Carlos Alberto Nunes Marques" },
+  ];
+  it("'LUCIA MARIA NUNES MA' é a Lúcia Maria Nunes Guimarães Marques (palavras inteiras na ordem + começo de uma palavra que vem depois)", () => {
+    expect(encontrarDetalhado("LUCIA MARIA NUNES MA", cad)).toMatchObject({ candidato: { id: "1" }, nivel: "truncado" });
+  });
+  it("com dois candidatos possíveis é ambíguo e não adivinha", () => {
+    expect(encontrarDetalhado("LUCIA MARIA NUNES MA", [...cad, { id: "4", nome: "Lucia Maria Nunes Silva Machado" }], false)).toBeNull();
+  });
+  it("o primeiro nome tem de bater, e nome curto não é tratado como cortado", () => {
+    expect(encontrarDetalhado("MARIA NUNES MA", cad, false)).toBeNull();
+    expect(encontrarDetalhado("LUCIA NUNES MA", cad, false)).toBeNull();
+  });
+  it("sem a palavra que começa com o pedaço, não casa", () => {
+    expect(encontrarDetalhado("LUCIA MARIA NUNES ZZ", cad, false)).toBeNull();
+  });
+});

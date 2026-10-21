@@ -84,3 +84,10 @@ describe("transferência/depósito de pessoa no extrato — o nome sobra depois 
     expect(extrairNome("TRANSF.AUTORIZ.ENTRE C/C CLAUDIA VILELA DE ALMEIDA").nome).toBe("CLAUDIA VILELA DE ALMEIDA");
   });
 });
+describe("extrairNome — TED com REMET. (21/10/2026)", () => {
+  it("o prefixo do banco não entra no nome: 'TED-TRANSF ELET DISPON REMET.LUCIA MARIA NUNES MA'", () => {
+    const r = extrairNome("TED-TRANSF ELET DISPON REMET.LUCIA MARIA NUNES MA");
+    expect(r.nome?.toLowerCase()).toBe("lucia maria nunes ma");
+    expect(r.forma).toBe("ted");
+  });
+});

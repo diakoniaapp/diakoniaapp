@@ -110,7 +110,14 @@ const norm = (s: string) => semAcento(s).toLowerCase().trim();
 
 // ── categorias por papel ────────────────────────────────────────────────────
 
-export interface Categorias { dizimo?: string; oferta?: string; missoes?: string; rendimento?: string; tarifa?: string }
+export interface Categorias {
+  dizimo?: string; oferta?: string; missoes?: string; rendimento?: string; tarifa?: string;
+  /** as categorias que são o próprio banco movimentando a conta (tarifa, cesta, rendimento, Invest Fácil, capitalização, IOF): o favorecido é o banco */
+  bancarias?: string[];
+}
+
+/** Categoria de movimento do próprio banco — o favorecido dela é o banco da conta (pedido dela, 21/10/2026). */
+export const CATEGORIA_BANCARIA = /\b(tarifas?|cesta|rendimentos?|invest\s*facil|capitalizacao|iof|aplicac(ao|oes))\b/;
 
 export function papelDasCategorias(cats: CategoriaRef[]): Categorias {
   const entrada = cats.filter(c => c.tipo === "entrada");
@@ -121,6 +128,7 @@ export function papelDasCategorias(cats: CategoriaRef[]): Categorias {
     missoes: entrada.find(c => /missoes/.test(norm(c.nome)))?.id,
     rendimento: entrada.find(c => /rendimento/.test(norm(c.nome)))?.id,
     tarifa: saida.find(c => /tarifa/.test(norm(c.nome)))?.id,
+    bancarias: cats.filter(c => CATEGORIA_BANCARIA.test(norm(c.nome))).map(c => c.id),
   };
 }
 
@@ -138,9 +146,28 @@ export interface Contexto {
   porCategoria: Map<string, Historico[]>;
   /** Recorrências ativas: regra de classificação das despesas fixas. */
   recorrencias: RecorrenciaRegra[];
+  /** O banco da conta que está sendo conciliada, como favorecido cadastrado (Bradesco → "Banco Bradesco S.A."), quando UM só fornecedor corresponde. */
+  favorecidoDoBanco?: { id: string; nome: string };
 }
 
-export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], historico: Historico[], recorrencias: RecorrenciaRegra[] = []): Contexto {
+/**
+ * O fornecedor que representa o banco da conta: alguma palavra do nome da conta ("Bradesco") aparece no nome de UM fornecedor; com mais de um, vale o único que traz "banco".
+ * Ambíguo ou sem correspondência = nenhum (a tela continua pedindo o favorecido; nunca se cria um fornecedor às escondidas).
+ */
+export function favorecidoDoBanco(contaNome: string | undefined, fornecedores: CandidatoFavorecido[]): { id: string; nome: string } | undefined {
+  const palavras = norm(contaNome ?? "").split(/\s+/).filter(p => p.length >= 4 && !["conta", "corrente", "caixa", "banco", "aplicacao", "investimento", "caixinha"].includes(p));
+  for (const p of palavras) {
+    const achados = fornecedores.filter(f => norm(f.nome).split(/[^a-z0-9]+/).includes(p));
+    if (achados.length === 1) return { id: achados[0].id, nome: achados[0].nome };
+    if (achados.length > 1) {
+      const bancos = achados.filter(f => /\bbanco\b/.test(norm(f.nome)));
+      if (bancos.length === 1) return { id: bancos[0].id, nome: bancos[0].nome };
+    }
+  }
+  return undefined;
+}
+
+export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], historico: Historico[], recorrencias: RecorrenciaRegra[] = [], contaNome?: string): Contexto {
   const porPessoa = new Map<string, Historico[]>();
   const porFornecedor = new Map<string, Historico[]>();
   const porChave = new Map<string, Historico[]>();
@@ -163,7 +190,7 @@ export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], histori
       if (categorias.missoes && h.categoriaId === categorias.missoes) marca10.missoes += 1;
     }
   }
-  return { cadastro, categorias, porPessoa, porFornecedor, porChave, marca10, porCategoria, recorrencias };
+  return { cadastro, categorias, porPessoa, porFornecedor, porChave, marca10, porCategoria, recorrencias, favorecidoDoBanco: favorecidoDoBanco(contaNome, cadastro.fornecedores) };
 }
 
 /** Termina em ,10 e vale pelo menos R$ 1 (R$ 0,10 é rendimento de aplicação, não oferta). */
@@ -522,6 +549,10 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
     const contagem = new Map<string, number>();
     for (const h of (histAlvo ?? hChave).filter(x => x.tipo === "saida")) if (h.categoriaId) contagem.set(h.categoriaId, (contagem.get(h.categoriaId) ?? 0) + 1);
     alternativas = [...contagem.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id).filter(id => id !== s.categoriaId).slice(0, 3);
+  }
+  // movimento do PRÓPRIO banco (tarifa, cesta, rendimento, Invest Fácil, capitalização, IOF): o favorecido é o banco da conta — "Sem favorecido" não faz sentido (21/10/2026)
+  if (!s.pessoa && !s.fornecedor && !s.transferencia && s.categoriaId && ctx.favorecidoDoBanco && cat.bancarias?.includes(s.categoriaId)) {
+    s = { ...s, fornecedor: ctx.favorecidoDoBanco, motivos: [...s.motivos, `favorecido: ${ctx.favorecidoDoBanco.nome} (movimento do próprio banco)`] };
   }
   return { ...s, ...(historico.length ? { historico } : {}), alternativas };
 }

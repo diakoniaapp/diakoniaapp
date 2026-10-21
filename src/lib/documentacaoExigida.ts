@@ -80,8 +80,14 @@ export interface DocumentacaoDaSaida {
 const norm = (s: string | null | undefined) => (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
 
 /** Categorias que dispensam documento (a mesma lista de `dispensaDocumento` em lib/pacoteContabil.ts — as duas leem daqui). */
-export const CATEGORIAS_QUE_DISPENSAM = new Set(["tarifas bancarias", "tarifa bancaria", "iof", "juros", "encargos bancarios"]);
-export const categoriaDispensaDocumento = (nome: string | null | undefined): boolean => CATEGORIAS_QUE_DISPENSAM.has(norm(nome));
+// Pedido dela (21/10/2026): o que o PRÓPRIO banco movimenta já tem o extrato como documento — tarifas (inclusive PIX e cesta), rendimentos, investimentos, Invest Fácil, título de capitalização e IOF
+  // saem como "⚪ Dispensa documentação" e não geram pendência na Auditoria nem na Prontidão do Malote. Por padrão de NOME (os nomes variam: "Rendimentos de Aplicações", "Título de Capitalização"…).
+export const CATEGORIAS_QUE_DISPENSAM = new Set([
+  "tarifas bancarias", "tarifa bancaria", "tarifa pix", "tarifas pix", "cesta bancaria", "iof", "juros", "encargos bancarios",
+  "rendimentos", "rendimento", "investimentos", "investimento", "invest facil", "titulo de capitalizacao", "titulos de capitalizacao", "capitalizacao",
+]);
+const PADRAO_QUE_DISPENSA = /^(tarifas?|rendimentos?)\b|\bcapitalizacao\b|\binvest\s*facil\b|\bcesta\s+bancaria\b/;
+export const categoriaDispensaDocumento = (nome: string | null | undefined): boolean => CATEGORIAS_QUE_DISPENSAM.has(norm(nome)) || PADRAO_QUE_DISPENSA.test(norm(nome));
 
 interface Origem { rotulo: string; aceita: readonly string[] }
 const NF_OU_FATURA: Origem = { rotulo: "Nota Fiscal ou Fatura", aceita: ["nota_fiscal", "fatura"] };

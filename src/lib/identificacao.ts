@@ -70,7 +70,8 @@ export function extrairNome(descricao: string | null | undefined): ExtracaoDeNom
 
   // o banco marca quem é: "REM: <remetente>", "DES <destinatário>", "FAVORECIDO: <nome>"
   let corte = -1;
-  for (const m of t.matchAll(/\b(rem|remetente|des|destinatario|favorecido)\b\s*:?\s*/g)) corte = (m.index ?? 0) + m[0].length;
+  // "REMET." é a abreviação de remetente nas TEDs ("TED-TRANSF ELET DISPON REMET.LUCIA MARIA NUNES MA"): sem ela o prefixo do banco ficava dentro do nome e nada casava com o cadastro
+  for (const m of t.matchAll(/\b(rem|remet|remetente|des|destinatario|favorecido)\b\s*[:.]?\s*/g)) corte = (m.index ?? 0) + m[0].length;
   if (corte >= 0) t = t.slice(corte);
 
   // categoria que a pessoa escreveu junto do nome

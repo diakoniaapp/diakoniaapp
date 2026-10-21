@@ -71,6 +71,13 @@ describe("documentacaoDaSaida — a regra única", () => {
     expect(d.exigidas.map(x => x.rotulo)).toEqual(["Nota Fiscal ou Fatura"]);
   });
 
+  it("tarifas (PIX e cesta), IOF, juros, rendimentos, investimentos, Invest Fácil e título de capitalização dispensam — pelo padrão do nome", () => {
+    for (const categoriaNome of ["Tarifa PIX", "Cesta Bancária", "Rendimentos de Aplicações", "Investimentos", "Título de Capitalização", "Invest Fácil", "IOF"]) {
+      expect(documentacaoDaSaida(base({ categoriaNome })).situacao, categoriaNome).toBe("dispensa");
+    }
+    expect(documentacaoDaSaida(base({ categoriaNome: "Material de Consumo" })).situacao).not.toBe("dispensa");
+  });
+
   it("tarifas, IOF, juros e encargos bancários dispensam — e sem anexo nenhum não são falta", () => {
     for (const categoriaNome of ["Tarifas Bancárias", "IOF", "Juros", "Encargos Bancários"]) {
       const d = documentacaoDaSaida(base({ categoriaNome }));
