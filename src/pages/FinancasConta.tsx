@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { centroESubcentro } from "@/lib/centroSubcentro";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,44 +14,48 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
-import { CampoData } from "@/components/CampoData";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { paraNumero } from "@/lib/dinheiro";
-import { parseLocalDate } from "@/lib/data";
+import { daquiADias, hojeLocal } from "@/lib/data";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  ArrowLeft, DollarSign, Loader2, Plus, Search, ChevronDown,
-  TrendingUp, TrendingDown, Pencil, Trash2, Paperclip, Files, Info,
-  Scale, FileUp, Printer, RefreshCw, Layers, FolderKanban,
+  DollarSign, Loader2, Plus, Search,
+  Pencil, Trash2, Paperclip, Files, Info,
+  Scale, FileUp, Printer, RefreshCw, Layers, FolderKanban, MoreVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarConta, listarLancamentosSemTeto, excluirLancamento, excluirLancamentosEmLote, brl,
   comprovanteSignedUrl, CONTA_TIPO_LABEL, listarContas, nomeExtrato,
-  conciliarEmLote, listarCategorias, listarCentrosCusto, listarFornecedores,
-  type FinFornecedor, type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
+  conciliarEmLote, listarCategorias, listarCentrosCusto,
+  type FinConta, type FinLancamentoExtenso,
   type FinCategoria, type FinCentroCusto,
-  STATUS_LABEL,
+  STATUS_LABEL, type FinStatus,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import {
-  SeletorPeriodo, resolverPeriodo, lerContextoFinancasSalvo, salvarContextoFinancas,
-  type PeriodoPreset,
+  BarraDePeriodo, periodoInicialDoExtrato, periodoParaLembrar, lerContextoFinancasSalvo, salvarContextoFinancas,
 } from "@/components/financas/SeletorPeriodo";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
-import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
-import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
+import { calcularExtrato, dataEfetiva, fechamentosDoDia, vencimentoDiferente, saldoAntesDe } from "@/services/saldoService";
+import { FechamentoDoDiaCelular, LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
 import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
 import { AbasDaConta } from "@/components/financas/contas/AbasDaConta";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
+import { ChipsDeFiltros, FiltrosAvancadosPopover } from "@/components/financas/extrato/FiltrosAvancadosPopover";
+import { ColunasPopover } from "@/components/financas/extrato/ColunasPopover";
+import { ResumoEmLinha } from "@/components/financas/extrato/ResumoEmLinha";
+import { colunasVisiveis, gravarColunas, lerColunas, type ColunaId } from "@/lib/colunasDoExtrato";
+import {
+  consultaDaSituacao, filtrosDaUrl, filtrosParaUrl, type FiltrosAvancados,
+} from "@/lib/filtrosDoExtrato";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
-import { toYmd } from "@/lib/data";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -69,36 +73,22 @@ const STATUS_COR: Record<FinStatus, string> = {
   quitado_terceiro: "text-info-text",
 };
 
+// As colunas opcionais que ficam ENTRE a Descrição e o Valor, na ordem em que aparecem. Saldo vem depois do Valor; "detalhe" não é coluna (é a 2ª linha da Descrição).
+type ColunaDoMeio = "conta" | "favorecido" | "categoria" | "centro" | "projeto" | "documento";
+const COLUNAS_DO_MEIO: { id: ColunaDoMeio; rotulo: string; largura: string }[] = [
+  { id: "conta", rotulo: "Conta", largura: "w-32" },
+  { id: "favorecido", rotulo: "Favorecido", largura: "w-44" },
+  { id: "categoria", rotulo: "Categoria", largura: "w-32" },
+  { id: "centro", rotulo: "Centro de custo", largura: "w-40" },
+  { id: "projeto", rotulo: "Projeto", largura: "w-32" },
+  { id: "documento", rotulo: "Documento", largura: "w-28" },
+];
 
-// Cabeçalho de coluna com filtro embutido, estilo Excel — pedido da Telma
-// (22/09/2026): "o filtro é para todas as colunas, exceto saldo". Data,
-// Descrição/Fornecedor e Valor usam este popover (cada um com o controle
-// que faz sentido pro tipo do dado); Categoria e Centro de custo usam o
-// próprio `<Select>` como gatilho, que já desenha a mesma setinha sozinho
-// — não duplicado aqui. Mesmo sinal em todos: ponto dourado ao lado do
-// nome quando aquele filtro está ativo, igual o funil "cheio" do Excel.
-function CabecalhoFiltro({ label, ativo, align = "start", semPadding, children }: {
-  label: string; ativo: boolean; align?: "start" | "end";
-  /** Pro calendário de Data — mesmo padrão de `CampoData.tsx` (`p-0`), o
-      componente de calendário já traz o próprio respiro interno. */
-  semPadding?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className="inline-flex items-center gap-1 hover:text-foreground">
-          {label}
-          {ativo && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
-          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align={align} className={semPadding ? "w-auto p-0 normal-case font-normal text-sm" : "w-64 p-3 space-y-2 normal-case font-normal text-sm"}>
-        {children}
-      </PopoverContent>
-    </Popover>
-  );
-}
+// Espaço que a lista deixa abaixo de si: a linha de paginação (≈32 px), o respiro entre os blocos e o padding do container (20 px no computador).
+const RESERVA_ABAIXO_DA_LISTA = 64;
+const ALTURA_MINIMA_DA_LISTA = 280;
+
+const armazemLocal = (): Storage | null => { try { return window.localStorage; } catch { return null; } };
 
 export default function FinancasConta() {
   const { contaId = "" } = useParams();
@@ -127,72 +117,50 @@ export default function FinancasConta() {
 
   // O estado de navegação (`location.state`) é repassado ao espelho dos filtros na URL (`setSearchParams` com `replace` reescreve a entrada do histórico e, sem repassar o `state`, ele some).
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [contas, setContas] = useState<FinConta[]>([]);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
-  // "transferencia" não é um `FinMovimentoTipo` (transferência grava uma
-  // perna entrada e outra saída) — pedido da Telma em 15/09/2026 pra
-  // filtrar só essas pernas, então o Select trata como uma 4ª opção que
-  // vira `apenasTransferencia` em `listarLancamentos`, não `tipo`.
-  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "transferencia" | "todos">(
-    () => (searchParams.get("tipo") as any) || "todos",
-  );
+
+  // O par de datas e os Filtros avançados nascem da URL (F5, link, favorito) → do último contexto lembrado → de "hoje" (23/09/2026: a tesouraria trabalha com "o que aconteceu hoje").
+  // O seletor "Período" saiu em 21/10/2026: ficam Data inicial, Data final e os atalhos Hoje/Semana/Mês/30 dias, que só preenchem as datas — ver `BarraDePeriodo`.
+  // Links antigos (`?periodo=mes_atual`, `?periodo=atrasados`) continuam abrindo certo — ver `periodoInicialDoExtrato`.
+  const [aberturaDoPeriodo] = useState(() => periodoInicialDoExtrato({
+    periodoUrl: searchParams.get("periodo"), de: searchParams.get("de"), ate: searchParams.get("ate"), contexto: lerContextoFinancasSalvo(),
+  }));
+  const [dataInicio, setDataInicio] = useState(aberturaDoPeriodo.inicio);
+  const [dataFim, setDataFim] = useState(aberturaDoPeriodo.fim);
+  // Tipo, Situação, Categoria, Centro de custo, Valor (de/até) e Data exata: o popover "Filtros". Favorecido e Projeto saíram (a busca já acha pelo favorecido).
+  // "transferencia" não é um `FinMovimentoTipo` (transferência grava uma perna entrada e outra saída): vira `apenasTransferencia` em `listarLancamentos`.
+  const [filtros, setFiltros] = useState<FiltrosAvancados>(() => filtrosDaUrl(searchParams, aberturaDoPeriodo.vencidos));
+  const mudarFiltros = (parcial: Partial<FiltrosAvancados>) => setFiltros(f => ({ ...f, ...parcial }));
+  const {
+    tipo: filtroTipo, situacao, categoriaId: filtroCategoriaId, centroCustoId: filtroCentroCustoId,
+    valorMin: filtroValorMinTexto, valorMax: filtroValorMaxTexto, dataExata: filtroDataEspecifica,
+  } = filtros;
+
   const [busca, setBusca] = useState(() => searchParams.get("busca") ?? "");
   // Debounce (22/09/2026, achado ao vivo pela Telma): sem isso,
   // `carregar()` (efeito abaixo, dependente de `busca`) rodava a CADA
   // tecla — `setLoading(true)` trocava a tabela inteira (thead incluso)
   // por um spinner por uma fração de segundo, desmontando qualquer coisa
-  // dentro dela. Inofensivo enquanto o campo de busca vivia sozinho na
-  // faixa de filtros; ficou visível quando o mesmo campo passou a viver
-  // TAMBÉM dentro do popover de filtro da coluna Descrição — cada letra
-  // "fechava" o popover porque ele literalmente desmontava e remontava.
-  // `buscaDebounced` é o valor que de fato dispara a busca; `busca` (o
-  // valor do campo) continua instantâneo pra digitar sem travar.
+  // dentro dela. `buscaDebounced` é o valor que de fato dispara a busca;
+  // `busca` (o valor do campo) continua instantâneo pra digitar sem travar.
   const [buscaDebounced, setBuscaDebounced] = useState(busca);
   useEffect(() => {
     const t = setTimeout(() => setBuscaDebounced(busca), 400);
     return () => clearTimeout(t);
   }, [busca]);
-  // Filtros de coluna — Categoria e Centro de custo filtram no servidor
-  // (`listarLancamentosSemTeto`). Persistem na URL, mesmo padrão dos
-  // outros filtros desta tela.
-  const [filtroCategoriaId, setFiltroCategoriaId] = useState(() => searchParams.get("categoria") ?? "");
-  const [filtroCentroCustoId, setFiltroCentroCustoId] = useState(() => searchParams.get("centro") ?? "");
-  const [filtroFornecedorId, setFiltroFornecedorId] = useState(() => searchParams.get("fornecedor") ?? "");
-  const [fornecedoresFiltro, setFornecedoresFiltro] = useState<FinFornecedor[]>([]);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
-  // Modo Resumido/Analítico (01/10/2026, pedido dela: "reduzir largura
-  // horizontal, melhorar leitura rápida no celular"). Categoria e Centro
-  // de custo saíram de coluna própria pra virar badge/indicador dentro da
-  // célula Descrição (ver `renderLinha`) nos dois modos; Resumido ainda
-  // esconde Conta/Saldo e a 2ª linha de descrição, pra sobrar só o
-  // essencial pra escanear rápido. `localStorage` (trocado de
-  // `sessionStorage` em 02/10/2026, pedido dela: "o sistema deve lembrar
-  // a última visualização utilizada" — sessão não sobrevivia fechar a
-  // aba, o pedido novo é persistir de verdade).
-  const [modoResumido, setModoResumido] = useState(() => localStorage.getItem("diakonia-extrato-modo") === "resumido");
-  useEffect(() => {
-    localStorage.setItem("diakonia-extrato-modo", modoResumido ? "resumido" : "analitico");
-  }, [modoResumido]);
-  // Valor (min/max) — pedido da Telma (22/09/2026: "o filtro é para todas
-  // as colunas, exceto saldo"). Sem RPC nem coluna nova: filtra em
-  // memória sobre o que `listarLancamentosSemTeto` já trouxe pro período
-  // (mesmo raciocínio de `busca`/`tipo` antes de virarem filtro de
-  // servidor — o volume por conta/mês é pequeno o bastante pra isso não
-  // pesar). Texto livre, não número — mesmo motivo de `saldoInicialTexto`
-  // em ContaForm.tsx: `<input type="number">` recusa vírgula, e "928,00"
-  // é como qualquer brasileiro digita.
-  const [filtroValorMinTexto, setFiltroValorMinTexto] = useState(() => searchParams.get("valorMin") ?? "");
-  const [filtroValorMaxTexto, setFiltroValorMaxTexto] = useState(() => searchParams.get("valorMax") ?? "");
-  // Filtro de UM dia específico na coluna Data — pedido da Telma
-  // (22/09/2026: "veja como funciona o filtro da coluna data no Omie
-  // sistema"): lá o filtro de coluna escolhe uma data no calendário e
-  // mostra só aquele dia, separado do período (início/final) da faixa de
-  // cima, que continua existindo do jeito que já era pra ver o mês
-  // inteiro. Em memória, sobre o que o período já trouxe — mesmo
-  // raciocínio do filtro de Valor.
-  const [filtroDataEspecifica, setFiltroDataEspecifica] = useState(() => searchParams.get("dataExata") ?? "");
+
+  // ⚙ Colunas (21/10/2026) no lugar de Resumido/Analítico: Data, Descrição e Valor fixas, o resto liga e desliga; a escolha fica neste aparelho e o celular nasce Compacto.
+  // Só grava quando a PESSOA muda (não grava o padrão do celular por cima de uma escolha futura feita na tela larga do mesmo navegador).
+  const [colunas, setColunas] = useState<Set<ColunaId>>(() => lerColunas(armazemLocal(), typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 767px)").matches));
+  function mudarColunas(novo: Set<ColunaId>) { setColunas(novo); gravarColunas(armazemLocal(), novo); }
+  const col = colunasVisiveis(colunas, isTodasContas);
+  const colunasDoMeio = COLUNAS_DO_MEIO.filter(c => col.has(c.id));
+
   // U3/F5 do roadmap "90 Dias" (22/09/2026, início pelo Financeiro): sem
   // paginação, uma conta com meses de histórico (algumas passam de 190
   // lançamentos no mês) renderizava a lista inteira de uma vez. Mesmo
@@ -241,100 +209,14 @@ export default function FinancasConta() {
   // da conta + movimento realizado/conciliado antes da data).
   const [saldoAntesDoPeriodo, setSaldoAntesDoPeriodo] = useState(0);
 
-  // Altura real da faixa fixa (barra de ferramentas + filtros + resumo) —
-  // medida em runtime porque o conteúdo dela muda de altura sozinho
-  // (o `flex-wrap` da barra de botões quebra linha em telas estreitas, e
-  // o card de filtros também muda de 2 pra 5 colunas). Um `top` fixo em
-  // pixel quebraria em algum desses casos; `ResizeObserver` mede a altura
-  // de verdade a cada mudança e o cabeçalho da tabela (`<thead>`) usa esse
-  // valor como o próprio `top` do seu sticky, colando logo abaixo da
-  // faixa em vez de rolar escondido atrás dela. Pedido da Telma
-  // (16/09/2026): "aumente a faixa fixa para aparecer o título do
-  // extrato" — antes só a faixa de cima ficava fixa; a linha
-  // Situação/Data/Descrição.../Saldo rolava junto com os lançamentos.
-  //
-  // `useState` no lugar de `useRef` pro nó — um `ref={faixaFixaRef}` com
-  // `useRef` comum some no primeiro `if (loading && !conta) return
-  // <PaginaSkeleton />` (a div da faixa fixa só existe no JSX de baixo,
-  // que só monta depois de `conta` carregar) — o `useEffect([])` de
-  // montagem já tinha rodado E TERMINADO com `faixaFixaRef.current`
-  // ainda `null` naquele instante, e como as dependências são `[]`, ele
-  // nunca roda de novo quando a div de verdade aparece. Um "callback
-  // ref" guardado em estado dispara de novo toda vez que o nó DOM muda
-  // (inclusive de `null` pra montado, no exato momento em que o
-  // skeleton vira a tela real) — achado ao vivo (thead sticky com
-  // `top: 0px`, escondido atrás da faixa de cima, altura nunca saía
-  // de 0).
-  const [faixaFixaEl, setFaixaFixaEl] = useState<HTMLDivElement | null>(null);
-  const [alturaFaixaFixa, setAlturaFaixaFixa] = useState(0);
-  useEffect(() => {
-    if (!faixaFixaEl) return;
-    const medir = () => setAlturaFaixaFixa(faixaFixaEl.offsetHeight);
-    medir();
-    const ro = new ResizeObserver(medir);
-    ro.observe(faixaFixaEl);
-    return () => ro.disconnect();
-  }, [faixaFixaEl]);
+  // "Só vencidos em aberto" (o antigo preset "Atrasados") filtra por SITUAÇÃO — previsto vencido, sem chão de data, até ontem —, então as datas da barra não valem nesse caso.
+  // A ordem invertida (final antes da inicial) já não sai da barra (lib/intervaloDeDatas.ts); a troca abaixo só protege um link com `de`/`ate` trocados.
+  const consulta = consultaDaSituacao(situacao, daquiADias(hojeLocal(), -1));
+  const inicioEfetivo = consulta.ignoraDatas ? "" : (dataInicio <= dataFim ? dataInicio : dataFim);
+  const fimEfetivo = consulta.ignoraDatas ? consulta.teto! : (dataInicio <= dataFim ? dataFim : dataInicio);
+  const statusFiltro = consulta.status;
 
-  // Período do filtro — presets estilo Omie (29/09/2026), ver
-  // `SeletorPeriodo.tsx`. Prioridade do valor inicial: URL (`?periodo=`,
-  // sobrevive a F5) → último contexto salvo em localStorage (entre
-  // sessões) → "hoje" (23/09/2026, bug de produtividade: "abre no
-  // primeiro dia do mês, a tesouraria trabalha com 'o que aconteceu
-  // hoje'"). `dataInicio`/`dataFim` continuam existindo como estado
-  // próprio — fonte da verdade pra "Personalizado" (onde o usuário edita
-  // os dois campos direto) e recalculados a partir do preset nos demais
-  // casos (efeito abaixo), sem congelar a data de quando a URL foi salva.
-  const hoje = new Date();
-  const contextoSalvo = lerContextoFinancasSalvo();
-  const [periodoPreset, setPeriodoPreset] = useState<PeriodoPreset>(
-    () => (searchParams.get("periodo") as PeriodoPreset) || contextoSalvo?.periodo || "hoje",
-  );
-  const periodoInicialResolvido = resolverPeriodo(
-    periodoPreset, searchParams.get("de") ?? undefined, searchParams.get("ate") ?? undefined,
-  );
-  // "Personalizado" não tem fórmula pra recalcular — precisa das datas de
-  // verdade vindas de algum lugar. Prioridade: URL → localStorage (mesmo
-  // contexto salvo acima, guarda `dataInicio`/`dataFim` só pra esse caso,
-  // ver `ContextoFinancasSalvo`) → hoje.
-  const [dataInicio, setDataInicio] = useState(
-    () => periodoPreset === "personalizado" ? (searchParams.get("de") ?? contextoSalvo?.dataInicio ?? toYmd(hoje)) : periodoInicialResolvido.dataInicio,
-  );
-  const [dataFim, setDataFim] = useState(
-    () => periodoPreset === "personalizado" ? (searchParams.get("ate") ?? contextoSalvo?.dataFim ?? toYmd(hoje)) : periodoInicialResolvido.dataFim,
-  );
-  // Presets diferentes de "Personalizado" recalculam `dataInicio`/`dataFim`
-  // toda vez que o preset muda — "Personalizado" não entra aqui de
-  // propósito, ali quem manda são os dois `CampoData` direto.
-  useEffect(() => {
-    if (periodoPreset === "personalizado") return;
-    const r = resolverPeriodo(periodoPreset);
-    setDataInicio(r.dataInicio);
-    setDataFim(r.dataFim);
-  }, [periodoPreset]);
-  // "Atrasados" filtra por SITUAÇÃO (previsto vencido), não por uma faixa
-  // contínua de data — `dataFim` (ontem) só limita o teto, sem chão.
-  const statusFiltro: FinStatus | undefined = periodoPreset === "atrasados" ? "previsto" : undefined;
-  // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
-  // Administrativo", em três rodadas: (1) "eu clico para alterar e ela
-  // leva para meses que eu nao digitei" — o `min` dinâmico e o
-  // cruzamento entre os dois campos; (2) mesmo corrigido isso, "continua
-  // com erro para DIGITAR a data; está funcionando apenas se escolher no
-  // ícone do calendário" — o teclado do `<input type="date">` nativo é
-  // quem falha no WebView, não a lógica; (3) depois de trocar tudo pro
-  // calendário em popover (sem `<input>` nenhum), "quero a opção de
-  // digitar + a opção de escolher pelo calendário, como estava antes, mas
-  // obedecendo a digitação, sem bugs" — tirar a digitação resolvia o
-  // sintoma mas não era o que ela queria. `CampoData`
-  // (components/CampoData.tsx) resolve as três: campo de texto com
-  // máscara (não o `<input type="date">` nativo problemático) + botão de
-  // calendário ao lado, e digitar de fato funciona.
-  // Se a ordem sair invertida (final antes de inicial), a consulta abaixo
-  // troca os dois só na hora de buscar — nenhum campo precisa mudar sozinho.
-  const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
-  const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
-
-  useEffect(() => { carregar(); }, [contaId, filtroTipo, statusFiltro, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId]);
+  useEffect(() => { carregar(); }, [contaId, filtroTipo, statusFiltro, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId]);
   // Trocar de CONTA limpa a lista antes de buscar — sem isso, o fix logo
   // abaixo ("não mostrar spinner se já tem dado em mãos", pro popover não
   // fechar sozinho) mostraria por um instante o extrato da conta ANTERIOR
@@ -348,28 +230,23 @@ export default function FinancasConta() {
   // entra aqui também mesmo sendo filtro em memória (não refaz a busca no
   // servidor, mas muda quantas linhas sobram pra paginar).
   useEffect(() => { setPagina(1); }, [
-    contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced,
-    filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica,
+    contaId, filtroTipo, situacao, inicioEfetivo, fimEfetivo, buscaDebounced,
+    filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica,
   ]);
 
   // Espelha os filtros na URL (`replace`, não empilha histórico a cada
   // tecla digitada) — é isso que sobrevive a F5 e a sair/voltar pra tela.
+  // `periodo=` continua escrito (o atalho que o par de datas forma, senão "personalizado"): é o que faz um favorito de "Mês atual" continuar sendo o mês de HOJE.
   useEffect(() => {
     const params = new URLSearchParams();
-    if (filtroTipo !== "todos") params.set("tipo", filtroTipo);
+    filtrosParaUrl(filtros, params);
     if (busca) params.set("busca", busca);
-    if (filtroCategoriaId) params.set("categoria", filtroCategoriaId);
-    if (filtroCentroCustoId) params.set("centro", filtroCentroCustoId);
-    if (filtroFornecedorId) params.set("fornecedor", filtroFornecedorId);
-    if (filtroValorMinTexto.trim()) params.set("valorMin", filtroValorMinTexto);
-    if (filtroValorMaxTexto.trim()) params.set("valorMax", filtroValorMaxTexto);
-    if (filtroDataEspecifica) params.set("dataExata", filtroDataEspecifica);
-    params.set("periodo", periodoPreset);
+    params.set("periodo", periodoParaLembrar(dataInicio, dataFim));
     params.set("de", dataInicio);
     params.set("ate", dataFim);
     setSearchParams(params, { replace: true, state: location.state });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, busca, periodoPreset, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
+  }, [filtros, busca, dataInicio, dataFim]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
   // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
@@ -381,7 +258,6 @@ export default function FinancasConta() {
   useEffect(() => {
     listarCategorias().then(setCategorias);
     listarCentrosCusto().then(setCentros);
-    listarFornecedores().then(setFornecedoresFiltro).catch(() => setFornecedoresFiltro([]));
   }, []);
 
   // Trocar de conta pelo seletor: preserva os filtros atuais na URL nova
@@ -400,10 +276,9 @@ export default function FinancasConta() {
     if (!contaId) return;
     setLoading(true);
     try {
-      // "Atrasados" não tem chão de data (`inicioEfetivo` fica "") — chamar
-      // `saldoAcumuladoAntesDe("")` pediria ao banco um saldo "antes de
-      // nenhuma data", sem sentido pro RPC. Sem período contínuo, saldo
-      // inicial/final não existem nesse preset (ver cards do resumo abaixo).
+      // "Só vencidos em aberto" não tem chão de data (`inicioEfetivo` fica "") — chamar
+      // `saldoAntesDe("")` pediria ao banco um saldo "antes de nenhuma data", sem sentido.
+      // Sem período contínuo, saldo inicial/final não existem nesse caso (ver o resumo).
       const [c, ls, saldoAntes] = await Promise.all([
         isTodasContas ? Promise.resolve(null) : carregarConta(contaId),
         // `listarLancamentos` (teto de 300) até 16/09/2026: os cartões
@@ -423,20 +298,18 @@ export default function FinancasConta() {
           busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
-          fornecedorId: filtroFornecedorId || undefined,
         }),
-        periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAntesDe(inicioEfetivo, isTodasContas ? undefined : contaId),
+        consulta.ignoraDatas ? Promise.resolve(0) : saldoAntesDe(inicioEfetivo, isTodasContas ? undefined : contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
       setSaldoAntesDoPeriodo(saldoAntes);
       // Lembra conta+período pra próxima entrada no sistema (ver comentário
-      // de `CHAVE_CONTEXTO_FINANCAS` acima) — grava só depois de carregar
-      // com sucesso, pra não lembrar uma conta que deu erro. `dataInicio`/
-      // `dataFim` vão junto (não só o nome do preset) — sem eles,
-      // "Personalizado" reabria sempre em hoje, não nas datas digitadas
-      // (achado ao vivo pela Telma, 29/09/2026).
-      salvarContextoFinancas(contaId, periodoPreset, dataInicio, dataFim);
+      // de `CHAVE_CONTEXTO_FINANCAS`) — grava só depois de carregar
+      // com sucesso, pra não lembrar uma conta que deu erro. Um par que é
+      // exatamente um atalho (Hoje, Semana, Mês, 30 dias) é lembrado como o atalho (amanhã
+      // abre o "hoje" de amanhã); qualquer outro, com as datas (achado ao vivo pela Telma, 29/09/2026).
+      salvarContextoFinancas(contaId, periodoParaLembrar(dataInicio, dataFim), dataInicio, dataFim);
     } finally { setLoading(false); }
   }
 
@@ -548,6 +421,30 @@ export default function FinancasConta() {
     setSelecionados(new Set(lancamentosOrdenados.map(l => l.id)));
   }
 
+  // UMA rolagem só (21/10/2026). No computador a LISTA é a área rolável: a altura dela é o que sobra da tela depois do cabeçalho, da barra de consulta e do resumo — medida de
+  // verdade, porque essas faixas mudam de altura sozinhas (chips de filtro, quebra de linha em tela estreita) — e a página em volta não rola. O cabeçalho da tabela cola no
+  // topo DESSA área (um `<thead sticky>` dentro de um contêiner que rola cola nele, não na página — era a causa da rolagem dupla e do cabeçalho "fantasma" de antes).
+  // No celular a lista corre solta e a PÁGINA rola (não há duas rolagens uma dentro da outra).
+  const [topoEl, setTopoEl] = useState<HTMLDivElement | null>(null);
+  const [listaEl, setListaEl] = useState<HTMLDivElement | null>(null);
+  const [alturaDaLista, setAlturaDaLista] = useState<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!listaEl || isMobile) { setAlturaDaLista(undefined); return; }
+    const principal = listaEl.closest("main");
+    const medir = () => {
+      const topoDoMain = principal ? principal.getBoundingClientRect().top : 0;
+      const topoDaLista = listaEl.getBoundingClientRect().top - topoDoMain + (principal?.scrollTop ?? 0);
+      const area = principal ? principal.clientHeight : window.innerHeight;
+      setAlturaDaLista(Math.max(ALTURA_MINIMA_DA_LISTA, Math.floor(area - topoDaLista - RESERVA_ABAIXO_DA_LISTA)));
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    if (topoEl) ro.observe(topoEl);
+    if (principal) ro.observe(principal);
+    window.addEventListener("resize", medir);
+    return () => { ro.disconnect(); window.removeEventListener("resize", medir); };
+  }, [listaEl, topoEl, isMobile]);
+
   if (loading && !conta && !isTodasContas) {
     return <PaginaSkeleton />;
   }
@@ -595,7 +492,7 @@ export default function FinancasConta() {
   // conciliado mexe no saldo. Com filtro de tipo ou busca ativo, a coluna
   // acumula só o que está filtrado — não é mais o saldo real da conta
   // linha a linha; aceitável, não escondido. Saldo final não existe em
-  // "Atrasados" — sem chão de data, "antes do período" não tem o que
+  // "Só vencidos" — sem chão de data, "antes do período" não tem o que
   // significar (`saldoAntesDoPeriodo` fica 0, nem é buscado).
   const {
     ordenados: lancamentosOrdenados,
@@ -604,22 +501,25 @@ export default function FinancasConta() {
     totalSaidas: totalSaidasPeriodo,
     saldoFinal: saldoFinalPeriodo,
   } = calcularExtrato(lancamentosFiltrados, saldoAntesDoPeriodo);
-  // "SALDO DO DIA" entre os dias (pedido dela, 08/10/2026): o saldo de fechamento de cada data, para conferir contra o extrato do banco. Só quando
-  // a coluna Saldo é o saldo real (lista completa) — ver `podeMostrarFechamentos`.
-  const fechamentos = fechamentosDoDia(lancamentosOrdenados, saldoPorLancamento);
-  const mostrarFechamentos = podeMostrarFechamentos({
-    periodoPreset, filtroTipo, busca: buscaDebounced, categoriaId: filtroCategoriaId, centroCustoId: filtroCentroCustoId, fornecedorId: filtroFornecedorId,
+  // A lista só é "a conta" (saldo inicial e "SALDO DO DIA" valem) sem filtro de conteúdo nem busca e com a Situação "Todas" — com filtro o acumulado é parcial e o número seria falso.
+  const listaCompletaDaTela = podeMostrarFechamentos({
+    situacao, filtroTipo, busca: buscaDebounced, categoriaId: filtroCategoriaId, centroCustoId: filtroCentroCustoId,
     valorMin, valorMax, dataEspecifica: filtroDataEspecifica,
   });
+  // "SALDO DO DIA" entre os dias (pedido dela, 08/10/2026): o saldo de fechamento de cada data, para conferir contra o extrato do banco.
+  const fechamentos = fechamentosDoDia(lancamentosOrdenados, saldoPorLancamento);
   const comFechamentos = (lista: FinLancamentoExtenso[]) => lista.flatMap(l => {
-    const f = mostrarFechamentos ? fechamentos.get(l.id) : undefined;
+    const f = listaCompletaDaTela ? fechamentos.get(l.id) : undefined;
     return f ? [renderLinha(l), <LinhaDeFechamentoDoDia key={`fechamento-${l.id}`} data={f.data} saldo={f.saldo} />] : [renderLinha(l)];
   });
-  // "Atrasados" é filtro de SITUAÇÃO (todo `lancamentosFiltrados` já vem
+  const comFechamentosCelular = (lista: FinLancamentoExtenso[]) => lista.flatMap(l => {
+    const f = listaCompletaDaTela ? fechamentos.get(l.id) : undefined;
+    return f ? [renderCartao(l), <FechamentoDoDiaCelular key={`fechamento-${l.id}`} data={f.data} saldo={f.saldo} />] : [renderCartao(l)];
+  });
+  // "Só vencidos" é filtro de SITUAÇÃO (todo `lancamentosFiltrados` já vem
   // `previsto` do servidor), não de período contínuo — os totais acima
   // dariam zero (eles só somam realizado/conciliado, de propósito, pro
-  // resto da tela). Total à parte, líquido (entrada soma, saída subtrai),
-  // igual ao "Movimento do período" nos outros presets.
+  // resto da tela). Total à parte, líquido (entrada soma, saída subtrai).
   const totalVencido = lancamentosFiltrados.reduce((s, l) => s + (l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor)), 0);
 
   // U3/F5 (paginação) — a tela mostra só uma página, mas a impressão
@@ -635,12 +535,55 @@ export default function FinancasConta() {
   const inicioPagina = (paginaAtual - 1) * POR_PAGINA;
   const lancamentosPagina = lancamentosOrdenados.slice(inicioPagina, inicioPagina + POR_PAGINA);
 
-  function renderLinha(l: FinLancamentoExtenso) {
-    // Bug de usabilidade (23/09/2026), pedido dela: "a primeira coisa
-    // que a tesouraria precisa ver é o favorecido, não a descrição
-    // digitada" — `nomeExtrato` (finService.ts) prioriza fornecedor/
-    // pessoa; descrição vira a linha secundária, não some.
+  // Com a coluna Favorecido ligada, a Descrição fica só com o texto digitado (ou a categoria) em vez de repetir o favorecido; sem ela, o favorecido manda (`nomeExtrato`, 23/09/2026:
+  // "a primeira coisa que a tesouraria precisa ver é o favorecido, não a descrição digitada") e o texto digitado é a 2ª linha, se a coluna "Detalhe da descrição" estiver ligada.
+  function textosDaDescricao(l: FinLancamentoExtenso) {
     const { principal, secundario } = nomeExtrato(l);
+    const principalDaCelula = col.has("favorecido") ? (l.descricao || l.categoria_nome || "—") : principal;
+    const segunda = !col.has("favorecido") && col.has("detalhe") && secundario && secundario !== l.categoria_nome ? secundario : null;
+    return { principal, principalDaCelula, segunda };
+  }
+
+  function celulaDoMeio(id: ColunaDoMeio, l: FinLancamentoExtenso) {
+    switch (id) {
+      case "conta":
+        return <td key={id} className="py-1.5 px-2 overflow-hidden"><span className="text-xs text-muted-foreground truncate block">{l.conta_nome ?? "—"}</span></td>;
+      case "favorecido":
+        return <td key={id} className="py-1.5 px-2 overflow-hidden"><span className="truncate block">{l.fornecedor_nome || l.pessoa_nome || "—"}</span></td>;
+      case "categoria":
+        // Uma linha só, sem badge grande (02/10/2026: com Categoria empilhada na Descrição a linha chegava a 92 px).
+        return (
+          <td key={id} className="py-1.5 px-2 overflow-hidden">
+            {l.categoria_nome && (
+              <Badge variant="outline" className="text-[10px] h-4 px-1.5 max-w-full truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
+                style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
+                {l.categoria_nome}
+              </Badge>
+            )}
+          </td>
+        );
+      case "centro": {
+        const cc = centroESubcentro(l.centro_nome);
+        return (
+          <td key={id} className="py-1.5 px-2 overflow-hidden">
+            {cc && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: l.centro_cor ?? "#888" }} />
+                <span className="truncate">{cc.centro}{cc.subcentro && <> › {cc.subcentro}</>}</span>
+              </div>
+            )}
+          </td>
+        );
+      }
+      case "projeto":
+        return <td key={id} className="py-1.5 px-2 overflow-hidden"><span className="text-xs text-muted-foreground truncate block">{l.projeto_nome ?? ""}</span></td>;
+      case "documento":
+        return <td key={id} className="py-1.5 px-2 overflow-hidden"><span className="text-xs text-muted-foreground truncate block">{l.documento_numero ?? ""}</span></td>;
+    }
+  }
+
+  function renderLinha(l: FinLancamentoExtenso) {
+    const { principal, principalDaCelula, segunda } = textosDaDescricao(l);
     return (
       <tr key={l.id} className="border-t hover:bg-muted/30 group">
         <td className="py-1.5 px-2 print:hidden">
@@ -676,66 +619,29 @@ export default function FinancasConta() {
             {/* Ícone de projeto (pedido dela, 30/09/2026): identificar de
                 relance quais lançamentos estão vinculados a um projeto
                 (120 Anos, Reforma do Templo...), sem precisar abrir cada
-                um. Mesmo ícone/cor do `ExtratoContaDrawer`. */}
-            {l.projeto_nome && (
+                um. Mesmo ícone/cor do `ExtratoContaDrawer`. Com a coluna
+                Projeto ligada o nome já está ali — o ícone sai. */}
+            {l.projeto_nome && !col.has("projeto") && (
               <span title={`Projeto: ${l.projeto_nome}`} className="shrink-0 print:hidden">
                 <FolderKanban className="w-3 h-3 text-violeta" />
               </span>
             )}
-            <span className="truncate">{principal}</span>
+            <span className="truncate">{principalDaCelula}</span>
           </p>
           {/* `nomeExtrato` já suprime a segunda linha quando ela seria
               idêntica à primeira (ex.: lançamento do Omie/fatura onde a
               descrição JÁ é o nome do fornecedor); esta linha some TAMBÉM
-              quando é idêntica à Categoria (achado medindo ao vivo,
-              02/10/2026: lançamento do Omie com descrição "Dizimos" e
-              categoria "Dizimos" mostrava a MESMA palavra duas vezes,
-              uma embaixo da outra — puro peso de linha sem informação
-              nova). Some inteira no Resumido. */}
-          {secundario && secundario !== l.categoria_nome && !modoResumido && (
-            <p className="text-xs text-muted-foreground truncate">{secundario}</p>
-          )}
+              quando é idêntica à Categoria (02/10/2026: descrição "Dizimos"
+              e categoria "Dizimos" mostravam a MESMA palavra duas vezes). */}
+          {segunda && <p className="text-xs text-muted-foreground truncate">{segunda}</p>}
           {/* Juros/multa/desconto não são linhas: a obrigação é UMA e o extrato mostra o total pago; o detalhe vem aqui embaixo (opção A, 13/10/2026). */}
-          {!modoResumido && <DetalheDeEncargos lancamento={l} />}
+          {col.has("detalhe") && <DetalheDeEncargos lancamento={l} />}
         </td>
-        {isTodasContas && !modoResumido && (
-          <td className="py-1.5 px-2 overflow-hidden">
-            <span className="text-xs text-muted-foreground truncate block">{l.conta_nome ?? "—"}</span>
-          </td>
-        )}
-        {/* Categoria/Centro de custo — voltaram a ser coluna própria
-            (02/10/2026, ver comentário no <thead>): uma linha só, sem
-            badge grande, cabendo no espaço que antes ficava vazio ao
-            lado de Descrição. */}
-        {!modoResumido && (
-          <td className="py-1.5 px-2 overflow-hidden hidden md:table-cell">
-            {l.categoria_nome && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5 max-w-full truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
-                style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
-                {l.categoria_nome}
-              </Badge>
-            )}
-          </td>
-        )}
-        {!modoResumido && (() => {
-          const cc = centroESubcentro(l.centro_nome);
-          return (
-            <td className="py-1.5 px-2 overflow-hidden hidden md:table-cell">
-              {cc && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: l.centro_cor ?? "#888" }} />
-                  <span className="truncate">
-                    {cc.centro}{cc.subcentro && <> › {cc.subcentro}</>}
-                  </span>
-                </div>
-              )}
-            </td>
-          );
-        })()}
+        {colunasDoMeio.map(c => celulaDoMeio(c.id, l))}
         <td className={`py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
           {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
         </td>
-        {!modoResumido && (
+        {col.has("saldo") && (
           <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">
             {brl(saldoPorLancamento.get(l.id) ?? 0)}
           </td>
@@ -763,14 +669,11 @@ export default function FinancasConta() {
                 <Files className="w-3.5 h-3.5" />
               </button>
             )}
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
-              onClick={() => {
-                if (l.origem === "transferencia") setEditandoTransf(l);
-                else { setEditando(l); setNovoOpen(true); }
-              }}>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Editar lançamento"
+              onClick={() => editar(l)}>
               <Pencil className="w-3 h-3" />
             </Button>
-            <Button type="button" variant="ghost" size="icon"
+            <Button type="button" variant="ghost" size="icon" aria-label="Excluir lançamento"
               className="h-7 w-7 text-destructive hover:bg-destructive/10"
               onClick={() => setApagando(l)}>
               <Trash2 className="w-3 h-3" />
@@ -781,47 +684,117 @@ export default function FinancasConta() {
     );
   }
 
+  function editar(l: FinLancamentoExtenso) {
+    if (l.origem === "transferencia") setEditandoTransf(l);
+    else { setEditando(l); setNovoOpen(true); }
+  }
+
+  // A mesma linha para o CELULAR (21/10/2026): no computador a tabela tem colunas; num telefone a tabela não cabe (a primeira linha só aparecia abaixo da tela de 812 px).
+  // Cada lançamento vira um cartão fino de duas linhas — nome e valor em cima; data, situação e as colunas ligadas embaixo — e as ações vão para o "⋮".
+  function renderCartao(l: FinLancamentoExtenso) {
+    const { principal, principalDaCelula, segunda } = textosDaDescricao(l);
+    const cc = col.has("centro") ? centroESubcentro(l.centro_nome) : null;
+    const apoio = [
+      col.has("favorecido") ? (l.fornecedor_nome || l.pessoa_nome) : null,
+      isTodasContas && col.has("conta") ? l.conta_nome : null,
+      col.has("categoria") ? l.categoria_nome : null,
+      cc ? `${cc.centro}${cc.subcentro ? ` › ${cc.subcentro}` : ""}` : null,
+      col.has("projeto") ? l.projeto_nome : null,
+      col.has("documento") ? l.documento_numero : null,
+    ].filter(Boolean) as string[];
+    return (
+      <li key={l.id} className="flex items-start gap-2 px-2 py-2">
+        <Checkbox className="mt-1" checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)} aria-label={`Selecionar ${principal}`} />
+        <button type="button" onClick={() => setDetalhesDe(l)} className="min-w-0 flex-1 text-left" aria-label={`Detalhes: ${principal}`}>
+          <span className="flex items-center gap-1 font-medium text-sm">
+            {l.projeto_nome && !col.has("projeto") && <FolderKanban className="w-3 h-3 shrink-0 text-violeta" aria-label={`Projeto: ${l.projeto_nome}`} />}
+            <span className="truncate">{principalDaCelula}</span>
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+            <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>{dataBr(dataEfetiva(l))}</span>
+            {vencimentoDiferente(l) && <span className="text-[10px]">venc. {dataBr(vencimentoDiferente(l)!).slice(0, 5)}</span>}
+            {apoio.map((t, i) => <span key={i} className="truncate max-w-[10rem]">· {t}</span>)}
+          </span>
+          {segunda && <span className="block truncate text-xs text-muted-foreground">{segunda}</span>}
+          {col.has("detalhe") && <DetalheDeEncargos lancamento={l} />}
+        </button>
+        <div className="shrink-0 text-right">
+          <p className={`text-sm font-medium tabular-nums ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+            {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
+          </p>
+          {col.has("saldo") && <p className="text-[11px] tabular-nums text-muted-foreground">{brl(saldoPorLancamento.get(l.id) ?? 0)}</p>}
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" className="-mr-1 h-8 w-8 shrink-0" aria-label="Ações do lançamento">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setDetalhesDe(l)}><Info className="mr-2 h-4 w-4" /> Detalhes</DropdownMenuItem>
+            {l.comprovante_url && <DropdownMenuItem onSelect={() => abrirComprovante(l.comprovante_url!)}><Paperclip className="mr-2 h-4 w-4" /> Ver comprovante</DropdownMenuItem>}
+            {l.origem !== "transferencia" && <DropdownMenuItem onSelect={() => setAnexosPara(l)}><Files className="mr-2 h-4 w-4" /> Anexos</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={() => editar(l)}><Pencil className="mr-2 h-4 w-4" /> Editar</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setApagando(l)} className="text-destructive focus:text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Excluir</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </li>
+    );
+  }
+
+  // A linha de abertura da lista ("Saldo inicial · até 01/10/26"), igual no papel e na tela. Pedido da Telma (16/09/2026): "insira a linha de saldo inicial para o primeiro
+  // lançamento, para que o saldo corresponda corretamente" — o extrato de banco sempre abre com "SALDO ANTERIOR". Só com a lista completa (ver `listaCompletaDaTela`): com filtro a
+  // coluna Saldo é "a soma do que apareceu", e um saldo inicial ao lado de uma lista recortada seria mais confuso que útil. Sem seleção nem ações — não é um lançamento.
+  // Na tela só na página 1 (na 2+ o saldo de partida é a última linha da página anterior); a impressão traz o período inteiro e repete sempre.
+  const linhaSaldoInicial = (
+    <tr className="border-t bg-muted/20 text-muted-foreground italic">
+      <td className="py-1.5 px-2 print:hidden"></td>
+      <td className="py-1.5 px-2" colSpan={2}>
+        {col.has("saldo")
+          ? <>Saldo inicial · até {dataBr(inicioEfetivo)}</>
+          : <>Saldo inicial: {brl(saldoAntesDoPeriodo)} · até {dataBr(inicioEfetivo)}</>}
+      </td>
+      {colunasDoMeio.map(c => <td key={c.id} className="py-1.5 px-2"></td>)}
+      <td className="py-1.5 px-2 text-right tabular-nums"></td>
+      {col.has("saldo") && (
+        <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
+      )}
+      <td className="py-1.5 px-1 sticky right-0 bg-muted/20 print:hidden"></td>
+    </tr>
+  );
+
+  const botaoIcone = "sm:w-auto w-8 px-0 sm:px-3"; // ações secundárias do cabeçalho: só o ícone no celular
+  const temFiltroAtivo = filtroTipo !== "todos" || situacao !== "todas" || !!filtroCategoriaId || !!filtroCentroCustoId
+    || !!filtroValorMinTexto.trim() || !!filtroValorMaxTexto.trim() || !!filtroDataEspecifica;
+
   return (
-    <div className="relatorio-page p-3 md:p-5 max-w-[120rem] mx-auto space-y-3 print:max-w-full print:p-0">
+    <div className="relatorio-page p-3 md:p-5 max-w-[120rem] mx-auto space-y-2 md:space-y-3 print:max-w-full print:p-0">
       {/* Impressão — o escape do <main> e o `overflow-x-auto` da tabela
           agora são globais (src/index.css, "IMPRESSÃO — padrão único",
           01/10/2026). `table-layout: fixed` continua AQUI, não virou regra
           geral — achado em 16/09/2026 ("Saldo" cortado num PDF real) e só
           funciona bem porque cada `<th>` desta tabela já tem largura
-          própria (w-8/w-24/w-32.../a única sem largura é Descrição, que
-          absorve o resto); forçado em tabela sem isso, espreme a coluna
-          de rótulo (testado ao vivo, revertido — ver src/index.css).
-          Paisagem A4 continua específica daqui mesmo com menos colunas
-          (01/10/2026, Categoria/Centro viraram badge dentro de Descrição
-          — ver `renderLinha`) — Descrição com os badges quer mais
-          respiro do que retrato dá. */}
+          própria (a única sem largura é Descrição, que absorve o resto);
+          forçado em tabela sem isso, espreme a coluna de rótulo (testado
+          ao vivo, revertido — ver src/index.css). Paisagem A4 continua
+          específica daqui.
+          A área rolável da lista (`.extrato-scroll`, altura medida na tela) vira papel corrido; a tabela aparece sempre e a lista de cartões do celular nunca. */}
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 1cm 1.2cm; }
           .relatorio-page table { table-layout: fixed !important; }
+          .relatorio-page .extrato-scroll { max-height: none !important; overflow: visible !important; }
+          .relatorio-page .extrato-tabela { display: block !important; }
+          .relatorio-page .extrato-lista-celular { display: none !important; }
         }
       `}</style>
 
-      {/* Cabeçalho + filtros + resumo fixos ao rolar — pedido da Telma
-          (16/09/2026): primeiro só filtros e resumo, depois ela pediu pra
-          incluir também a barra de ferramentas ("lá tem a seta pra voltar,
-          mostra qual caixa se refere"). `sticky top-0` funciona porque quem
-          rola de verdade é o `<main>` do AppLayout (`overflow-y-auto`), não
-          a `window` — este bloco é filho direto desse scroll. Margem
-          negativa + padding de volta (`-mx-3 md:-mx-5 px-3 md:px-5`)
-          estende o fundo sólido até a borda do container pra esconder as
-          linhas da tabela passando por baixo ao rolar. `print:static`
-          porque a impressão já resolve isso do jeito dela (ver o `<style>`
-          de impressão acima) — sticky não faz sentido no papel. */}
-      <div ref={setFaixaFixaEl} className="sticky top-0 z-20 -mx-3 md:-mx-5 px-3 md:px-5 pt-3 md:pt-5 pb-3 space-y-3 bg-background border-b print:static print:mx-0 print:px-0 print:pt-0 print:pb-0 print:border-0">
-      {/* Barra de ferramentas — só na tela, `print:hidden` some no papel.
-          O resto da página (cartões de resumo, tabela) é o MESMO layout
-          nos dois casos, com só duas colunas (seleção e ações) escondidas
-          por linha — ver comentário do `<style>` acima sobre o
-          `.relatorio-page`. */}
-      <div className="flex items-center justify-between gap-2 flex-wrap print:hidden">
-        <div className="flex items-center gap-2 min-w-0">
-        <div className="min-w-0">
+      {/* Tudo acima da lista: a altura dele é medida (ResizeObserver) para a lista ocupar o resto da tela. */}
+      <div ref={setTopoEl} className="space-y-2 md:space-y-3">
+      {/* UMA barra de cabeçalho (21/10/2026): conta + saldo, abas e ações — eram duas linhas e as abas embaixo. A borda inferior é a linha onde as abas "sentam". Só na tela. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b print:hidden">
+        <div className="flex min-w-0 flex-wrap items-end gap-x-5">
+          <div className="min-w-0 pb-1">
           {/* Troca rápida entre contas (item 3, "PRIORIDADE MÁXIMA"
               22/09/2026) — pedido explícito: "sem sair da tela e sem
               perder o contexto". Vira o próprio título clicável: o
@@ -863,9 +836,11 @@ export default function FinancasConta() {
               Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
             </p>
           )}
+          </div>
+          {/* Fase D (20/10/2026): Extrato · Conciliação · Diagnóstico · Importações — as abas da conta (só nas contas que têm mais de uma; "Todas as Contas" não tem) */}
+          {!isTodasContas && conta && <AbasDaConta contaId={contaId} tipo={conta.tipo} aba="extrato" />}
         </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap pb-1.5">
         {/* Barra de ações da seleção em massa (item 2, "PRIORIDADE MÁXIMA"
             22/09/2026) — aparece assim que qualquer linha é marcada.
             "Conciliar" só conta o subconjunto `realizado` da seleção (ver
@@ -901,8 +876,8 @@ export default function FinancasConta() {
             `ExtratoContaDrawer`); continuam disponíveis abrindo uma
             conta específica. */}
         {!isTodasContas && conta?.tipo === "banco" && (
-          <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5">
-            <FileUp className="w-3.5 h-3.5" /> Importar OFX
+          <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className={`gap-1.5 ${botaoIcone}`} title="Importar OFX" aria-label="Importar OFX">
+            <FileUp className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Importar OFX</span>
           </Button>
         )}
         {/* Pedido da Telma (15/09/2026): pagamentos de 2024 do cartão, que
@@ -910,229 +885,75 @@ export default function FinancasConta() {
             sentido pra conta tipo "cartao", mesma lógica do OFX só pra
             "banco" acima. */}
         {!isTodasContas && conta?.tipo === "cartao" && (
-          <Button variant="outline" size="sm" onClick={() => setFaturaOpen(true)} className="gap-1.5">
-            <FileUp className="w-3.5 h-3.5" /> Importar Fatura
+          <Button variant="outline" size="sm" onClick={() => setFaturaOpen(true)} className={`gap-1.5 ${botaoIcone}`} title="Importar fatura" aria-label="Importar fatura">
+            <FileUp className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Importar Fatura</span>
           </Button>
         )}
         {!isTodasContas && (
-          <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
-            <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
+          <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className={`gap-1.5 text-info-text hover:text-info-text ${botaoIcone}`} title="Transferir" aria-label="Transferir">
+            <ArrowRightLeft className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Transferir</span>
           </Button>
         )}
-        {/* Resumido/Analítico (01/10/2026) — pedido dela: menos coluna,
-            leitura mais rápida no celular. Par de botões, mesmo visual dos
-            presets de período (pill) já usados em PainelTesouraria.tsx. */}
-        <div className="inline-flex rounded-full border p-0.5 gap-0.5">
-          <button type="button" onClick={() => setModoResumido(true)}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${modoResumido ? "bg-gold text-white" : "text-muted-foreground hover:text-foreground"}`}>
-            Resumido
-          </button>
-          <button type="button" onClick={() => setModoResumido(false)}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${!modoResumido ? "bg-gold text-white" : "text-muted-foreground hover:text-foreground"}`}>
-            Analítico
-          </button>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
-          <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+        <Button variant="outline" size="sm" onClick={() => window.print()} className={`gap-1.5 ${botaoIcone}`} title="Imprimir / PDF" aria-label="Imprimir / PDF">
+          <Printer className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Imprimir / PDF</span>
         </Button>
-        <Button variant="gold" onClick={() => { setEditando(null); setNovoOpen(true); }} className="gap-1.5">
-          <Plus className="w-4 h-4" /> Novo lançamento
+        <Button variant="gold" size="sm" onClick={() => { setEditando(null); setNovoOpen(true); }} className="gap-1.5">
+          <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Novo lançamento</span><span className="sm:hidden">Novo</span>
         </Button>
         </div>
       </div>
-
-      {/* Fase D (20/10/2026): Extrato · Conciliação · Diagnóstico · Importações — as abas da conta (só nas contas que têm mais de uma; "Todas as Contas" não tem) */}
-      {!isTodasContas && conta && <AbasDaConta contaId={contaId} tipo={conta.tipo} aba="extrato" />}
 
       {/* Cabeçalho imprimível — mesmo padrão de financas/DashboardExecutivo.tsx */}
       <div className="avoid-break hidden print:block text-center mb-3 pb-3 border-b-2 border-gold/30">
         <h1 className="font-serif text-2xl">Quarta Igreja Batista do Rio de Janeiro</h1>
         <h2 className="font-serif text-lg mt-1">Extrato — {conta?.nome ?? "Todas as Contas"}</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          {/* "Atrasados" não tem chão de data (`inicioEfetivo` vazio) — não
+          {/* "Só vencidos" não tem chão de data (`inicioEfetivo` vazio) — não
               é uma faixa contínua pra ler como "de X a Y". */}
           {inicioEfetivo ? <>{dataBr(inicioEfetivo)} a {dataBr(fimEfetivo)}</> : <>Previstos vencidos até {dataBr(fimEfetivo)}</>}
           {conta && <>{" "}· Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong></>}
           {" "}· Gerado em {new Date().toLocaleString("pt-BR")}
         </p>
+        {busca.trim().length >= 2 && <p className="text-xs text-muted-foreground">Busca: “{busca.trim()}”</p>}
       </div>
 
-      {/* Filtros — `flex flex-wrap`, não grid de colunas fixas. `CampoData`
-          (texto + botão de calendário) é mais largo que um `<input
-          type="date">` sozinho ou o botão único de antes; num grid de
-          coluna fixa, "dd/mm/aaaa" cortava (achado ao vivo, 17/09/2026).
-          Cada campo tem sua própria largura mínima com `min-w-[Npx]` e
-          quebra pra próxima linha sozinho quando não cabe, em vez de
-          espremer — mesmo padrão já usado no cabeçalho de
-          FinancasDoacoes.tsx nesta sessão. */}
-      <Card className="print:hidden">
-        <CardContent className="py-2.5 px-3 flex flex-wrap gap-2 items-end">
-          {/* Presets de período estilo Omie (29/09/2026) — ver
-              `SeletorPeriodo.tsx`. Datas livres (`CampoData`, digitar +
-              calendário, sem `<input type="date">` nativo — teclado
-              quebrado em WebView) só aparecem no preset "Personalizado";
-              mudar Data inicial ali já realinha Data final pra mesma data
-              (achado ao vivo pela Telma, mesmo dia: "quando alterar a
-              datainicial, corrija imediatamente a data final"). */}
-          <SeletorPeriodo
-            preset={periodoPreset} onPresetChange={setPeriodoPreset}
-            dataInicio={dataInicio} dataFim={dataFim}
-            onDataInicioChange={setDataInicio} onDataFimChange={setDataFim}
-          />
-          <div className="w-28">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
-            <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="entrada">Entradas</SelectItem>
-                <SelectItem value="saida">Saídas</SelectItem>
-                <SelectItem value="transferencia">Transferências</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {/* Categoria e Centro de custo (01/10/2026) — saíram de cabeçalho
-              de coluna (estilo Excel) pra cá, porque as colunas em si
-              saíram da tabela (viraram badge dentro de Descrição, ver
-              `renderLinha`). Mesmo filtro de sempre, mesmo estado
-              (`filtroCategoriaId`/`filtroCentroCustoId`), só de lugar novo. */}
-          <div className="w-36">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Categoria</label>
-            <Select value={filtroCategoriaId || "__todas__"} onValueChange={(v) => setFiltroCategoriaId(v === "__todas__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__todas__">Todas categorias</SelectItem>
-                {categoriasParaFiltro.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-36">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Centro de custo</label>
-            <Select value={filtroCentroCustoId || "__todos__"} onValueChange={(v) => setFiltroCentroCustoId(v === "__todos__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__todos__">Todos centros</SelectItem>
-                {centros.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="w-40">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Favorecido</label>
-            <Select value={filtroFornecedorId || "__todos__"} onValueChange={(v) => setFiltroFornecedorId(v === "__todos__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__todos__">Todos os favorecidos</SelectItem>
-                {fornecedoresFiltro.map(f => (
-                  <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 min-w-[160px]">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Buscar descrição</label>
-            <div className="relative">
-              <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
-              <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-                className="h-8 text-base md:text-xs pl-6" placeholder="Digite..." />
-            </div>
-          </div>
+      {/* UMA barra de consulta (21/10/2026): Data inicial – Data final + atalhos · busca · Filtros (n) · Colunas · Atualizar. Eram oito controles em duas linhas (160 px); `CampoData`
+          (digitar + calendário, sem `<input type="date">` nativo — teclado quebrado em WebView) continua nos dois campos de data, com a regra do par de lib/intervaloDeDatas.ts. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 print:hidden">
+        <BarraDePeriodo inicio={dataInicio} fim={dataFim} desabilitado={consulta.ignoraDatas}
+          onChange={(r) => { setDataInicio(r.inicio); setDataFim(r.fim); }} />
+        <div className="relative min-w-[11rem] flex-1">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+          <Input value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar descrição ou favorecido"
+            className="h-8 text-base md:text-xs pl-8" placeholder="Buscar descrição ou favorecido…" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <FiltrosAvancadosPopover valor={filtros} onChange={mudarFiltros} categorias={categoriasParaFiltro} centros={centros} />
+          <ColunasPopover colunas={colunas} onChange={mudarColunas} todasContas={isTodasContas} />
           {/* Pedido da Telma (17/09/2026): recarregar sem precisar mexer na
               data — útil ao editar em outra aba/tela e voltar aqui. */}
-          <Button type="button" variant="outline" size="sm" onClick={carregar} disabled={loading}
-            className="h-8 text-xs gap-1.5">
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+          <Button type="button" variant="outline" size="icon" onClick={carregar} disabled={loading} className="h-8 w-8" title="Atualizar" aria-label="Atualizar">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* Resumo do período — "Atrasados" não é uma faixa contínua (ver
-          `statusFiltro`), então saldo inicial/final não fazem sentido ali;
-          mostra só contagem e total líquido vencido. */}
-      {periodoPreset === "atrasados" ? (
-        <div className="avoid-break grid grid-cols-2 gap-2 print:mb-2">
-          <Card className="bg-warning-soft/40 border-warning-line">
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-warning-text">Itens vencidos</p>
-              <p className="text-sm font-semibold text-warning-text tabular-nums">{lancamentosFiltrados.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-warning-soft/40 border-warning-line">
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-warning-text">Total vencido (líquido)</p>
-              <p className="text-sm font-semibold text-warning-text tabular-nums">{brl(totalVencido)}</p>
-            </CardContent>
-          </Card>
         </div>
-      ) : (
-        <div className="avoid-break grid grid-cols-2 md:grid-cols-5 gap-2 print:mb-2">
-          <Card>
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-muted-foreground">Saldo inicial</p>
-              <p className="text-sm font-semibold tabular-nums">{brl(saldoAntesDoPeriodo)}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-success-soft/40 border-success-line">
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
-              <p className="text-sm font-semibold text-success-text tabular-nums">{brl(totalEntradasPeriodo)}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-destructive-soft/40 border-destructive-line">
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-destructive-text flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
-              <p className="text-sm font-semibold text-destructive-text tabular-nums">{brl(totalSaidasPeriodo)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-muted-foreground">Movimento do período</p>
-              <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-muted-foreground">Saldo final</p>
-              <p className="text-sm font-semibold tabular-nums">{brl(saldoFinalPeriodo)}</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
       </div>
 
-      {/* Tabela de lançamentos */}
-      <Card>
-        {/* `<thead sticky top-0>` dentro de um `overflow-x-auto` NÃO gruda
-            no scroll da página (`<main>`) — tentativa inicial, revertida.
-            A spec do CSS trava os dois eixos de overflow juntos: só
-            declarar `overflow-x-auto` já faz o navegador computar
-            `overflow-y` como `auto` também (achado medindo
-            `getComputedStyle` ao vivo — nem `overflow-y-visible` escapa
-            disso, o navegador reescreve de volta), e QUALQUER valor de
-            overflow diferente de `visible` — inclusive `clip`/`hidden` —
-            conta como "contêiner de scroll" pra fins de `position:
-            sticky`. Resultado: o `<thead>` colava nesse CardContent (que
-            nunca rolava de verdade, só existia pra permitir a tabela
-            escapar pros lados em tela estreita) em vez de colar no
-            `<main>`, e "grudava" a `top` medida a partir do topo do
-            PRÓPRIO CardContent, empurrando o cabeçalho pra dentro do meio
-            da lista em vez de ficar visível.
-            Correção: em vez de brigar com a spec, esta área passa a ter
-            SCROLL PRÓPRIO de verdade — altura máxima calculada a partir
-            do que sobra da tela depois da faixa fixa (`alturaFaixaFixa`),
-            então `overflow-x-auto`/`overflow-y-auto` deixam de ser um
-            acidente e viram o scroll de verdade da tabela; `sticky top-0`
-            no `<thead>` cola no topo DESSE scroll, que é exatamente onde
-            a faixa fixa termina. É o mesmo padrão de qualquer grade de
-            dados com cabeçalho fixo (Excel, Notion). Impressão ignora
-            tudo isso: `.relatorio-page .overflow-x-auto { overflow:
-            visible !important; }` já existia no `<style>` de impressão
-            acima e continua batendo pelo nome da classe. */}
-        <CardContent className="p-0 overflow-x-auto overflow-y-auto"
-          style={{ maxHeight: alturaFaixaFixa ? `calc(100vh - ${alturaFaixaFixa}px - 7rem)` : undefined }}>
+      {/* Filtro ativo nunca fica escondido: um chip removível por filtro (e, no papel, a linha "Filtros: …"). */}
+      <ChipsDeFiltros valor={filtros} onChange={mudarFiltros} categorias={categoriasParaFiltro} centros={centros} />
+
+      {/* Resumo do período em UMA linha — "Só vencidos" não é uma faixa contínua (ver `consulta`), então saldo inicial/final não fazem sentido ali; mostra só contagem e total líquido. */}
+      <ResumoEmLinha
+        totais={{ saldoInicial: saldoAntesDoPeriodo, entradas: totalEntradasPeriodo, saidas: totalSaidasPeriodo, saldoFinal: saldoFinalPeriodo }}
+        vencidos={situacao === "vencidos" ? { quantidade: lancamentosFiltrados.length, total: totalVencido } : undefined}
+      />
+      </div>
+
+      {/* A lista. `<thead sticky top-0>` dentro de um `overflow-x-auto` sozinho NÃO gruda no scroll da página (a spec do CSS trava os dois eixos de overflow juntos e qualquer valor
+          diferente de `visible` vira "contêiner de scroll" para o sticky) — por isso esta área TEM scroll próprio de verdade (`extrato-scroll`, altura medida em `alturaDaLista`) e o
+          cabeçalho cola nele, que é onde o olho espera. Impressão ignora tudo isso (regras no `<style>` acima). */}
+      <Card className="overflow-hidden">
+        <div ref={setListaEl} className="extrato-scroll overflow-auto"
+          style={{ maxHeight: !isMobile && alturaDaLista ? `${alturaDaLista}px` : undefined }}>
           {/* A causa de verdade do popover "fechando sozinho" (achado ao
               vivo pela Telma, 22/09/2026): não era só falta de debounce —
               era ISTO. `loading` virava `true` a cada novo `carregar()`
@@ -1153,207 +974,87 @@ export default function FinancasConta() {
               Nenhum lançamento no período. <button onClick={() => setNovoOpen(true)} className="text-primary underline">Criar o primeiro</button>
             </p>
           ) : lancamentosFiltrados.length === 0 ? (
-            // Existe lançamento no período, mas o filtro de Valor escondeu
+            // Existe lançamento no período, mas o filtro de Valor/Data exata escondeu
             // todos — diferente de "período vazio", não faz sentido
             // oferecer "criar o primeiro" aqui.
             <p className="py-8 text-center text-sm text-muted-foreground italic">
-              Nenhum lançamento com o filtro de valor atual.
+              Nenhum lançamento com os filtros atuais.{temFiltroAtivo ? " Remova algum filtro acima." : ""}
             </p>
           ) : (
-            <table className="w-full text-xs">
-              {/* `sticky top-0` no `<thead>` (não em cada `th`) — cola a
-                  linha inteira de títulos no topo do scroll PRÓPRIO desta
-                  área (ver comentário do `CardContent` acima sobre por que
-                  não dá pra colar direto no `<main>`). `right-0` no `th`
-                  de Ações continua funcionando junto — são dois eixos de
-                  sticky independentes (vertical no thead relativo a este
-                  scroll, horizontal na célula relativo ao mesmo scroll,
-                  só que no eixo x), não um conflito. `print:static` porque
-                  a impressão já resolve isso do jeito dela (repete o
-                  cabeçalho por `page-break`, e o scroll interno vira
-                  `overflow:visible` no `<style>` de impressão acima). */}
-              <thead className="sticky top-0 z-10 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground print:static">
-                <tr>
-                  <th className="w-8 print:hidden">
-                    {/* Selecionar todos (item 2) — marca/desmarca as linhas da
-                        PÁGINA atual (U3/F5, paginação: "todos" passou a ser
-                        relativo à página visível, não ao período inteiro,
-                        que pode ter centenas de linhas fora da tela). */}
-                    {lancamentosPagina.length > 0 && (
-                      <Checkbox
-                        checked={lancamentosPagina.every(l => selecionados.has(l.id))}
-                        onCheckedChange={alternarSelecionarTodos}
-                        aria-label="Selecionar todos os lançamentos desta página"
-                      />
-                    )}
-                  </th>
-                  {/* Situação saiu de coluna própria (16/09/2026, pedido da
-                      Telma: "mostre Data - Descrição/Favorecido - Categoria
-                      - valor - saldo, como um extrato de banco msm") — um
-                      extrato de banco de verdade não tem coluna de
-                      "situação", só data/descrição/valor/saldo; a situação
-                      (previsto/realizado/conciliado/cancelado) virou um
-                      ícone colorido colado na própria data, sem uma coluna
-                      e um texto só pra isso. Deixou de ser clicável em
-                      22/09/2026 — pedido da Telma: "mantenha a conciliação
-                      apenas pela caixa de seleção", ver `renderLinha`.
-                      Centro de custo VOLTOU como coluna própria em
-                      22/09/2026 (tinha saído em 16/09) — pedido dela junto
-                      do pedido de filtro por coluna. */}
-                  <th className="text-left py-2 px-2 w-24">
-                    {/* Estilo Omie (pedido da Telma, 22/09/2026, com print
-                        de referência): escolhe UM dia no calendário, filtra
-                        só aquele dia — separado do período (Data inicial/
-                        final) da faixa de cima, que continua servindo pra
-                        ver o mês/intervalo inteiro. Clicar de novo no
-                        mesmo dia limpa o filtro (alterna), como o "x" que
-                        o Omie mostra do lado do campo preenchido. */}
-                    <CabecalhoFiltro label="Data" ativo={!!filtroDataEspecifica} semPadding>
-                      {/* Campo de texto (23/09/2026, auditoria de digitação
-                          manual de data): o calendário abaixo já tinha o
-                          comportamento especial de "clicar de novo no mesmo
-                          dia limpa o filtro" — em vez de duplicar isso no
-                          `CampoData` (que não tem essa alternância), só o
-                          texto com máscara dele (`semCalendario`) fica aqui
-                          em cima, escrevendo no MESMO estado que o
-                          calendário já lê/grava. */}
-                      <div className="p-2 pb-1.5">
-                        <CampoData value={filtroDataEspecifica} onChange={setFiltroDataEspecifica} semCalendario />
-                      </div>
-                      <CalendarPicker mode="single"
-                        selected={filtroDataEspecifica ? parseLocalDate(filtroDataEspecifica) : undefined}
-                        defaultMonth={filtroDataEspecifica ? parseLocalDate(filtroDataEspecifica) : parseLocalDate(inicioEfetivo)}
-                        onSelect={(d) => {
-                          if (!d) { setFiltroDataEspecifica(""); return; }
-                          const iso = toYmd(d);
-                          setFiltroDataEspecifica(iso === filtroDataEspecifica ? "" : iso);
-                        }} />
-                    </CabecalhoFiltro>
-                  </th>
-                  <th className="text-left py-2 px-2">
-                    <CabecalhoFiltro label="Descrição / Favorecido" ativo={buscaDebounced.length >= 2}>
-                      <label className="text-xs text-muted-foreground">Buscar na descrição</label>
-                      <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-base md:text-xs" />
-                    </CabecalhoFiltro>
-                  </th>
-                  {/* Coluna "Conta" — só no modo "Todas as Contas" E
-                      Analítico (Resumido esconde até isso, de propósito —
-                      pedido dela, 01/10/2026: "o máximo de informação
-                      possível fora da tela, pra escanear rápido"). */}
-                  {isTodasContas && !modoResumido && <th className="text-left py-2 px-2 w-32">Conta</th>}
-                  {/* Categoria/Centro voltaram a ser coluna própria
-                      (02/10/2026) — tinham saído em 01/10/2026 pra dentro
-                      de Descrição, mas medido ao vivo: isso deixava
-                      Descrição com 48% da largura da tabela e linhas de
-                      92px de altura (4 "camadas" empilhadas numa célula
-                      só). Devolvidas como coluna, mas COMPACTAS (uma
-                      linha, sem badge grande) — é o que sobra pra
-                      preencher o espaço que ficava vazio. `hidden
-                      md:table-cell`: em tela estreita somem sozinhas
-                      (mesmo padrão já comprovado no
-                      `ExtratoContaDrawer.tsx`), sem precisar de modo
-                      extra. Só no Analítico — Resumido continua só
-                      Data/Favorecido/Valor. O filtro continua na faixa
-                      de filtros acima (mesmo estado de sempre). */}
-                  {!modoResumido && <th className="text-left py-2 px-2 w-32 hidden md:table-cell">Categoria</th>}
-                  {!modoResumido && <th className="text-left py-2 px-2 w-40 hidden md:table-cell">Centro de custo</th>}
-                  <th className="text-right py-2 px-2 w-28">
-                    <CabecalhoFiltro label="Valor" align="end" ativo={!!filtroValorMinTexto.trim() || !!filtroValorMaxTexto.trim()}>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Valor mínimo (R$)</label>
-                        <Input type="text" inputMode="decimal" value={filtroValorMinTexto}
-                          onChange={(e) => setFiltroValorMinTexto(e.target.value)} placeholder="Sem mínimo" className="h-8 text-base md:text-xs" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Valor máximo (R$)</label>
-                        <Input type="text" inputMode="decimal" value={filtroValorMaxTexto}
-                          onChange={(e) => setFiltroValorMaxTexto(e.target.value)} placeholder="Sem máximo" className="h-8 text-base md:text-xs" />
-                      </div>
-                    </CabecalhoFiltro>
-                  </th>
-                  {/* Saldo só no Analítico — Resumido é pra escanear rápido,
-                      não pra conferir saldo linha a linha. */}
-                  {!modoResumido && <th className="text-right py-2 px-2 w-28">Saldo</th>}
-                  {/* Ações fixa na borda direita da área rolável — antes ficava
-                      fora da tela em qualquer conta com muitas colunas visíveis,
-                      obrigando rolar pra achar o lápis. Achado pela Telma em
-                      13/09/2026. Some na impressão — lápis/lixeira/comprovante
-                      não fazem sentido no papel. */}
-                  <th className="w-28 sticky right-0 bg-muted/40 print:hidden"></th>
-                </tr>
-              </thead>
-              {/* Linha "Saldo inicial" — pedido da Telma (16/09/2026):
-                  "insira a linha de saldo inicial para o primeiro
-                  lançamento, para que o saldo corresponda corretamente".
-                  A coluna Saldo já estava matematicamente certa (soma a
-                  partir de `saldoAntesDoPeriodo`, calculado por
-                  `saldoAcumuladoAntesDe`) — o que faltava era MOSTRAR de
-                  onde esse acumulado começa, do jeito que um extrato de
-                  banco de verdade sempre abre com "SALDO ANTERIOR". Só
-                  aparece com `filtroTipo`/`busca` neutros: com um filtro
-                  de tipo ou busca ativo a coluna Saldo já vira "soma só
-                  do que apareceu na tela" (ver comentário acima, em
-                  `saldoPorLancamento`) — mostrar um "saldo inicial" ao
-                  lado de uma lista recortada seria mais confuso que
-                  ajudar. Sem seleção, sem lápis/lixeira — não é um
-                  lançamento de verdade, não dá pra editar nem excluir.
-                  Só entra na tbody de TELA — na página 2+ o saldo inicial
-                  de verdade não é mais `saldoAntesDoPeriodo`, é a última
-                  linha da página anterior, então repetir aqui confundiria;
-                  a de impressão mostra o período inteiro, então continua
-                  fazendo sentido só nela também (ambas abaixo). */}
-              {/* tbody de TELA — só a página atual (U3/F5, item de "90 Dias") */}
-              <tbody className="print:hidden">
-                {paginaAtual === 1 && filtroTipo === "todos" && buscaDebounced.length < 2 && (
-                  <tr className="border-t bg-muted/20 text-muted-foreground italic">
-                    <td className="py-1.5 px-2"></td>
-                    {/* "até {data}" morava numa célula própria, na antiga
-                        coluna Categoria — sem essa coluna (virou badge em
-                        Descrição), o texto entrou direto no rótulo. No
-                        Resumido (sem coluna Saldo) o valor também entra
-                        aqui, senão o número não tinha onde aparecer. */}
-                    <td className="py-1.5 px-2" colSpan={2}>
-                      {modoResumido
-                        ? <>Saldo inicial: {brl(saldoAntesDoPeriodo)} · até {dataBr(inicioEfetivo)}</>
-                        : <>Saldo inicial · até {dataBr(inicioEfetivo)}</>}
-                    </td>
-                    {isTodasContas && !modoResumido && <td className="py-1.5 px-2"></td>}
-                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
-                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
-                    <td className="py-1.5 px-2 text-right tabular-nums"></td>
-                    {!modoResumido && (
-                      <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
-                    )}
-                    <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
-                  </tr>
-                )}
-                {comFechamentos(lancamentosPagina)}
-              </tbody>
-              {/* tbody só de IMPRESSÃO — período inteiro, nunca paginado */}
-              <tbody className="hidden print:table-row-group">
-                {filtroTipo === "todos" && buscaDebounced.length < 2 && (
-                  <tr className="border-t bg-muted/20 text-muted-foreground italic">
-                    <td className="py-1.5 px-2"></td>
-                    <td className="py-1.5 px-2" colSpan={2}>
-                      {modoResumido
-                        ? <>Saldo inicial: {brl(saldoAntesDoPeriodo)} · até {dataBr(inicioEfetivo)}</>
-                        : <>Saldo inicial · até {dataBr(inicioEfetivo)}</>}
-                    </td>
-                    {isTodasContas && !modoResumido && <td className="py-1.5 px-2"></td>}
-                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
-                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
-                    <td className="py-1.5 px-2 text-right tabular-nums"></td>
-                    {!modoResumido && (
-                      <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
-                    )}
-                    <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
-                  </tr>
-                )}
-                {comFechamentos(lancamentosOrdenados)}
-              </tbody>
-            </table>
+            <>
+              {/* Celular: lista de cartões (a tabela não cabe). Nunca no papel. */}
+              <div className="extrato-lista-celular md:hidden print:hidden">
+                <div className="flex items-center gap-2 border-b bg-muted px-2 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <Checkbox checked={lancamentosPagina.length > 0 && lancamentosPagina.every(l => selecionados.has(l.id))}
+                    onCheckedChange={alternarSelecionarTodos} aria-label="Selecionar todos os lançamentos desta página" />
+                  Selecionar todos
+                </div>
+                <ul className="divide-y">
+                  {listaCompletaDaTela && paginaAtual === 1 && (
+                    <li className="flex items-baseline justify-between gap-2 bg-muted/20 px-2 py-1.5 text-xs italic text-muted-foreground">
+                      <span>Saldo inicial · até {dataBr(inicioEfetivo)}</span>
+                      <span className="tabular-nums font-medium">{brl(saldoAntesDoPeriodo)}</span>
+                    </li>
+                  )}
+                  {comFechamentosCelular(lancamentosPagina)}
+                </ul>
+              </div>
+
+              {/* Computador (e papel): a tabela, com as colunas escolhidas em ⚙ Colunas. */}
+              <div className="extrato-tabela hidden md:block print:block">
+                <table className="w-full text-xs">
+                  {/* `sticky top-0` no `<thead>` (não em cada `th`) cola a linha inteira de títulos no topo da área rolável. Fundo OPACO (`bg-muted`): com 40% de
+                      transparência a primeira linha aparecia por trás do cabeçalho ao rolar. `right-0` no `th` de Ações é o eixo horizontal do mesmo sticky, sem conflito.
+                      `print:static` porque a impressão repete o cabeçalho por `page-break`. Os filtros por coluna (Data, Descrição, Valor) saíram: moram na barra e em ⚙ Filtros. */}
+                  <thead className="sticky top-0 z-10 bg-muted text-xs uppercase tracking-wide text-muted-foreground print:static">
+                    <tr>
+                      <th className="w-8 py-2 print:hidden">
+                        {/* Selecionar todos (item 2) — marca/desmarca as linhas da
+                            PÁGINA atual (U3/F5, paginação: "todos" passou a ser
+                            relativo à página visível, não ao período inteiro,
+                            que pode ter centenas de linhas fora da tela). */}
+                        {lancamentosPagina.length > 0 && (
+                          <Checkbox
+                            checked={lancamentosPagina.every(l => selecionados.has(l.id))}
+                            onCheckedChange={alternarSelecionarTodos}
+                            aria-label="Selecionar todos os lançamentos desta página"
+                          />
+                        )}
+                      </th>
+                      {/* Situação saiu de coluna própria (16/09/2026, pedido da
+                          Telma: "mostre Data - Descrição/Favorecido - Categoria
+                          - valor - saldo, como um extrato de banco msm") — a situação
+                          (previsto/realizado/conciliado/cancelado) é a cor da própria
+                          data, sem coluna e sem texto só pra isso. Deixou de ser clicável
+                          em 22/09/2026 ("mantenha a conciliação apenas pela caixa de seleção"). */}
+                      <th className="text-left py-2 px-2 w-24">Data</th>
+                      <th className="text-left py-2 px-2">{col.has("favorecido") ? "Descrição" : "Descrição / Favorecido"}</th>
+                      {colunasDoMeio.map(c => <th key={c.id} className={`text-left py-2 px-2 ${c.largura}`}>{c.rotulo}</th>)}
+                      <th className="text-right py-2 px-2 w-28">Valor</th>
+                      {col.has("saldo") && <th className="text-right py-2 px-2 w-28">Saldo</th>}
+                      {/* Ações fixa na borda direita da área rolável — antes ficava
+                          fora da tela em qualquer conta com muitas colunas visíveis,
+                          obrigando rolar pra achar o lápis. Achado pela Telma em
+                          13/09/2026. Some na impressão — lápis/lixeira/comprovante
+                          não fazem sentido no papel. */}
+                      <th className="w-28 sticky right-0 bg-muted print:hidden"></th>
+                    </tr>
+                  </thead>
+                  {/* tbody de TELA — só a página atual (U3/F5, item de "90 Dias") */}
+                  <tbody className="print:hidden">
+                    {listaCompletaDaTela && paginaAtual === 1 && linhaSaldoInicial}
+                    {comFechamentos(lancamentosPagina)}
+                  </tbody>
+                  {/* tbody só de IMPRESSÃO — período inteiro, nunca paginado */}
+                  <tbody className="hidden print:table-row-group">
+                    {listaCompletaDaTela && linhaSaldoInicial}
+                    {comFechamentos(lancamentosOrdenados)}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
-        </CardContent>
+        </div>
       </Card>
 
       {/* Paginação (U3/F5, roadmap "90 Dias") — mesmo padrão já usado em
@@ -1471,7 +1172,9 @@ export default function FinancasConta() {
                   confirmar. Sem isso, um período errado no filtro de
                   cima vira uma exclusão em massa silenciosa. */}
               {selecionados.size > POR_PAGINA &&
-                `Isso inclui todo o período filtrado — de ${dataBr(inicioEfetivo)} a ${dataBr(fimEfetivo)}. `}
+                (inicioEfetivo
+                  ? `Isso inclui todo o período filtrado — de ${dataBr(inicioEfetivo)} a ${dataBr(fimEfetivo)}. `
+                  : "Isso inclui todos os vencidos em aberto filtrados, de qualquer época. ")}
               {/* Item 7 (22/09/2026) — mesmo aviso do diálogo individual:
                   se a seleção tiver alguma perna de transferência, a outra
                   perna (na conta irmã) some junto, mesmo sem estar

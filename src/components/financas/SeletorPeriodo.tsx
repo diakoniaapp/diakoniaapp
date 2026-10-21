@@ -124,6 +124,7 @@ export function resolverPeriodo(
     // de qualquer época) — confirmado com a Telma (29/09/2026). `dataInicio`
     // vazia não filtra chão nenhum (`construirQueryLancamentos` só aplica
     // `.gte` quando o valor existe).
+    // (O Extrato da conta não usa mais este preset: virou a Situação "Só vencidos em aberto". Continua aqui para quem ainda usa o `SeletorPeriodo`.)
     case "atrasados":
       return { dataInicio: "", dataFim: daquiADias(hoje, -1), status: "previsto" };
     case "personalizado":
@@ -166,6 +167,103 @@ export function salvarContextoFinancas(contaId: string, periodo: PeriodoPreset, 
   try {
     localStorage.setItem(CHAVE_CONTEXTO_FINANCAS, JSON.stringify({ contaId, periodo, dataInicio, dataFim }));
   } catch { /* privado/bloqueado — ignora */ }
+}
+
+// ─── O par de datas do Extrato da conta, com atalhos (21/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────
+//
+// O seletor "Período" (14 opções) saiu do Extrato: ficam Data inicial, Data final e quatro atalhos — Hoje, Semana, Mês, 30 dias — que SÓ PREENCHEM as duas datas. O atalho não
+// vira estado: o que vale é o par de datas (mexer numa data depois do atalho não "desmarca" nada, só deixa de casar). Ontem, 7/15 dias, mês/semana/ano anterior, ano atual e
+// exercício continuam possíveis digitando. As contas dos atalhos são as do `resolverPeriodo` acima (semana de domingo a sábado, mês fechado, 30 dias contando hoje).
+export type AtalhoDePeriodo = "hoje" | "semana" | "mes" | "30dias";
+
+export const ATALHOS_DE_PERIODO: { id: AtalhoDePeriodo; rotulo: string; preset: PeriodoPreset }[] = [
+  { id: "hoje", rotulo: "Hoje", preset: "hoje" },
+  { id: "semana", rotulo: "Semana", preset: "semana_atual" },
+  { id: "mes", rotulo: "Mês", preset: "mes_atual" },
+  { id: "30dias", rotulo: "30 dias", preset: "ultimos_30" },
+];
+
+export function intervaloDoAtalho(id: AtalhoDePeriodo): { inicio: string; fim: string } {
+  const a = ATALHOS_DE_PERIODO.find(x => x.id === id)!;
+  const r = resolverPeriodo(a.preset);
+  return { inicio: r.dataInicio, fim: r.dataFim };
+}
+
+/** Qual atalho o par de datas forma exatamente hoje (para destacá-lo e para lembrar "Hoje" como "Hoje" no dia seguinte), ou null. */
+export function atalhoQueCasa(inicio: string, fim: string): AtalhoDePeriodo | null {
+  return ATALHOS_DE_PERIODO.find(a => { const r = intervaloDoAtalho(a.id); return r.inicio === inicio && r.fim === fim; })?.id ?? null;
+}
+
+/** O que gravar no "continuar de onde parei": o nome do atalho quando o par é um (recalcula no dia seguinte), senão "personalizado" com as datas. */
+export function periodoParaLembrar(inicio: string, fim: string): PeriodoPreset {
+  const a = atalhoQueCasa(inicio, fim);
+  return a ? ATALHOS_DE_PERIODO.find(x => x.id === a)!.preset : "personalizado";
+}
+
+/**
+ * O par de datas com que o Extrato abre. Prioridade (a mesma de antes, agora sem o seletor):
+ *   1. `?periodo=<preset>` na URL (links antigos, favoritos, "continuar de onde parei"): presets que andam com o calendário (mes_atual…) recalculam para HOJE, não congelam;
+ *   2. `?de=&ate=` (e `periodo=personalizado`): as datas da URL — a que faltar vem do contexto lembrado, depois de hoje;
+ *   3. o contexto lembrado no aparelho (preset recalculado, ou as datas se era personalizado);
+ *   4. hoje.
+ * `periodo=atrasados` (o antigo preset) abre com a Situação "Só vencidos em aberto" — `vencidos` — e as datas em hoje, que nesse modo não valem.
+ */
+export function periodoInicialDoExtrato(p: {
+  periodoUrl: string | null; de: string | null; ate: string | null; contexto: ContextoFinancasSalvo | null;
+}): { inicio: string; fim: string; vencidos: boolean } {
+  const hoje = hojeLocal();
+  const ctx = p.contexto;
+  const doPreset = (preset: PeriodoPreset) => {
+    if (preset === "atrasados") return { inicio: hoje, fim: hoje, vencidos: true };
+    const r = resolverPeriodo(preset);
+    return { inicio: r.dataInicio, fim: r.dataFim, vencidos: false };
+  };
+  const ehPreset = (s: string | null | undefined): s is PeriodoPreset => !!s && Object.prototype.hasOwnProperty.call(PERIODO_PRESET_LABEL, s);
+  const urlPreset = ehPreset(p.periodoUrl) ? p.periodoUrl : null;
+  if (urlPreset && urlPreset !== "personalizado") return doPreset(urlPreset);
+  if (urlPreset === "personalizado" || p.de || p.ate) {
+    return { inicio: p.de ?? ctx?.dataInicio ?? hoje, fim: p.ate ?? ctx?.dataFim ?? hoje, vencidos: false };
+  }
+  if (ctx && ehPreset(ctx.periodo)) {
+    return ctx.periodo === "personalizado"
+      ? { inicio: ctx.dataInicio ?? hoje, fim: ctx.dataFim ?? hoje, vencidos: false }
+      : doPreset(ctx.periodo);
+  }
+  return { inicio: hoje, fim: hoje, vencidos: false };
+}
+
+interface BarraDePeriodoProps {
+  inicio: string;
+  fim: string;
+  onChange: (r: { inicio: string; fim: string }) => void;
+  /** a Situação "Só vencidos" ignora as datas: os campos ficam apagados em vez de enganar */
+  desabilitado?: boolean;
+}
+
+/** Data inicial – Data final + Hoje · Semana · Mês · 30 dias, numa linha só. Regra do par: lib/intervaloDeDatas.ts. */
+export function BarraDePeriodo({ inicio, fim, onChange, desabilitado }: BarraDePeriodoProps) {
+  const casa = atalhoQueCasa(inicio, fim);
+  return (
+    <div className={`flex items-center gap-1.5 flex-wrap ${desabilitado ? "opacity-50" : ""}`}
+      title={desabilitado ? "A situação \"Só vencidos em aberto\" ignora as datas" : undefined}>
+      <label htmlFor="extrato-data-inicial" className="sr-only">Data inicial</label>
+      <CampoData id="extrato-data-inicial" value={inicio} disabled={desabilitado} className="w-[10.5rem]"
+        onChange={(v) => onChange(aoMudarInicio(v, fim))} />
+      <span aria-hidden className="text-muted-foreground text-xs">até</span>
+      <label htmlFor="extrato-data-final" className="sr-only">Data final</label>
+      <CampoData id="extrato-data-final" value={fim} disabled={desabilitado} className="w-[10.5rem]"
+        onChange={(v) => onChange(aoMudarFim(inicio, v))} />
+      <div role="group" aria-label="Atalhos de período" className="inline-flex rounded-md border p-0.5 gap-0.5">
+        {ATALHOS_DE_PERIODO.map(a => (
+          <button key={a.id} type="button" disabled={desabilitado} aria-pressed={casa === a.id}
+            onClick={() => onChange(intervaloDoAtalho(a.id))}
+            className={`rounded px-2 py-1 text-xs font-medium disabled:cursor-not-allowed ${casa === a.id ? "bg-gold text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface SeletorPeriodoProps {

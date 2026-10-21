@@ -183,7 +183,10 @@ export default function Financas() {
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Continuar de onde parei</p>
                   <p className="text-sm font-medium truncate">
-                    {contaContinuar.nome} · {PERIODO_PRESET_LABEL[contextoSalvo!.periodo]}
+                    {/* O Extrato não tem mais o seletor "Período" (21/10/2026): o que se lembra é um atalho (Hoje, Semana, Mês, 30 dias) ou o par de datas — diz o par, não "personalizado". */}
+                    {contaContinuar.nome} · {contextoSalvo!.periodo === "personalizado" && contextoSalvo!.dataInicio && contextoSalvo!.dataFim
+                      ? `${contextoSalvo!.dataInicio.split("-").reverse().join("/")} a ${contextoSalvo!.dataFim.split("-").reverse().join("/")}`
+                      : PERIODO_PRESET_LABEL[contextoSalvo!.periodo]}
                   </p>
                 </div>
               </div>
