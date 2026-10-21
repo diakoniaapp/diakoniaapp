@@ -15,7 +15,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
-import { dataFimReal, ocorrenciasAGerar, precisaRenovar, redatarPrevistos, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia, type PrevistoDaSerie } from "@/lib/recorrencia";
+import { conferir } from "@/lib/escritaConferida";
+import { calcularOcorrencias, dataFimReal, ocorrenciasAGerar, ocupanteDaOcorrencia, precisaRenovar, redatarPrevistos, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia, type PrevistoDaSerie } from "@/lib/recorrencia";
 import { resumirHabitos, PAGAMENTOS_PARA_HABITO, type HabitosDoFavorecido, type PagamentoDoHistorico } from "@/lib/habitosDoFavorecido";
 import { normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { DIAS_ANTES_DO_VENCIMENTO, sugerirLiquidacoes, type ObrigacaoAberta, type PagamentoRegistrado } from "@/lib/contasJaPagas";
@@ -127,6 +128,65 @@ async function contarJaPagas(rec: FinRecorrencia, geradas: { id: string; data: s
   } catch { return 0; }
 }
 
+/** A linha (previsto) que uma ocorrência da recorrência vira no banco — com o MODELO inteiro do contrato. Uma só forma para a geração em série e para a ocorrência avulsa. */
+function linhaDaOcorrencia(
+  rec: FinRecorrencia, o: Ocorrencia, colunas: { temPessoa: boolean; temVinculo: boolean; temLiquidacao: boolean }, userId: string | null, agora: string,
+): Record<string, unknown> {
+  const l: Record<string, unknown> = {
+    data: o.data, data_competencia: primeiroDoMes(o.data), tipo: rec.tipo, status: "previsto",
+    conta_id: rec.conta_id, categoria_id: rec.categoria_id, centro_custo_id: rec.centro_custo_id,
+    fornecedor_id: rec.fornecedor_id, valor: rec.valor, origem: "recorrencia",
+    descricao: o.parcela ? `${rec.descricao} (${rotuloDaParcela(o.parcela, o.totalParcelas!)})` : rec.descricao,
+    audit_user_id: userId, audit_em: agora,
+  };
+  if (colunas.temPessoa && rec.pessoa_id) l.pessoa_id = rec.pessoa_id;
+  if (colunas.temVinculo) {
+    l.recorrencia_id = rec.id;
+    if (o.parcela) { l.parcela_numero = o.parcela; l.parcela_total = o.totalParcelas; }
+  }
+  if (colunas.temLiquidacao) {
+    l.forma_liquidacao = normalizarLiquidacao(rec.forma_liquidacao);
+    l.valor_variavel = !!rec.valor_variavel;
+  }
+  return l;
+}
+
+export interface OcorrenciaGerada {
+  id: string; data: string; valor: number; descricao: string | null; recorrencia_id: string;
+  fornecedor_id: string | null; pessoa_id: string | null; fornecedor_nome: string | null;
+}
+
+/**
+ * H2 (Fase 2 da conciliação, 20/10/2026): o pagamento chegou pelo OFX e o contrato existe, mas a ocorrência DAQUELE mês nunca foi gerada (o gerador não despeja
+ * meses atrasados). Gera SÓ essa ocorrência, com o modelo inteiro do contrato, para a tesouraria liquidá-la pelo extrato — em vez de criar uma despesa solta.
+ * Recusa se a data não é da agenda do contrato, se o contrato é parcelado, ou se a ocorrência já tem linha (qualquer situação): nunca cria uma segunda.
+ */
+export async function gerarUmaOcorrencia(recorrenciaId: string, data: string): Promise<OcorrenciaGerada> {
+  const { data: bruto, error } = await supabase.from("fin_recorrencias").select("*").eq("id", recorrenciaId).maybeSingle();
+  if (error) throw error;
+  if (!bruto) throw new Error("A recorrência não existe mais — reabra o extrato");
+  const rec = bruto as unknown as FinRecorrencia;
+  if (!rec.ativo) throw new Error("A recorrência está inativa");
+  const params = parametrosDaRecorrencia(rec);
+  if (params.tipo === "parcelamento") throw new Error("Recorrência parcelada: as parcelas se geram pelo próprio contrato");
+  const o = calcularOcorrencias(params, data).find(x => x.data === data);
+  if (!o) throw new Error("Essa data não pertence à agenda da recorrência");
+  const [temPessoa, temVinculo, temLiquidacao] = await Promise.all([
+    colunaExiste("fin_lancamentos", "pessoa_id"), colunaExiste("fin_lancamentos", "recorrencia_id"), colunaExiste("fin_lancamentos", "forma_liquidacao"),
+  ]);
+  const existentes = await linhasJaGeradas(rec, temVinculo);
+  if (ocupanteDaOcorrencia(o, existentes)) throw new Error("Esta ocorrência já tem conta (alguém a gerou ou pagou): reabra o extrato");
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const linha = linhaDaOcorrencia(rec, o, { temPessoa, temVinculo, temLiquidacao }, userId, new Date().toISOString());
+  const ins = await supabase.from("fin_lancamentos").insert(linha as never).select("id");
+  const r = conferir(ins, "A ocorrência da recorrência");
+  if (!r.ok) throw new Error(r.erro);
+  return {
+    id: String((ins.data as { id: string }[])[0].id), data, valor: Number(rec.valor), descricao: String(linha.descricao ?? ""), recorrencia_id: rec.id,
+    fornecedor_id: rec.fornecedor_id ?? null, pessoa_id: (rec.pessoa_id as string | null | undefined) ?? null, fornecedor_nome: rec.fornecedor_nome ?? rec.pessoa_nome ?? null,
+  };
+}
+
 export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()): Promise<ResultadoDaGeracao> {
   const [temVinculo, temLiquidacao, temPessoa] = await Promise.all([
     colunaExiste("fin_lancamentos", "recorrencia_id"),
@@ -140,25 +200,7 @@ export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()):
 
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
   const agora = new Date().toISOString();
-  const linhas = novas.map(o => {
-    const l: Record<string, unknown> = {
-      data: o.data, data_competencia: primeiroDoMes(o.data), tipo: rec.tipo, status: "previsto",
-      conta_id: rec.conta_id, categoria_id: rec.categoria_id, centro_custo_id: rec.centro_custo_id,
-      fornecedor_id: rec.fornecedor_id, valor: rec.valor, origem: "recorrencia",
-      descricao: o.parcela ? `${rec.descricao} (${rotuloDaParcela(o.parcela, o.totalParcelas!)})` : rec.descricao,
-      audit_user_id: userId, audit_em: agora,
-    };
-    if (temPessoa && rec.pessoa_id) l.pessoa_id = rec.pessoa_id;
-    if (temVinculo) {
-      l.recorrencia_id = rec.id;
-      if (o.parcela) { l.parcela_numero = o.parcela; l.parcela_total = o.totalParcelas; }
-    }
-    if (temLiquidacao) {
-      l.forma_liquidacao = normalizarLiquidacao(rec.forma_liquidacao);
-      l.valor_variavel = !!rec.valor_variavel;
-    }
-    return l;
-  });
+  const linhas = novas.map(o => linhaDaOcorrencia(rec, o, { temPessoa, temVinculo, temLiquidacao }, userId, agora));
 
   let criados = 0, falhas = 0;
   const geradas: { id: string; data: string }[] = [];

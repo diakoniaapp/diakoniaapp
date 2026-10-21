@@ -7,11 +7,14 @@
 // documento a pagar provável. As que a análise já propõe como liquidação ("documento") não criam lançamento — só liquidam, no diálogo próprio.
 
 import type { DocumentoDoExtrato } from "@/lib/documentoDoExtrato";
+import type { RecorrenciaCompativel } from "@/lib/recorrenciaCompativel";
 
 export interface LinhaParaGuarda {
   tx: { fitid: string; tipo: string; valor: number; data: string; memo: string };
   situacao: string;
   documentos?: DocumentoDoExtrato[];
+  /** H2: o contrato que o pagamento provavelmente quitou (a conta do mês nunca foi gerada) — também é candidata */
+  recorrenciaCompativel?: RecorrenciaCompativel;
 }
 
 /** O documento a pagar mais provável de uma linha que vai virar lançamento NOVO; null quando não há candidato (ou a linha não cria nada novo). */
@@ -31,6 +34,8 @@ export interface PedidoDeConfirmacao {
   valorDaConta: number;
   /** o valor do extrato é exatamente o da conta */
   exato: boolean;
+  /** a candidata é uma RECORRÊNCIA sem conta gerada (H2), não uma conta em aberto (H1) */
+  recorrencia?: boolean;
 }
 
 /**
@@ -40,8 +45,13 @@ export interface PedidoDeConfirmacao {
 export function pedidosDeConfirmacao(linhas: LinhaParaGuarda[], reconhecidas: { has(fitid: string): boolean }): PedidoDeConfirmacao[] {
   const out: PedidoDeConfirmacao[] = [];
   for (const l of linhas) {
+    if (reconhecidas.has(l.tx.fitid)) continue;
     const c = candidataDaLinha(l);
-    if (!c || reconhecidas.has(l.tx.fitid)) continue;
+    if (!c) {
+      const r = l.situacao === "nova" ? l.recorrenciaCompativel : undefined;
+      if (r) out.push({ fitid: l.tx.fitid, memo: l.tx.memo, valor: l.tx.valor, data: l.tx.data, conta: r.rotulo, vencimento: r.vencimento, valorDaConta: r.valor, exato: Math.abs(r.diferenca) < 0.005, recorrencia: true });
+      continue;
+    }
     out.push({
       fitid: l.tx.fitid, memo: l.tx.memo, valor: l.tx.valor, data: l.tx.data,
       conta: c.documento.fornecedor_nome ?? c.documento.descricao ?? "conta a pagar", vencimento: c.documento.data, valorDaConta: c.documento.valor, exato: c.exato,

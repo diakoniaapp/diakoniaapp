@@ -48,6 +48,7 @@ import { LancamentoForm } from "./LancamentoForm";
 import { LiquidarPeloExtratoDialog } from "./LiquidarPeloExtratoDialog";
 import { TransferenciaForm } from "./TransferenciaForm";
 import { BuscarEAssociarDialog } from "./mesa/BuscarEAssociarDialog";
+import { gerarUmaOcorrencia } from "@/services/recorrenciaService";
 import { CartaoDaLinha } from "./mesa/CartaoDaLinha";
 import { AvisoDosGrupos } from "./mesa/AvisoDosGrupos";
 import { CartaoDoGrupo } from "./mesa/CartaoDoGrupo";
@@ -342,6 +343,30 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     editar(l.tx.fitid, { motivoNovo: m });
     setNaoEJaRegistrada(null); setMotivoH0("");
     if (transacoes) await analisarDeNovo(transacoes, false);
+  }
+
+  // ── H2: gerar a ocorrência que falta do contrato e liquidá-la pelo extrato ──
+  async function gerarELiquidarRecorrencia(l: LinhaAnalisada) {
+    const rc = l.recorrenciaCompativel;
+    if (!rc) return;
+    setSalvandoLinha(true);
+    try {
+      const o = await gerarUmaOcorrencia(rc.recorrenciaId, rc.vencimento);
+      alterou.current = true;
+      const diferenca = Math.round((l.tx.valor - o.valor) * 100) / 100;
+      const doc: DocumentoDoExtrato = {
+        documento: { id: o.id, valor: o.valor, data: o.data, fornecedor_id: o.fornecedor_id, pessoa_id: o.pessoa_id, descricao: o.descricao, fornecedor_nome: o.fornecedor_nome, recorrencia_id: o.recorrencia_id },
+        diferenca, exato: Math.abs(diferenca) < 0.005, incerto: false, confianca: 100, contrato: o.descricao, segundoContrato: false, ambiguo: false,
+        outrosAbertos: [], contratoSemDocumento: null, motivo: "ocorrência do contrato gerada agora para esta liquidação",
+      };
+      toast.success(`Conta de ${dataBr(rc.vencimento)} gerada a partir da recorrência — confirme a liquidação`);
+      setLiquidarLinha({ ...l, situacao: "documento", documentos: [doc] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível gerar a ocorrência");
+      if (transacoes) await analisarDeNovo(transacoes, false);
+    } finally {
+      setSalvandoLinha(false);
+    }
   }
 
   // ── busca e associação manual ──
@@ -794,7 +819,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
                           onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
                           outrasContas={outrasContas} contaNome={contaNome} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
-                          onLiquidar={() => setLiquidarLinha(l)} onBuscar={() => setBuscandoLinha(l)}
+                          onLiquidar={() => setLiquidarLinha(l)} onBuscar={() => setBuscandoLinha(l)} onGerarRecorrencia={() => void gerarELiquidarRecorrencia(l)}
                           onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
                       ) : (
                         <>
@@ -990,7 +1015,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                       {guarda.pedidos.map(p => (
                         <li key={p.fitid} className="rounded border px-2 py-1.5 text-xs">
                           <p className="truncate"><b className="tabular-nums">{brl(p.valor)}</b> em {dataBr(p.data)} — {p.memo}</p>
-                          <p className="text-muted-foreground">Conta em aberto: <b>{p.conta}</b>, vence {dataBr(p.vencimento)}, {brl(p.valorDaConta)}{p.exato ? " (valor igual)" : " (valor diferente)"}</p>
+                          <p className="text-muted-foreground">{p.recorrencia ? "Recorrência sem conta gerada" : "Conta em aberto"}: <b>{p.conta}</b>, vence {dataBr(p.vencimento)}, {brl(p.valorDaConta)}{p.exato ? " (valor igual)" : " (valor diferente)"}</p>
                         </li>
                       ))}
                     </ul>
@@ -1019,8 +1044,9 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                 <Button type="button" onClick={() => {
                   const primeiro = (linhas ?? []).find(l => l.tx.fitid === guarda.pedidos[0].fitid);
                   setGuarda(null);
-                  if (primeiro) setLiquidarLinha({ ...primeiro, situacao: "documento" });
-                }}>Liquidar a conta em aberto{um ? "" : " (a primeira)"}</Button>
+                  if (primeiro?.recorrenciaCompativel && !primeiro.documentos?.length) void gerarELiquidarRecorrencia(primeiro);
+                  else if (primeiro) setLiquidarLinha({ ...primeiro, situacao: "documento" });
+                }}>{guarda.pedidos[0].recorrencia ? "Gerar e liquidar a recorrência" : "Liquidar a conta em aberto"}{um ? "" : " (a primeira)"}</Button>
               </AlertDialogFooter>
             </>
           );

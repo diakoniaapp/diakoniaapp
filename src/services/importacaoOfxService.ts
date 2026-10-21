@@ -24,7 +24,7 @@ import {
 import { acharContrapartes, type CandidatoContraparte, type OutraPonta, type ProvavelTransferencia } from "@/lib/transferenciaOfx";
 export type { OutraPonta };
 import {
-  brl, excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarContas, listarLancamentos, listarLancamentosSemTeto, listarProjetos,
+  brl, excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarContas, listarLancamentos, listarLancamentosSemTeto, listarProjetos, listarRecorrencias,
   type FinCategoria, type FinCentroCusto, type FinFormaPagamento, type FinProjeto,
 } from "@/services/finService";
 import { casarComLancamentos, inferirFormaPagamento, type OFXCasamento, type OFXTransacao } from "@/services/ofxService";
@@ -34,6 +34,7 @@ import {
 } from "@/lib/formaLiquidacao";
 import { acharDocumentosDoExtrato, valeComoLiquidacao, type ContratoDoFornecedor, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
 import { acharJaRegistrados, fitidsDasObservacoes, type JaRegistrado, type LancamentoComDono } from "@/lib/movimentoJaRegistrado";
+import { acharRecorrenciaCompativel, type LinhaDaRecorrencia, type RecorrenciaCompativel, type RecorrenciaDoCadastro } from "@/lib/recorrenciaCompativel";
 
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
@@ -120,6 +121,8 @@ export interface LinhaAnalisada {
   documentos?: DocumentoDoExtrato[];
   /** `nova`: o mesmo valor entrou/saiu em OUTRA conta da igreja em data próxima — pode ser transferência interna, não receita/despesa. */
   transferenciaProvavel?: ProvavelTransferencia;
+  /** `nova` (H2): o contrato (recorrência) do favorecido que este pagamento provavelmente quitou, cuja conta daquele mês nunca foi gerada. */
+  recorrenciaCompativel?: RecorrenciaCompativel;
   /** `vincular` (H0): o lançamento que JÁ representa este movimento (gravado por outra exportação, à mão ou pela recorrência). `lancamentoId` é o dele. */
   jaRegistrado?: JaRegistrado;
 }
@@ -363,7 +366,40 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
     }
   });
   await marcarTransferenciasProvaveis(contaId, out, de, ate);
+  await marcarRecorrenciasCompativeis(out);
   return out;
+}
+
+/**
+ * H2 (Fase 2, 20/10/2026): saída "nova", com favorecido identificado e sem conta em aberto candidata, que casa com um CONTRATO (recorrência) do favorecido cuja
+ * ocorrência daquele mês não tem linha nenhuma. Só marca; "Gerar e liquidar a recorrência" é um clique da tesouraria. Uma falha aqui nunca derruba a análise.
+ */
+async function marcarRecorrenciasCompativeis(linhas: LinhaAnalisada[]): Promise<void> {
+  const candidatas = linhas.filter(l => l && l.situacao === "nova" && l.tx.tipo === "saida" && !l.documentos?.length && !l.sugestao?.transferencia
+    && !!(l.sugestao?.fornecedor?.id ?? l.sugestao?.pessoa?.id));
+  if (candidatas.length === 0) return;
+  try {
+    const recs = (await listarRecorrencias()).filter(r => r.tipo === "saida" && r.ativo && r.tipo_recorrencia !== "parcelamento");
+    if (recs.length === 0) return;
+    const datas = candidatas.map(l => l.tx.data).sort();
+    const ocupantes: LinhaDaRecorrencia[] = [];
+    const ids = recs.map(r => r.id);
+    for (let p = 0; ; p++) {
+      const { data, error } = await supabase.from("fin_lancamentos").select("recorrencia_id, data, data_competencia")
+        .in("recorrencia_id", ids).gte("data", daquiADias(datas[0], -120)).lte("data", daquiADias(datas[datas.length - 1], 75))
+        .order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
+      if (error) return;
+      for (const l of data ?? []) ocupantes.push({ recorrencia_id: String(l.recorrencia_id), data: String(l.data).slice(0, 10), competencia: l.data_competencia ? String(l.data_competencia).slice(0, 10) : null });
+      if ((data ?? []).length < PAGINA) break;
+    }
+    const usadas = new Set<string>();
+    for (const l of candidatas) {
+      const r = acharRecorrenciaCompativel(l.tx, l.sugestao?.fornecedor?.id ?? l.sugestao?.pessoa?.id, recs as unknown as RecorrenciaDoCadastro[], ocupantes, usadas);
+      if (!r) continue;
+      usadas.add(`${r.recorrenciaId}|${r.vencimento}`);
+      l.recorrenciaCompativel = r;
+    }
+  } catch { /* sem a sondagem de recorrências, a linha segue como nova (o aviso é uma ajuda, não uma trava) */ }
 }
 
 // ── transferência entre contas: a primeira hipótese para o que entrou/saiu em dinheiro ───────────────────────

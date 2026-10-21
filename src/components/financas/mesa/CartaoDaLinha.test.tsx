@@ -20,13 +20,13 @@ const linha = (extra: Partial<LinhaAnalisada> = {}): LinhaAnalisada => ({
   tx: { fitid: "N105B3", tipo: "saida", data: "2026-10-05", valor: 278.22, memo: "PAGTO ELETRON COBRANCA VERISURE" }, situacao: "nova", sugestao, ...extra,
 } as LinhaAnalisada);
 
-function Caso({ l, aoConfirmar, aoBuscar }: { l: LinhaAnalisada; aoConfirmar?: () => void; aoBuscar?: () => void }) {
+function Caso({ l, aoConfirmar, aoBuscar, aoGerar }: { l: LinhaAnalisada; aoConfirmar?: () => void; aoBuscar?: () => void; aoGerar?: () => void }) {
   const [edicao, setEdicao] = useState<Edicao | undefined>(undefined);
   return (
     <CartaoDaLinha linha={l} edicao={edicao} marcada={false} ocupado={false} categorias={[]} opcoesDeCentro={[]} projetos={[]}
       nomeDaCategoria={() => "Categoria"} ignorarDisponivel={false} outrasContas={[]} contaNome="Bradesco"
       onEditar={p => setEdicao(e => ({ ...e, ...p }))} onMarcar={() => {}} onConfirmar={aoConfirmar ?? (() => {})} onFormulario={() => {}} onTransferencia={() => {}}
-      onConfirmarTransferencia={() => {}} onLiquidar={() => {}} onIgnorar={() => {}} onBuscar={aoBuscar ?? (() => {})} />
+      onConfirmarTransferencia={() => {}} onLiquidar={() => {}} onIgnorar={() => {}} onBuscar={aoBuscar ?? (() => {})} onGerarRecorrencia={aoGerar} />
   );
 }
 
@@ -98,5 +98,26 @@ describe("CartaoDaLinha — a conta compatível vem antes da despesa nova", () =
     montar(<Caso l={linha({ documentos: [{ ...documento, exato: false, diferenca: 12.5 }] })} />);
     expect(botao(/Liquidar esta conta \(explicar a diferença\)/)).toBeTruthy();
     expect(botao(/Registrar como nova despesa/)).toBeUndefined();
+  });
+
+  it("H2: recorrência compatível sem conta aberta — o botão é Gerar e liquidar a recorrência; categoria e centro não aparecem", () => {
+    const aoGerar = vi.fn();
+    const rec = { recorrenciaId: "r1", rotulo: "Light — Templo", valor: 3583.22, valorVariavel: true, vencimento: "2026-10-15", diferenca: -583.22, motivo: "contrato do mesmo favorecido" };
+    montar(<Caso l={linha({ recorrenciaCompativel: rec })} aoGerar={aoGerar} />);
+    expect(document.body.textContent).toContain("Existe uma recorrência compatível");
+    expect(botao(/Registrar como nova despesa/)).toBeUndefined();
+    expect(document.querySelector('[aria-label="Centro de custo"]')).toBeNull();
+    clicar(botao(/Gerar e liquidar a recorrência/));
+    expect(aoGerar).toHaveBeenCalledTimes(1);
+  });
+
+  it("H2: Não é esta recorrência abre a despesa nova só com o motivo", () => {
+    const rec = { recorrenciaId: "r1", rotulo: "Light — Templo", valor: 3583.22, valorVariavel: false, vencimento: "2026-10-15", diferenca: 0, motivo: "x" };
+    montar(<Caso l={linha({ recorrenciaCompativel: rec })} />);
+    clicar(botao(/Não é esta recorrência/));
+    expect(document.body.textContent).toContain("Por que não é essa recorrência?");
+    expect(botao(/Registrar como nova despesa/)!.disabled).toBe(true);
+    clicar(botao("A conta que apareceu é de outro contrato"));
+    expect(botao(/Registrar como nova despesa/)!.disabled).toBe(false);
   });
 });

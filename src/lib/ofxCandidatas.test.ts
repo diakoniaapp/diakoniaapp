@@ -40,4 +40,13 @@ describe("o OFX não cria despesa nova em silêncio quando há obrigação candi
     expect(candidataDaLinha({ situacao: "nova", documentos: [outro, doc()] })).toBe(outro);
     expect(pedidosDeConfirmacao([linha("H", { documentos: [outro] })], new Set())[0].conta).toBe("Aluguel do salão");
   });
+
+  it("H2: a recorrência compatível (conta do mês nunca gerada) também é candidata — pede o clique e o motivo", () => {
+    const rec = { recorrenciaId: "r1", rotulo: "Verisure — Templo", valor: 278.22, valorVariavel: false, vencimento: "2026-10-05", diferenca: 0, motivo: "" };
+    const [p] = pedidosDeConfirmacao([linha("R", { documentos: undefined, recorrenciaCompativel: rec })], new Set());
+    expect(p).toMatchObject({ fitid: "R", conta: "Verisure — Templo", vencimento: "2026-10-05", valorDaConta: 278.22, exato: true, recorrencia: true });
+    expect(pedidosDeConfirmacao([linha("R2", { documentos: undefined, recorrenciaCompativel: rec })], new Set(["R2"]))).toEqual([]);
+    // uma conta em aberto vence a recorrência: não pergunta duas vezes
+    expect(pedidosDeConfirmacao([linha("R3", { recorrenciaCompativel: rec })], new Set()).map(x => x.recorrencia)).toEqual([undefined]);
+  });
 });

@@ -12,6 +12,7 @@ import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import { MOTIVOS_DE_DESPESA_NOVA, favorecidoEfetivo, podeGravar, rotuloDaConfianca, valoresEfetivos, type Edicao, type FavorecidoEscolhido } from "@/lib/gradeOfx";
 import { alvoDaTransferencia, ehDepositoEmDinheiro, type OutraPonta } from "@/lib/transferenciaOfx";
 import { montarHipotese, nomeCurtoDaCategoria } from "@/lib/hipoteseOfx";
+import { resolverMovimento } from "@/lib/resolverMovimento";
 import { EscolhaDeFavorecido } from "./EscolhaDeFavorecido";
 import { HipoteseDaLinha } from "./HipoteseDaLinha";
 
@@ -51,6 +52,8 @@ interface Props {
   onIgnorar: () => void;
   /** busca e associação manual: ligar a linha a uma conta em aberto ou a um lançamento que já existe */
   onBuscar: () => void;
+  /** H2: gera a ocorrência que falta do contrato e abre a liquidação dela */
+  onGerarRecorrencia?: () => void;
 }
 
 export function CartaoDaLinha(p: Props) {
@@ -66,6 +69,9 @@ export function CartaoDaLinha(p: Props) {
   // as opções de categoria a um clique: a efetiva, depois as alternativas
   const ids = [v.categoriaId, ...(s.alternativas ?? [])].filter((x, i, a): x is string => !!x && a.indexOf(x) === i).slice(0, 4);
   const documento = l.documentos?.[0];
+  // a pergunta "o que este movimento é?" tem UMA resposta (lib/resolverMovimento): aqui só se lê
+  const resolucao = resolverMovimento(l);
+  const recorrencia = resolucao.h === "H2" ? resolucao.recorrencia : null;
   // obrigação prevista de VALOR IGUAL: o caminho certo é liquidá-la (baixa a obrigação); "Confirmar" criaria um lançamento NOVO e a deixaria aberta
   const obrigacaoExata = !!documento?.exato;
   // 1º a transferência interna, 2º a receita (pedido dela, 08/10/2026)
@@ -80,7 +86,7 @@ export function CartaoDaLinha(p: Props) {
 
   // H1: existe conta compatível → a pergunta é "é esta conta?". A classificação de despesa NOVA (favorecido, categoria, centro, projeto) só aparece
   // depois de "Não é esta conta" e com o motivo — criar despesa nova é o último caminho, não o padrão (decisão dela, 20/10/2026).
-  const candidata = !!documento && !modoTransf;
+  const candidata = (!!documento || !!recorrencia) && !modoTransf;
   const mostrarNova = !candidata || !!edicao?.revelarNova;
   const motivoNovo = (edicao?.motivoNovo ?? "").trim();
   const motivoPronto = !candidata || motivoNovo.length > 0;
@@ -125,12 +131,41 @@ export function CartaoDaLinha(p: Props) {
         </div>
       )}
 
+      {candidata && !documento && recorrencia && !mostrarNova && (
+        <div className="space-y-2 pl-6">
+          <div className="rounded-md border border-info-line bg-info-soft/40 p-2.5 text-xs" role="note">
+            <p className="text-sm font-semibold text-info-text">↻ Existe uma recorrência compatível</p>
+            <p className="mt-0.5">
+              <b>{recorrencia.rotulo}</b> · vence {dataCurta(recorrencia.vencimento)} · <b className="tabular-nums">{brl(recorrencia.valor)}</b>
+              {Math.abs(recorrencia.diferenca) < 0.005 ? " (valor igual)" : ` (o extrato difere em ${brl(Math.abs(recorrencia.diferenca))})`}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">{recorrencia.motivo}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado || !p.onGerarRecorrencia} onClick={p.onGerarRecorrencia}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> Gerar e liquidar a recorrência
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onBuscar}>
+              <Search className="h-3 w-3" /> Buscar outra conta ou lançamento
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: true })}>
+              Não é esta recorrência — registrar nova despesa
+            </Button>
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
+          </div>
+        </div>
+      )}
+
       {(mostrarNova || modoTransf) && (
         <>
           {candidata && (
             <div className="flex flex-wrap items-center gap-2 pl-6 text-xs">
-              <span className="text-warning-text">Existe uma conta que parece ser esta ({documento!.documento.fornecedor_nome ?? documento!.documento.descricao ?? "conta"}, {brl(documento!.documento.valor)}).</span>
-              <button type="button" className="underline underline-offset-2" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: false, motivoNovo: undefined })}>← voltar para a conta</button>
+              <span className="text-warning-text">
+                {documento
+                  ? <>Existe uma conta que parece ser esta ({documento.documento.fornecedor_nome ?? documento.documento.descricao ?? "conta"}, {brl(documento.documento.valor)}).</>
+                  : <>Existe uma recorrência que parece ser esta ({recorrencia!.rotulo}, {brl(recorrencia!.valor)}).</>}
+              </span>
+              <button type="button" className="underline underline-offset-2" disabled={ocupado} onClick={() => p.onEditar({ revelarNova: false, motivoNovo: undefined })}>← voltar para {documento ? "a conta" : "a recorrência"}</button>
             </div>
           )}
           <HipoteseDaLinha h={hipotese} />
@@ -179,7 +214,7 @@ export function CartaoDaLinha(p: Props) {
 
           {candidata ? (
             <div className="space-y-1.5 pl-6" role="group" aria-label="Por que é uma despesa nova">
-              <p className="text-xs font-medium">Por que não é essa conta? <span className="text-destructive-text">(obrigatório)</span></p>
+              <p className="text-xs font-medium">Por que não é {documento ? "essa conta" : "essa recorrência"}? <span className="text-destructive-text">(obrigatório)</span></p>
               <div className="flex flex-wrap items-center gap-1.5">
                 {MOTIVOS_DE_DESPESA_NOVA.map(m => (
                   <button key={m} type="button" disabled={ocupado} aria-pressed={motivoNovo === m} onClick={() => p.onEditar({ motivoNovo: m })}
