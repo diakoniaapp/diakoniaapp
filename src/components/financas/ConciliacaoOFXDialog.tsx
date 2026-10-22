@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { pedidosDeConfirmacao, type PedidoDeConfirmacao } from "@/lib/ofxCandidatas";
 import type { DocumentoDoExtrato } from "@/lib/documentoDoExtrato";
 import { toast } from "sonner";
+import { useIrAoTopoDaLista } from "@/hooks/useIrAoTopoDaLista";
+import { descartarRascunho, guardarRascunho, lerRascunho } from "@/lib/rascunhoDaConciliacao";
 import {
   FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon, Search, Pencil,
 } from "lucide-react";
@@ -125,6 +127,18 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [motivoH0, setMotivoH0] = useState("");
   const [buscandoLinha, setBuscandoLinha] = useState<LinhaAnalisada | null>(null);
   const [confirmandoVinculo, setConfirmandoVinculo] = useState<LinhaAnalisada[] | null>(null);
+
+  // Fechar (ou sair da tela) não joga fora o que a tesouraria já fez: o arquivo, o filtro, a página, as marcadas e as edições ficam por 15 minutos (22/10/2026) — ver `lib/rascunhoDaConciliacao`.
+  const andamento = useRef<Parameters<typeof guardarRascunho>[1] | null>(null);
+  andamento.current = arquivo && transacoes ? {
+    arquivo, transacoes, filtro, pagina, agrupar, marcadas: [...marcadas], edicoes, registros: [...registros], confirmadas: [...confirmadas], lote, totalDoArquivo, aoAbrir, agrupamentosAoAbrir,
+    decisoes: { reconhecidas: [...reconhecidas.current], semDocumento: [...semDocumento.current], semJaRegistrado: [...semJaRegistrado.current] },
+  } : null;
+  function guardarOQueEstaEmAndamento() { if (andamento.current) guardarRascunho(contaId, andamento.current); }
+  useEffect(() => () => { if (andamento.current) guardarRascunho(contaId, andamento.current); }, [contaId]);
+  // topo da lista ao mudar de página (o diálogo rola; o "Próxima" fica no fim da lista)
+  const { topoRef, irAoTopo } = useIrAoTopoDaLista();
+  const irParaPagina = (p: number) => { setPagina(p); irAoTopo(); };
   function comGuarda(alvo: LinhaAnalisada[], seguir: () => void): boolean {
     // quem já escolheu o motivo no próprio cartão não precisa responder de novo
     for (const l of alvo) { const m = edicoes[l.tx.fitid]?.motivoNovo?.trim(); if (m) reconhecidas.current.set(l.tx.fitid, m); }
@@ -193,6 +207,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     if (ocupado && !v) return;
     onOpenChange(v);
     if (!v) {
+      guardarOQueEstaEmAndamento();
       if (alterou.current) { alterou.current = false; onSaved(); }
       // A ordem do OFX é a do extrato do banco: grava em cada lançamento da conta a posição dele no dia, para o extrato do sistema sair na mesma
       // sequência. Em segundo plano, sem travar o fechamento; se não puder (migration ainda não aplicada, permissão), o extrato segue na regra de sempre.
@@ -236,6 +251,34 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     setRegistros(prev => new Map([...prev].filter(([f]) => !novas.has(f))));
     setMarcadas(prev => primeira ? marcadasIniciais(g) : new Set([...prev].filter(f => g.some(x => x.fitid === f && x.situacao === "nova"))));
   }
+
+  /** Reabre de onde a pessoa parou: o estado dela volta como estava e o arquivo é analisado de novo contra o banco de agora. */
+  function retomar(r: ReturnType<typeof lerRascunho> & object) {
+    const d = r.rascunho;
+    reconhecidas.current = new Map(d.decisoes.reconhecidas);
+    semDocumento.current = new Set(d.decisoes.semDocumento);
+    semJaRegistrado.current = new Set(d.decisoes.semJaRegistrado);
+    setArquivo(d.arquivo); setTransacoes(d.transacoes as OFXTransacao[]);
+    setFiltro(d.filtro as Filtro); setAgrupar(d.agrupar); setMarcadas(new Set(d.marcadas));
+    setEdicoes(d.edicoes as Record<string, Edicao>); setRegistros(new Map(d.registros as [string, RegistroDaMedicao][]));
+    setLote(d.lote); setTotalDoArquivo(d.totalDoArquivo);
+    setAoAbrir(d.aoAbrir as Medicao["aoAbrir"] | null); setAgrupamentosAoAbrir(d.agrupamentosAoAbrir as ResumoDosAgrupamentos | null);
+    setProcessando(true);
+    toast.info(`Retomei de onde você parou (${d.arquivo.name}, há ${r.minutos} min). \"Trocar arquivo\" começa do zero.`);
+    analisarDeNovo(d.transacoes as OFXTransacao[], true)
+      .then(() => setPagina(d.pagina))   // depois da análise: o efeito do filtro reinicia a página, e a pessoa estava nesta
+      .catch((e: any) => { toast.error(e?.message ?? "Não consegui retomar a análise"); reiniciar(); })
+      .finally(() => setProcessando(false));
+  }
+  useEffect(() => {
+    if (!open || arquivo || transacoes) return;
+    const r = lerRascunho(contaId);
+    if (!r) return;
+    descartarRascunho(contaId);   // o estado passa a viver no componente; volta a ser guardado ao fechar
+    retomar(r);
+    // só ao abrir
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contaId]);
 
   async function processarArquivo(file: File) {
     setArquivo(file);
@@ -1009,6 +1052,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
               </div>
             )}
 
+            <div ref={topoRef} aria-hidden className="h-0" />
             {/* a central: lista à esquerda, painel de decisão à direita (no celular o painel abre sob a linha) */}
             {pag.itens.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">{agrupamento.grupos.length > 0 ? "O resto desta pilha está nos grupos acima." : "Nenhuma movimentação neste filtro."}</p>
@@ -1029,17 +1073,17 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
             {pag.paginas > 1 && (
               <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-                <Button type="button" size="sm" variant="ghost" className="h-7 gap-1" disabled={pag.pagina <= 1} onClick={() => setPagina(pag.pagina - 1)}>
+                <Button type="button" size="sm" variant="ghost" className="h-7 gap-1" disabled={pag.pagina <= 1} onClick={() => irParaPagina(pag.pagina - 1)}>
                   <ChevronLeft className="w-3.5 h-3.5" /> Anterior
                 </Button>
                 <span className="tabular-nums">Página {pag.pagina} de {pag.paginas} · {naLista.length} linhas</span>
-                <Button type="button" size="sm" variant="ghost" className="h-7 gap-1" disabled={pag.pagina >= pag.paginas} onClick={() => setPagina(pag.pagina + 1)}>
+                <Button type="button" size="sm" variant="ghost" className="h-7 gap-1" disabled={pag.pagina >= pag.paginas} onClick={() => irParaPagina(pag.pagina + 1)}>
                   Próxima <ChevronRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
             )}
 
-            <Button type="button" variant="ghost" size="sm" onClick={reiniciar} disabled={ocupado}>Trocar arquivo</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { descartarRascunho(contaId); reiniciar(); }} disabled={ocupado}>Trocar arquivo</Button>
           </div>
         )}
 

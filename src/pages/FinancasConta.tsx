@@ -19,6 +19,7 @@ import { paraNumero } from "@/lib/dinheiro";
 import { daquiADias, hojeLocal } from "@/lib/data";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIrAoTopoDaLista } from "@/hooks/useIrAoTopoDaLista";
+import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { useRolagemRestaurada } from "@/hooks/useRolagemRestaurada";
 import { numeroDe } from "@/hooks/useEstadoNaUrl";
 import {
@@ -189,6 +190,7 @@ export default function FinancasConta() {
   const [anexosPara, setAnexosPara] = useState<FinLancamentoExtenso | null>(null);
   // o painel de detalhes da despesa como uma entidade só (documento, pagamento, OFX, conciliação, comprovante, malote)
   const [detalhesDe, setDetalhesDe] = useState<FinLancamentoExtenso | null>(null);
+  const voltarAosDetalhes = useRef(false);
   const [transfOpen, setTransfOpen] = useState(false);
   // Conciliação manual (item 6 do roadmap do ERP): seleção só de
   // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
@@ -1113,11 +1115,20 @@ export default function FinancasConta() {
         lancamento={editandoTransf}
         onSaved={carregar}
       />
-      <DetalhesDoLancamento lancamento={detalhesDe} onFechar={() => setDetalhesDe(null)} onAnexos={setAnexosPara} />
+      {/* Pilha de painéis (22/10/2026): Detalhes → Anexar documentos → fechar volta aos DETALHES (já com o que acabou de ser anexado), não à lista. Anexos aberto direto da lista não reabre nada. */}
+      <DetalhesDoLancamento lancamento={detalhesDe} onFechar={() => setDetalhesDe(null)} onAnexos={l => { voltarAosDetalhes.current = true; setAnexosPara(l); }} />
       {anexosPara && (
         <AnexosLancamentoDialog
           open={!!anexosPara}
-          onOpenChange={(v) => !v && setAnexosPara(null)}
+          onOpenChange={(v) => {
+            if (v) return;
+            const id = anexosPara.id;
+            setAnexosPara(null);
+            if (!voltarAosDetalhes.current) return;
+            voltarAosDetalhes.current = false;
+            carregar();
+            void buscarLancamentoParaEditar(id).then(x => { if (x) setDetalhesDe(x); }).catch(() => { /* só não reabre os detalhes */ });
+          }}
           lancamentoId={anexosPara.id}
           descricaoLancamento={nomeExtrato(anexosPara).principal}
         />
