@@ -2,6 +2,7 @@
 // Só leitura. A obrigação é a despesa (saída que não é transferência); as linhas do mesmo grupo (pagamento parcial) viram uma só. Os previstos, os pagos, os quitados por terceiros
 // e os cancelados entram TODOS: o relatório não depende de ter havido movimentação financeira. As regras estão em `lib/extratoDeObrigacoes.ts`.
 import { supabase } from "@/integrations/supabase/client";
+import { confirmacoesBancarias, type ConfirmacaoBancaria } from "@/services/confirmacaoBancariaService";
 import { hojeLocal } from "@/lib/data";
 import {
   montarExtratoDeObrigacoes, type LinhaDeObrigacao, type LinhaDoExtrato, type NomesDoExtrato, type QuitacaoDoExtrato,
@@ -108,10 +109,10 @@ async function nomesPor(tabela: "fin_fornecedores" | "membros", coluna: "nome" |
   return mapa;
 }
 
-/** A forma de liquidação das linhas ainda em aberto (leitura à parte e opcional: sem a coluna, ninguém é débito automático e o extrato segue igual). */
+/** A forma de liquidação das linhas (leitura à parte e opcional: sem a coluna, ninguém é débito automático e o extrato segue igual). Também das JÁ PAGAS: a regra documental muda para pagamento automático. */
 async function formasDeLiquidacao(linhas: LinhaDeObrigacao[]): Promise<Map<string, string>> {
   const mapa = new Map<string, string>();
-  const abertas = linhas.filter(l => l.status === "previsto").map(l => l.id);
+  const abertas = linhas.map(l => l.id);
   for (const grupo of lotes(lotes(abertas, 100), 6)) {
     const respostas = await Promise.all(grupo.map(ids => supabase.from("fin_lancamentos").select("id, forma_liquidacao" as never).in("id", ids).neq("forma_liquidacao" as never, "manual" as never)));
     for (const r of respostas) {
@@ -148,5 +149,9 @@ export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<
     contas: new Map(contas.map(c => [c.id, c.nome] as [string, string])),
     contaTipos: new Map(contas.map(c => [c.id, String(c.tipo)] as [string, string])),
   };
-  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos: anexos.contagem, tiposDeAnexo: anexos.tipos });
+  // pagamento automático: a linha do banco ligada a alguma linha da obrigação substitui o comprovante
+  const confirmadas = await confirmacoesBancarias(linhas.map(l => l.id));
+  const confirmacoes = new Map<string, ConfirmacaoBancaria>();
+  for (const l of linhas) { const c = confirmadas.get(l.id); if (c && confirmacoes.get(l.obrigacao_id ?? l.id) !== "ofx") confirmacoes.set(l.obrigacao_id ?? l.id, c); }
+  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos: anexos.contagem, tiposDeAnexo: anexos.tipos, confirmacoes });
 }

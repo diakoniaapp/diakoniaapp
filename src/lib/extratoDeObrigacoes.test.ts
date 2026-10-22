@@ -326,3 +326,28 @@ describe("débito automático no extrato — acompanhado pelo tempo", () => {
     expect(montar([verisure("debito_automatico")], [], "2026-10-20")[0].situacao).toBe("em_aberto");
   });
 });
+
+describe("pagamento automático no extrato: a confirmação do banco substitui o comprovante (22/10/2026)", () => {
+  const nomesEnergia: NomesDoExtrato = { ...nomes, categorias: new Map([["c1", "Energia Elétrica"]]), contas: new Map([["k1", "Bradesco"]]), contaTipos: new Map([["k1", "banco"]]) };
+  const montarAuto = (linhas: LinhaDeObrigacao[], tipos: Record<string, string[]>, confirmacoes: Record<string, "ofx" | "pdf"> = {}) =>
+    montarExtratoDeObrigacoes({
+      linhas: linhas.map(x => ({ conta_id: "k1", ...x })), quitacoes: new Map(), nomes: nomesEnergia, hoje: "2026-10-16",
+      tiposDeAnexo: new Map(Object.entries(tipos)), confirmacoes: new Map(Object.entries(confirmacoes)),
+    });
+
+  it("débito automático pago: Fatura + linha do banco = completa; só a Fatura = parcial; manual com a mesma linha continua parcial", () => {
+    const r = montarAuto([
+      l({ id: "a", status: "conciliado", forma_liquidacao: "debito_automatico" }),
+      l({ id: "b", status: "conciliado", forma_liquidacao: "debito_automatico" }),
+      l({ id: "c", status: "conciliado", forma_liquidacao: "manual" }),
+    ], { a: ["fatura"], b: ["fatura"], c: ["fatura"] }, { a: "ofx", c: "ofx" });
+    expect(Object.fromEntries(r.map(x => [x.obrigacaoId, x.documentacao]))).toEqual({ a: "completa", b: "parcial", c: "parcial" });
+  });
+  it("a confirmação de UMA das parcelas da obrigação vale para a obrigação (a chave é a raiz)", () => {
+    const r = montarAuto([
+      l({ id: "raiz", status: "previsto", forma_liquidacao: "debito_automatico" }),
+      l({ id: "p1", obrigacao_id: "raiz", status: "conciliado", forma_liquidacao: "debito_automatico" }),
+    ], { raiz: ["fatura"] }, { raiz: "pdf" });
+    expect(r.find(x => x.obrigacaoId === "raiz")).toBeDefined();
+  });
+});

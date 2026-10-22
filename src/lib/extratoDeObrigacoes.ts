@@ -183,6 +183,8 @@ export function montarExtratoDeObrigacoes(entrada: {
   anexos?: Map<string, number>;
   /** os TIPOS de anexo de cada obrigação (todas as parcelas, comprovante incluído); sem o mapa, a situação documental fica nula */
   tiposDeAnexo?: Map<string, string[]>;
+  /** por OBRIGAÇÃO: a linha do banco (OFX/PDF) ligada a alguma linha dela — substitui o comprovante nos pagamentos automáticos */
+  confirmacoes?: Map<string, "ofx" | "pdf">;
 }): LinhaDoExtrato[] {
   const { linhas, quitacoes, nomes, hoje } = entrada;
   const saida: LinhaDoExtrato[] = [];
@@ -230,6 +232,7 @@ export function montarExtratoDeObrigacoes(entrada: {
         status: situacao === "quitada_por_terceiro" ? "quitado_terceiro" : situacao === "paga" || (situacao === "reembolso" && !reembolsoAPagar) ? "conciliado" : "previsto",
         tipos: entrada.tiposDeAnexo.get(chave) ?? [], intencao: q?.intencao ?? null, terceiroQuitou: !!q && ehTerceiro(q.responsavel),
         temCategoria: !!raiz.categoria_id, temCentro: !!raiz.centro_custo_id, documentoNumero: raiz.documento_numero,
+        formaLiquidacao: grupo.find(l => l.forma_liquidacao)?.forma_liquidacao ?? raiz.forma_liquidacao ?? null, confirmacaoBancaria: entrada.confirmacoes?.get(chave) ?? null,
       }).situacao,
       grau: q?.grau ?? null,
     });

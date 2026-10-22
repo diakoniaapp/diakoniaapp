@@ -24,7 +24,7 @@ Só análise: **nada foi implementado**. Feita por leitura do código e mediçã
 |---|---|---|---|
 | 1.1 | **Extrato de Obrigações** (`FinancasExtratoObrigacoes.tsx:270`) — botão "← Tesouraria" | `<Link to="/painel-tesouraria">` fixo: vem-se da Mesa, do Fechamento ou da Prontidão e cai na aba **padrão** da Tesouraria, não na de origem. | código |
 | 1.2 | **Sustento** (`financas/Sustento.tsx:86`) — seta "Voltar à Tesouraria" | Mesmo `Link` fixo. | código |
-| 1.3 | **Links entre abas da mesma página** (`/painel-tesouraria#mesa` → `/painel-tesouraria?mes=…#fechamento`, p.ex. a partir da Auditoria de Anexos ou do Fechamento) | `anteriorValida` descarta "anterior com o mesmo caminho" → o botão passa a dizer "Voltar para <pai>" e **vai ao pai/Home**, não à aba de onde se veio. | código (provável causa do seu relato; não reproduzido) |
+| 1.3 | **Links entre abas da mesma página** | `anteriorValida` descarta "anterior com o mesmo caminho" (decisão de 03/10: só mudou a query). **Não confirmei que isso aconteça na prática**: as trocas de aba do Painel da Tesouraria usam `replace` e não geram entrada no histórico. Mantido como está. | revisado |
 | 1.4 | **Painéis em cadeia** — Mesa/Extrato: Detalhe → "Anexar documentos" fecha o Detalhe e abre Anexos; Documentação → Editar fecha a Documentação e abre o formulário | Ao fechar o último, cai na **lista**, não no painel anterior (`extrato/AcoesDeObrigacao.tsx`, `MesaDoTesoureiro.tsx:431-432`). Exceção tratada: Anexos → reabre a Documentação. | código |
 | 1.5 | **Seletor de conta** (`ContaComAbas.tsx:53`, `FinancasConta.tsx:269`) e **DRE ano ±1** (`FinancasDRE.tsx:84/88`) | `navigate` empilha uma entrada a cada clique: "Voltar" percorre contas/anos antigos em vez de sair da tela. | código |
 | 1.6 | Telas de "não encontrado" (`<Link to="/…">Voltar</Link>`, ~14 telas) | Destino fixo, mas é estado de erro — aceitável. | — |
@@ -97,3 +97,15 @@ A **rolagem** é ✘ em todas, sem exceção (causa 2).
 - Reprodução na tela de cada item; os de "código" acima estão marcados.
 - Navegação de **celular** (menu inferior, gesto de voltar): o cabeçalho do celular já usa `voltar` do mesmo contexto, mas não foi testado.
 - Telas fora do escopo pedido (EBD, PGM, Arrecadação, Governança) usam o mesmo `BarraDeContexto`/`<main key>`: valem as mesmas causas-raiz.
+
+
+## 8. Implementação (22/10/2026) — decisões dela aplicadas
+
+- Mesa: ao voltar, devolve visão (`?mesa=fila`), mês e dia (`?cal=…&dia=…`); abrir pelo menu continua no Calendário de hoje.
+- Seletor de conta, abas da conta e DRE ano ±1: `replace` (Voltar sai da tela).
+- Conciliação OFX: guarda o estado por 15 min (arquivo, filtro, página, marcadas, edições) e retoma; "Trocar arquivo" descarta.
+- Rolagem restaurada em todas as telas (`<main>` via AppLayout) e na lista do Extrato.
+- Página nova sobe ao topo: Extrato da conta e Conciliação OFX (Pessoas já fazia).
+- Contexto na URL: Extrato (`?pagina`), Pessoas, Favorecidos, Projetos, Centros, Assuntos, Doações, Doadores, Fechamento (`?mes`), Fila de Pendências, Extrato de Obrigações (`?n`), Recorrências (`?q`).
+- Pilha de painéis: Detalhes → Anexos → fechar volta aos Detalhes (Extrato da conta). Documentação → Anexos → Documentação já existia.
+- Fora: Central de Documentos (o estado dela é um lote de arquivos em memória; voltar sempre o perde).

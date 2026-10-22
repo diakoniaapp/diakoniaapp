@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, RotateCw, Plus, Pencil, Trash2, PowerOff, RotateCcw,
-  TrendingUp, TrendingDown, Loader2, Sparkles,
+  TrendingUp, TrendingDown, Loader2, Sparkles, Search, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,6 +29,9 @@ import { AbasDeCadastros } from "@/components/financas/cadastros/AbasDeCadastros
 export default function FinancasRecorrencias() {
   const [recs, setRecs] = useState<FinRecorrencia[]>([]);
   const [loading, setLoading] = useState(true);
+  // Busca pelo nome (descrição ou favorecido), sem acento nem maiúscula; vai para a URL (`?q=`): abrir uma recorrência e voltar devolve a lista filtrada (22/10/2026)
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ q: "" });
+  const busca = naUrl.q;
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState<FinRecorrencia | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -75,6 +80,13 @@ export default function FinancasRecorrencias() {
     finally { setApagandoBusy(false); }
   }
 
+  const semAcento = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const visiveis = useMemo(() => {
+    const termo = semAcento(busca.trim());
+    if (!termo) return recs;
+    return recs.filter(r => semAcento([r.descricao, r.fornecedor_nome, r.pessoa_nome].filter(Boolean).join(" ")).includes(termo));
+  }, [recs, busca]);
+
   if (loading) return <PaginaSkeleton />;
 
   return (
@@ -98,6 +110,19 @@ export default function FinancasRecorrencias() {
 
       <AbasDeCadastros ativa="recorrencias" />
 
+      {recs.length > 0 && (
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-muted-foreground" aria-hidden />
+          <Input value={busca} onChange={e => mudarNaUrl({ q: e.target.value })} aria-label="Buscar recorrência pelo nome"
+            className="h-9 pl-8 pr-8 text-base md:text-sm" placeholder="Buscar pelo nome ou favorecido..." />
+          {busca && (
+            <button type="button" onClick={() => mudarNaUrl({ q: "" })} aria-label="Limpar a busca" className="absolute right-2 top-2.5 rounded p-0.5 text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {recs.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-sm text-muted-foreground space-y-2">
@@ -110,7 +135,8 @@ export default function FinancasRecorrencias() {
         </Card>
       ) : (
         <div className="space-y-1.5">
-          {recs.map(r => (
+          {visiveis.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma recorrência com “{busca}”. <button type="button" className="underline" onClick={() => mudarNaUrl({ q: "" })}>Limpar a busca</button></p>}
+          {visiveis.map(r => (
             <div key={r.id} className={`flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/30 ${!r.ativo ? "opacity-60 border-dashed" : ""}`}>
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {r.tipo === "entrada"

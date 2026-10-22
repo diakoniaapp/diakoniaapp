@@ -57,6 +57,18 @@ export interface VinculoDoBanco {
   daLinha: boolean;
 }
 
+/** A liquidação que guardou o FITID do banco (um débito que pagou várias faturas) também confirma o pagamento. */
+function confirmacaoDaLiquidacao(ofxFitid: string | null | undefined): "ofx" | "pdf" | null {
+  return ofxFitid ? (String(ofxFitid).startsWith("PDF:") ? "pdf" : "ofx") : null;
+}
+
+/** A confirmação do banco (OFX ou PDF) da linha: o vínculo ATIVO dela. Pura sobre os vínculos já lidos da obrigação. */
+function confirmacaoDaLinha(vinculos: Record<string, unknown>[], lancamentoId: string): "ofx" | "pdf" | null {
+  const meus = vinculos.filter(v => !v.desfeito_em && v.lancamento_id === lancamentoId);
+  if (meus.length === 0) return null;
+  return meus.some(v => v.origem !== "pdf" && !String(v.fitid ?? "").startsWith("PDF:")) ? "ofx" : "pdf";
+}
+
 export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promise<DetalhesDaDespesa> {
   const conta = await supabase.from("fin_contas").select("nome, tipo").eq("id", l.conta_id).maybeSingle();
   const contaTipo = String(conta.data?.tipo ?? "banco");
@@ -100,6 +112,10 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     tipos: anexos.filter(a => a.tipo !== "comprovante" || a.lancamento_id === l.id).map(a => a.tipo),
     intencao: quitacao?.intencao ?? null, terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: l.documento_numero ?? null,
+    // pagamento automático: a linha do banco (OFX/PDF) ligada a ESTA linha substitui o comprovante
+    formaLiquidacao: l.forma_liquidacao ?? null,
+    confirmacaoBancaria: confirmacaoDaLinha(((vincRes.data ?? []) as unknown as Record<string, unknown>[]), l.id)
+      ?? confirmacaoDaLiquidacao((liq.data as unknown as { ofx_fitid?: string | null } | null)?.ofx_fitid),
   });
   const ciclo = cicloDaDespesa({
     tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, origem: l.origem, contaTipo,

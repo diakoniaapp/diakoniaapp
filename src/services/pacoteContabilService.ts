@@ -20,6 +20,7 @@
 // `lib/documentos/dossiePdf.ts` e as regras de ordem/nome, `dossie.ts`.
 
 import { supabase } from "@/integrations/supabase/client";
+import { confirmacoesBancarias } from "@/services/confirmacaoBancariaService";
 import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { toYmd } from "@/lib/data";
 import {
@@ -210,14 +211,15 @@ export async function auditarPeriodo(ini: string, fim: string): Promise<LinhaAud
 
 /** A regra única aplicada a saídas JÁ lidas (com seus anexos): lê só o que falta — o tipo das contas e as Quitações por terceiros. */
 async function auditarSaidas(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[], avisos: ReadonlySet<string>): Promise<LinhaAuditoria[]> {
-  const [contas, quitacoes] = await Promise.all([
+  const [contas, quitacoes, confirmacao] = await Promise.all([
     supabase.from("fin_contas").select("id, tipo"),
     quitacoesDasObrigacoes([...new Set(saidas.map(l => l.obrigacao_id ?? l.id))]),
+    confirmacoesBancarias(saidas.map(l => l.id)),   // pagamento automático: a linha do banco ligada substitui o comprovante
   ]);
   const contexto: ContextoDocumental = {
     contaTipo: new Map((contas.data ?? []).map(c => [String(c.id), String(c.tipo)])),
     quitacao: new Map([...quitacoes].map(([id, q]) => [id, { intencao: q.intencao, terceiroQuitou: ehTerceiro(q.responsavel) }])),
-    avisos,
+    avisos, confirmacao,
   };
   // a declaração e as provas da quitação ficam na obrigação-raiz: a linha que foi PAGA (uma irmã) as herda, como herda o documento original
   const extras = await anexosDaQuitacaoDasIrmas(saidas, quitacoes);

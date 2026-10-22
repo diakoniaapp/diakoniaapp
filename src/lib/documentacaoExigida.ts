@@ -16,6 +16,8 @@
 //   · Compra OFERTADA por terceiro ......... Nota Fiscal + Declaração do Terceiro            (a igreja não pagou: nada de comprovante)
 //   · REEMBOLSO ............................ Nota Fiscal + Declaração do Terceiro + Comprovante do PIX da igreja
 //   · Tarifas, IOF, juros, encargos bancários  dispensam
+//   · PAGAMENTO AUTOMÁTICO (débito automático, Pix recorrente, transferência programada): o documento de origem (a fatura) + a CONFIRMAÇÃO BANCÁRIA — a linha do extrato OFX ou do PDF do banco ligada
+//     ao lançamento — no lugar do comprovante. Não existe comprovante de um débito que o banco fez sozinho; exigi-lo obrigava a tesouraria a anexar um papel artificial (decisão dela, 22/10/2026).
 //
 // O COMPROVANTE de pagamento só se exige onde o banco o emite: conta do tipo `banco`. Caixinha trabalha com espécie (o cupom/NF é a prova), o Cartão já é a própria prova do pagamento
 // e a Caixa de Envelopes tem dinâmica própria — decisão dela. Enquanto a obrigação não foi paga, ainda não há comprovante a exigir (só o reembolso, que a decisão dela lista inteiro).
@@ -24,6 +26,8 @@
 //
 // Duas leituras minhas, a confirmar: (1) Fatura e Nota Fiscal se aceitam uma à outra nas contas de consumo (a fatura de telefonia costuma ser "Nota Fiscal Fatura"); (2) "Apólice" não é um tipo de
 // anexo — o contrato guarda a apólice.
+
+import { ehAutomatica } from "@/lib/formaLiquidacao";
 
 export type SituacaoDocumental = "completa" | "parcial" | "sem" | "dispensa";
 /** 🔴 crítica = nenhum documento · 🟠 parcial = falta algum · 🔵 administrativa = documentação completa, falta algo operacional */
@@ -56,6 +60,10 @@ export interface EntradaDocumental {
   temCategoria: boolean;
   temCentro: boolean;
   documentoNumero?: string | null;
+  /** como a obrigação é liquidada (`manual`, `debito_automatico`, `pix_recorrente`, `transferencia_programada`…); ausente = manual */
+  formaLiquidacao?: string | null;
+  /** a linha do banco (OFX ou PDF) que confirma o pagamento, se há um vínculo ativo com ela */
+  confirmacaoBancaria?: "ofx" | "pdf" | null;
 }
 
 export interface DocumentacaoDaSaida {
@@ -112,6 +120,7 @@ export function origemExigida(categoriaNome: string | null | undefined): Origem 
 const DECLARACAO: Origem = { rotulo: "Declaração do Terceiro", aceita: ["declaracao_terceiro", "pedido_reembolso"] };
 const NOTA_FISCAL: Origem = { rotulo: "Nota Fiscal", aceita: ["nota_fiscal", "fatura"] };
 const COMPROVANTE = "Comprovante de pagamento";
+const CONFIRMACAO_BANCARIA = "Confirmação bancária (OFX ou PDF)";
 const COMPROVANTE_PIX = "Comprovante do PIX da igreja";
 
 const PAGAS = new Set(["realizado", "conciliado"]);
@@ -139,11 +148,17 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
     exigidas = [];
   } else {
     exigidas = [exige(origemExigida(e.categoriaNome))];
-    if (paga && e.contaTipo === "banco") exigidas.push(comprovante(COMPROVANTE));
+    if (paga && e.contaTipo === "banco") {
+      // pagamento automático: a confirmação do banco (OFX/PDF) é a prova — conta como "comprovante" para o Ciclo e a Prontidão (`aceita: ["comprovante"]`), e um comprovante anexado à mão também vale
+      exigidas.push(ehAutomatica(e.formaLiquidacao)
+        ? { rotulo: CONFIRMACAO_BANCARIA, aceita: ["comprovante"], atendida: !!e.confirmacaoBancaria || tem(["comprovante"]) || !!e.temComprovanteAntigo }
+        : comprovante(COMPROVANTE));
+    }
   }
 
   const faltamEx = exigidas.filter(x => !x.atendida);
-  const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo;
+  // a confirmação do banco de um pagamento automático também é "alguma" prova: sem a fatura a despesa é parcial, não "sem documentos"
+  const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo || (modelo === "padrao" && paga && ehAutomatica(e.formaLiquidacao) && !!e.confirmacaoBancaria);
   const situacao: SituacaoDocumental = exigidas.length === 0 ? (temAlgum ? "completa" : "dispensa") : faltamEx.length === 0 ? "completa" : !temAlgum ? "sem" : "parcial";
 
   const administrativas: string[] = [];

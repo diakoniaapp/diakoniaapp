@@ -165,3 +165,62 @@ describe("resumirProntidao", () => {
     expect(resumirProntidao([])).toMatchObject({ total: 0, percentual: 0, prontas: 0 });
   });
 });
+
+describe("pagamento automático: a confirmação do banco substitui o comprovante (22/10/2026)", () => {
+  const energia = (o: Partial<EntradaDocumental>) => base({ categoriaNome: "Energia Elétrica", documentoNumero: "1", ...o });
+
+  it("Energia em débito automático: Fatura + confirmação no OFX = documentação completa, sem comprovante", () => {
+    const d = documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura"], confirmacaoBancaria: "ofx" }));
+    expect(d.situacao).toBe("completa");
+    expect(d.faltam).toEqual([]);
+    expect(d.exigidas.map(x => x.rotulo)).toEqual(["Fatura", "Confirmação bancária (OFX ou PDF)"]);
+    expect(d.comprovanteOk).toBe(true);
+    expect(d.gravidade).toBeNull();
+  });
+  it("a confirmação no PDF do banco vale igual à do OFX", () => {
+    expect(documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura"], confirmacaoBancaria: "pdf" })).situacao).toBe("completa");
+  });
+  it.each(["debito_automatico", "pix_recorrente", "transferencia_programada"])("%s vale como pagamento automático", forma => {
+    const d = documentacaoDaSaida(energia({ formaLiquidacao: forma, categoriaNome: "Internet e Telefonia", tipos: ["fatura"], confirmacaoBancaria: "ofx" }));
+    expect(d.situacao).toBe("completa");
+  });
+  it("sem a confirmação do banco, falta ELA (e não o comprovante): a fatura sozinha é parcial", () => {
+    const d = documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura"] }));
+    expect(d.situacao).toBe("parcial");
+    expect(d.faltam).toEqual(["Confirmação bancária (OFX ou PDF)"]);
+    expect(textoDoQueFalta(d)).toBe("Falta Confirmação bancária (OFX ou PDF)");
+    expect(d.comprovanteOk).toBe(false);
+  });
+  it("sem a fatura, a confirmação do banco sozinha não basta: o documento de origem continua obrigatório", () => {
+    const d = documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: [], confirmacaoBancaria: "ofx" }));
+    expect(d.situacao).toBe("parcial");
+    expect(d.faltam).toEqual(["Fatura"]);
+    expect(d.documentosOk).toBe(false);
+  });
+  it("um comprovante anexado à mão também vale para o pagamento automático (nada é tirado de quem já anexou)", () => {
+    expect(documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura", "comprovante"] })).situacao).toBe("completa");
+  });
+  it("pagamento MANUAL segue exigindo o comprovante, mesmo com linha do banco ligada", () => {
+    const d = documentacaoDaSaida(energia({ formaLiquidacao: "manual", tipos: ["fatura"], confirmacaoBancaria: "ofx" }));
+    expect(d.situacao).toBe("parcial");
+    expect(d.faltam).toEqual(["Comprovante de pagamento"]);
+    expect(documentacaoDaSaida(energia({ tipos: ["fatura"], confirmacaoBancaria: "ofx" })).faltam).toEqual(["Comprovante de pagamento"]);
+  });
+  it("ainda não paga (previsto): não há o que confirmar — só a fatura é exigida", () => {
+    const d = documentacaoDaSaida(energia({ status: "previsto", formaLiquidacao: "debito_automatico", tipos: ["fatura"] }));
+    expect(d.situacao).toBe("completa");
+    expect(d.exigidas.map(x => x.rotulo)).toEqual(["Fatura"]);
+  });
+  it("conta que não é de banco (caixinha, cartão) não exige comprovante nem confirmação, como antes", () => {
+    expect(documentacaoDaSaida(energia({ contaTipo: "caixa", formaLiquidacao: "debito_automatico", tipos: ["fatura"] })).situacao).toBe("completa");
+  });
+  it("categoria que dispensa documento continua dispensando", () => {
+    expect(documentacaoDaSaida(base({ categoriaNome: "Tarifas Bancárias", formaLiquidacao: "debito_automatico" })).situacao).toBe("dispensa");
+  });
+  it("na Prontidão, o rótulo novo conta como exigência própria (existentes × necessários)", () => {
+    const a = documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura"], confirmacaoBancaria: "ofx" }));
+    const b = documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura"] }));
+    const r = resumirProntidao([a, b]);
+    expect(r.porDocumento.find(x => x.rotulo === "Confirmação bancária (OFX ou PDF)")).toEqual({ rotulo: "Confirmação bancária (OFX ou PDF)", necessarios: 2, existentes: 1 });
+  });
+});

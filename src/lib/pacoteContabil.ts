@@ -357,6 +357,8 @@ export interface ContextoDocumental {
   quitacao?: ReadonlyMap<string, { intencao: string; terceiroQuitou: boolean }>;
   /** ids dos avisos de reembolso (aprovados, ainda não pagos) */
   avisos?: ReadonlySet<string>;
+  /** por id do LANÇAMENTO: a linha do banco (OFX/PDF) ligada a ele — a confirmação que substitui o comprovante nos pagamentos automáticos */
+  confirmacao?: ReadonlyMap<string, "ofx" | "pdf">;
 }
 
 export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[], contexto: ContextoDocumental = {}): LinhaAuditoria[] {
@@ -374,6 +376,7 @@ export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacot
       categoriaNome: l.categoria_nome, status: String(l.status), contaTipo: contexto.contaTipo?.get(l.conta_id) ?? null, tipos,
       intencao: q?.intencao ?? null, terceiroQuitou: q?.terceiroQuitou ?? false,
       temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: (l as { documento_numero?: string | null }).documento_numero ?? null,
+      formaLiquidacao: l.forma_liquidacao ?? null, confirmacaoBancaria: contexto.confirmacao?.get(l.id) ?? null,
     };
     const documentacao = documentacaoDaSaida(entrada);
     return { lancamento: l, tipos, qtd: lista.length, situacao: documentacao.situacao, documentacao, ...(contexto.avisos?.has(l.id) ? { aviso: true } : {}) };
