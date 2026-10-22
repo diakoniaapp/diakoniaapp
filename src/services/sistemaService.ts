@@ -131,3 +131,68 @@ export async function enviarTesteDoResumo(perfil: Perfil, blocos: BlocoConfigura
   const r = await chamarPrevia("teste", perfil, blocos);
   return { enviadoPara: r.enviadoPara ?? "" };
 }
+
+// ─── Resumo DIÁRIO da Tesouraria (22/10/2026) — interruptor, dias, horário, janela e destinatários próprios; independe do semanal ──────────────────
+// Banco: migration 20261022210000. Visualizar e testar chamam `resumo-diario-previa` (outra função, com login — a que dispara o envio é `resumo-diario`, chamada só pelo agendamento).
+export interface ResumoDiarioConfig {
+  ativo: boolean;
+  /** 0 = domingo … 6 = sábado */
+  dias_semana: number[];
+  hora: number; minuto: number;
+  /** quantos dias à frente de hoje também entram (0 = só o que vence hoje e o atrasado) */
+  janela_dias: number;
+  enviar_sem_pagamentos: boolean;
+}
+export interface ResumoDiarioDestinatario { nome: string; email: string; membro_id?: string | null }
+export interface ResumoDiarioStatus {
+  config: ResumoDiarioConfig;
+  destinatarios: ResumoDiarioDestinatario[];
+  execucoes: ResumoSemanalExecucao[];
+  agendamento_existe: boolean;
+  agendamento_ativo: boolean;
+  ultimo_envio: { em?: string | null; itens?: number };
+}
+export interface PreviaDoDiario {
+  assunto: string; html: string; hoje: string;
+  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number };
+  total: { quantidade: number; valor: number; atrasados: { quantidade: number; valor: number }; hoje: { quantidade: number; valor: number } };
+}
+
+export async function carregarStatusResumoDiario(): Promise<ResumoDiarioStatus> {
+  const { data, error } = await supabase.rpc("sistema_resumo_diario_status" as never);
+  if (error) {
+    if (/does not exist|PGRST202|42883/.test(`${error.message} ${(error as { code?: string }).code ?? ""}`)) throw new Error("O resumo diário ainda não foi criado no banco — aplique a migration 20261022210000.");
+    throw error;
+  }
+  return data as unknown as ResumoDiarioStatus;
+}
+
+export async function salvarResumoDiario(config: ResumoDiarioConfig, destinatarios: ResumoDiarioDestinatario[]): Promise<void> {
+  const { error } = await supabase.rpc("sistema_resumo_diario_salvar" as never, { p_config: config, p_destinatarios: destinatarios } as never);
+  if (error) throw error;
+}
+
+async function chamarPreviaDoDiario(acao: "previa" | "teste") {
+  const { data, error } = await supabase.functions.invoke("resumo-diario-previa", { body: { acao } });
+  if (error) {
+    let msg = error.message;
+    try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }
+    if (/Failed to send a request|Function not found|NOT_FOUND|404/i.test(msg)) {
+      msg = "A função do e-mail diário ainda não foi implantada no Supabase (resumo-diario-previa) — veja docs/RESUMO_DIARIO_IMPLANTACAO.md.";
+    }
+    throw new Error(msg);
+  }
+  return data as Record<string, any>;
+}
+
+/** O e-mail diário como sairia AGORA (dados de hoje). Nada é enviado nem registrado. */
+export async function previaDoResumoDiario(): Promise<PreviaDoDiario> {
+  const r = await chamarPreviaDoDiario("previa");
+  return { assunto: r.assunto ?? "", html: r.html ?? "", hoje: r.hoje ?? "", contagem: r.contagem, total: r.total };
+}
+
+/** Manda o e-mail diário de agora, marcado como teste, SÓ para o e-mail cadastrado de quem está logado. */
+export async function enviarTesteDoResumoDiario(): Promise<{ enviadoPara: string; itens: number }> {
+  const r = await chamarPreviaDoDiario("teste");
+  return { enviadoPara: r.enviadoPara ?? "", itens: r.itens ?? 0 };
+}

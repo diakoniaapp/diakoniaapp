@@ -28,6 +28,7 @@ import {
   Mail, Loader2, Save, Send, CheckCircle2, XCircle, Users, History, Info,
 } from "lucide-react";
 import { ConteudoDoResumoSemanal } from "@/components/sistema/ConteudoDoResumoSemanal";
+import { ResumoDiarioDaTesouraria } from "@/components/sistema/ResumoDiarioDaTesouraria";
 import {
   carregarStatusResumoSemanal, definirHorarioResumoSemanal, pausarResumoSemanal,
   dispararResumoSemanalAgora,
@@ -126,8 +127,8 @@ export default function ResumoSemanalAdmin() {
   return (
     <div>
       <PageHeader
-        title="Resumo Semanal por E-mail"
-        description="Quando dispara, quem recebe, o que cada perfil recebe e em que ordem — e o histórico dos últimos envios"
+        title="Resumos por E-mail"
+        description="Resumo semanal (por perfil) e resumo diário da Tesouraria — cada um com o seu interruptor, horário, destinatários e conteúdo"
       />
 
       <div className="p-4 md:p-8 space-y-6 max-w-3xl">
@@ -136,7 +137,7 @@ export default function ResumoSemanalAdmin() {
         <Card className="shadow-card-soft">
           <CardHeader className="pb-3">
             <CardTitle className="font-serif flex items-center gap-2 text-lg">
-              <Mail className="w-4 h-4 text-gold" /> Agendamento
+              <Mail className="w-4 h-4 text-gold" /> Agendamento do resumo semanal
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -182,6 +183,9 @@ export default function ResumoSemanalAdmin() {
 
         {/* ── Quem recebe e o que recebe (por perfil) ── */}
         <ConteudoDoResumoSemanal />
+
+        {/* ── O resumo DIÁRIO da Tesouraria (interruptor próprio, independente do semanal) ── */}
+        <ResumoDiarioDaTesouraria />
 
         {/* ── Últimas execuções ── */}
         <Card className="shadow-card-soft">
