@@ -15,6 +15,16 @@ import { desvincularDoExtrato, vinculosAtivosDoLancamento } from "@/services/imp
 
 export const MOTIVO_MINIMO_DO_VINCULO = 5;
 
+/**
+ * As observações SEM as marcas [ofx:FITID] dos vínculos que acabaram de ser desfeitos. O banco já tirou a marca ao desvincular; o formulário aberto ainda guarda o texto de antes e, ao salvar,
+ * a escreveria de volta — e o gatilho do banco (fin_lanc_vinculos_atualizar) recriaria o vínculo a partir dela (caso N10DA5, 22/10/2026: "desvinculei e não libertou").
+ */
+export function tirarMarcasDoExtrato(observacoes: string, fitids: string[]): string {
+  let obs = observacoes;
+  for (const f of fitids) obs = obs.split(`[ofx:${f}]`).join("");
+  return obs.replace(/[ \t]{2,}/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+}
+
 /** As linhas do extrato (FITID) a que o lançamento está ligado AGORA. Sem lançamento (ou sem a tabela, antes da migration D4) = nenhuma. */
 export function useVinculosDoLancamento(lancamentoId: string | null | undefined) {
   const [fitids, setFitids] = useState<string[]>([]);

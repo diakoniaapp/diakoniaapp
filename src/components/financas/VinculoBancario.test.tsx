@@ -9,7 +9,7 @@ vi.mock("@/services/importacaoOfxService", () => ({
   desvincularDoExtrato: async (id: string, motivo: string) => { if (falhar) throw new Error(falhar); chamadas.push({ id, motivo }); return 1; },
 }));
 
-import { FaixaDoVinculoBancario, useVinculosDoLancamento } from "./VinculoBancario";
+import { FaixaDoVinculoBancario, tirarMarcasDoExtrato, useVinculosDoLancamento } from "./VinculoBancario";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let raiz: Root | null = null;
@@ -77,5 +77,18 @@ describe("useVinculosDoLancamento", () => {
     expect(alvo.textContent).toBe("N10DBB");
     await act(async () => { raiz!.render(<Teste id={null} />); });
     expect(alvo.textContent).toBe("nenhum");
+  });
+});
+
+describe("tirarMarcasDoExtrato", () => {
+  it("tira só a marca desvinculada e preserva o resto das observações", () => {
+    expect(tirarMarcasDoExtrato("[ofx:N10DA5] [lote-ofx:mvh9je6n]", ["N10DA5"])).toBe("[lote-ofx:mvh9je6n]");
+    expect(tirarMarcasDoExtrato("fatura de outubro\n[ofx:N10DA5]", ["N10DA5"])).toBe("fatura de outubro");
+  });
+  it("não mexe nas marcas de outras linhas do banco", () => {
+    expect(tirarMarcasDoExtrato("[ofx:A1] [ofx:B2]", ["A1"])).toBe("[ofx:B2]");
+  });
+  it("sem vínculo desfeito devolve o texto como está", () => {
+    expect(tirarMarcasDoExtrato("[ofx:A1] obs", [])).toBe("[ofx:A1] obs");
   });
 });

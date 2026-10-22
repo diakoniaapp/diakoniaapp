@@ -45,7 +45,7 @@ import {
 import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
 import { CampoData } from "@/components/CampoData";
-import { FaixaDoVinculoBancario, useVinculosDoLancamento } from "@/components/financas/VinculoBancario";
+import { FaixaDoVinculoBancario, tirarMarcasDoExtrato, useVinculosDoLancamento } from "@/components/financas/VinculoBancario";
 import { Textarea } from "@/components/ui/textarea";
 import { AVISO_DE_INVALIDACAO, MOTIVO_MINIMO_DA_EDICAO, patchDeclarado, type ImpactoDaEdicao } from "@/lib/edicaoDeLancamento";
 import { impactoDaEdicao } from "@/services/edicaoLancamentoService";
@@ -785,7 +785,7 @@ export function LancamentoForm({
         </DialogHeader>
 
         {isEdit && lancamento && (
-          <FaixaDoVinculoBancario lancamentoId={lancamento.id} fitids={vinculo.fitids} onDesvinculado={() => { void vinculo.recarregar(); }} />
+          <FaixaDoVinculoBancario lancamentoId={lancamento.id} fitids={vinculo.fitids} onDesvinculado={() => { setObservacoes(o => tirarMarcasDoExtrato(o, vinculo.fitids)); void vinculo.recarregar(); }} />
         )}
 
         {!isEdit && (
