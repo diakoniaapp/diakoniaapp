@@ -15,6 +15,8 @@ import { conferir } from "@/lib/escritaConferida";
 import { idDaAreaDeAcolhimento } from "@/services/bancadaAcolhimentoService";
 import { alternarTarefaAcolhimento } from "@/services/visitanteService";
 import { hojeLocal, daquiADias } from "@/lib/data";
+import { useMensagensVisitante } from "@/hooks/useMensagensVisitante";
+import { situacaoPelaEtapa, textoDoVisitante } from "@/lib/mensagemDoVisitante";
 
 interface Tarefa {
   id: string;
@@ -104,11 +106,15 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
     load();
   };
 
+  // SÍNCRONA de propósito: `window.open` depois de um `await` perde o gesto do clique e o navegador pode barrar a janela. A configuração já está carregada pelo hook.
+  const pacoteDeMensagens = useMensagensVisitante();
   const enviarWhatsApp = () => {
     const nv     = (pessoa as any).numero_visitas ?? 1;
     const criado = (pessoa as any).created_at ?? new Date().toISOString();
     const etapa  = calcularEtapa(nv, criado);
-    const msg    = getMensagem(etapa, pessoa.nome_completo);
+    // a mensagem vem da configuração (Mensagens ao Visitante) quando há uma ligada para a situação; senão, o texto antigo por etapa
+    const msg    = textoDoVisitante(pacoteDeMensagens, situacaoPelaEtapa(etapa, (pessoa as any).data_nascimento ?? null, hojeLocal()), { nome: pessoa.nome_completo })
+                   ?? getMensagem(etapa, pessoa.nome_completo);
     const link   = buildWhatsAppLink(telefone || null, msg);
     if (!link) { toast.error("Telefone não cadastrado para este visitante"); return; }
     window.open(link, "_blank", "noopener,noreferrer");

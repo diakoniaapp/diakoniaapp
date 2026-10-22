@@ -463,6 +463,7 @@ export const pageTitles: Record<string, string> = {
   "/admin/lgpd":              "LGPD",
   "/admin/identidade":        "Identidade",
   "/admin/boas-vindas-visitante": "Boas-vindas ao Visitante",
+  "/admin/mensagens-visitante": "Mensagens ao Visitante",
   "/admin/documentos":        "Documentos",
   "/admin/importacao":        "Importação",
   "/admin/exportacao":        "Exportação",

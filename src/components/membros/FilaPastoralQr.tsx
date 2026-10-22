@@ -12,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { conferir } from "@/lib/escritaConferida";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { preferenciaDeContato, rotulosDaOracao } from "@/lib/autocadastroVisitante";
+import { hojeLocal } from "@/lib/data";
+import { useMensagensVisitante } from "@/hooks/useMensagensVisitante";
+import { diasEntre, situacaoPelosFatos, textoDoVisitante } from "@/lib/mensagemDoVisitante";
 
 interface Item {
   checkin_id: string; membro_id: string; nome_completo: string; whatsapp: string | null; numero_visitas: number | null;
@@ -31,6 +34,8 @@ export function FilaPastoralQr({ onAbrirVisitante }: { onAbrirVisitante?: (membr
   const [itens, setItens] = useState<Item[] | null>(null);
   const [disponivel, setDisponivel] = useState(true);
   const [tratando, setTratando] = useState<string | null>(null);
+  const pacote = useMensagensVisitante();
+  const hoje = hojeLocal();
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase.from("vw_visitantes_aguardando_contato" as never).select("*");
@@ -73,7 +78,11 @@ export function FilaPastoralQr({ onAbrirVisitante }: { onAbrirVisitante?: (membr
         {itens.map(i => {
           const r = ROTULO[i.prioridade] ?? ROTULO[3];
           const oracao = rotulosDaOracao(i);
-          const link = i.whatsapp ? montarLinkWhatsApp({ telefone: i.whatsapp, texto: `Olá, ${i.nome_completo.split(" ")[0]}! Foi uma alegria receber você na Quarta Igreja Batista do Rio de Janeiro.` }) : null;
+          // o texto vem da configuração (Mensagens ao Visitante) para a situação do visitante; sem ela (migration não aplicada, modelo desligado), o texto simples de antes
+          const situacao = situacaoPelosFatos({ numeroDeVisitas: i.numero_visitas ?? 1, diasDesdeAUltimaVisita: diasEntre(i.data_visita.slice(0, 10), hoje), hoje }, pacote?.config.dias_sem_retorno ?? 15);
+          const texto = textoDoVisitante(pacote, situacao, { nome: i.nome_completo, culto: i.culto })
+            ?? `Olá, ${i.nome_completo.split(" ")[0]}! Foi uma alegria receber você na Quarta Igreja Batista do Rio de Janeiro.`;
+          const link = i.whatsapp ? montarLinkWhatsApp({ telefone: i.whatsapp, texto }) : null;
           return (
             <li key={i.checkin_id} className="py-2 space-y-1">
               <div className="flex items-center gap-2 min-w-0">

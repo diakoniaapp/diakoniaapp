@@ -30,6 +30,10 @@ import { avaliarEvolucao } from "@/lib/evolucaoFluxo";
 import { logHistorico } from "@/lib/historicoFluxo";
 import type { Membro } from "@/pages/Membros";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { hojeLocal } from "@/lib/data";
+import { useMensagensVisitante } from "@/hooks/useMensagensVisitante";
+import { situacaoPelaEtapa, textoDoVisitante } from "@/lib/mensagemDoVisitante";
+import { ROTULO_DA_SITUACAO, SITUACOES, type SituacaoDaMensagem } from "@/lib/mensagensVisitante";
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -44,6 +48,8 @@ interface RawMembro extends Membro {
 interface VisitanteFluxoExt extends VisitanteFluxo {
   ultimo_contato_tipo:        string | null;
   ultimo_contato_observacao:  string | null;
+  /** para a mensagem escolher a faixa (infantil, jovem) */
+  data_nascimento:            string | null;
 }
 
 // ── Constantes ───────────────────────────────────────────────────────────────
@@ -106,6 +112,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
           ultimo_contato_em:          m.ultimo_contato_em ?? null,
           ultimo_contato_tipo:        m.ultimo_contato_tipo ?? null,
           ultimo_contato_observacao:  m.ultimo_contato_observacao ?? null,
+          data_nascimento:            m.data_nascimento ?? null,
           created_at:                 m.created_at,
           dias_desde_cadastro:        dias,
           etapa_fluxo:                calcularEtapa(nv, m.created_at),
@@ -139,14 +146,22 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
 
   // ── Helpers de edição ─────────────────────────────────────────────────────
 
+  // A mensagem de partida vem da CONFIGURAÇÃO (Mensagens ao Visitante): a situação é a do visitante (voltou, sumiu, faixa de idade) ou a que quem envia escolheu; sem configuração ligada para ela,
+  // cai no texto antigo por etapa. A pessoa ainda edita o texto antes de enviar.
+  const pacoteDeMensagens = useMensagensVisitante();
+  const [situacaoEscolhida, setSituacaoEscolhida] = useState<Record<string, SituacaoDaMensagem>>({});
+  const situacaoDe = (v: VisitanteFluxoExt): SituacaoDaMensagem => situacaoEscolhida[v.id] ?? situacaoPelaEtapa(v.etapa_fluxo, v.data_nascimento, hojeLocal());
+  const textoPadrao = (v: VisitanteFluxoExt): string =>
+    textoDoVisitante(pacoteDeMensagens, situacaoDe(v), { nome: v.nome_completo }) ?? getMensagem(v.etapa_fluxo, v.nome_completo);
+
   const getMsgFinal = (v: VisitanteFluxoExt) =>
-    mensagensEditadas[v.id] ?? getMensagem(v.etapa_fluxo, v.nome_completo);
+    mensagensEditadas[v.id] ?? textoPadrao(v);
 
   const abrirEdicao = (v: VisitanteFluxoExt) => {
     if (!mensagensEditadas[v.id]) {
       setMensagensEditadas((prev) => ({
         ...prev,
-        [v.id]: getMensagem(v.etapa_fluxo, v.nome_completo),
+        [v.id]: textoPadrao(v),
       }));
     }
     setEditandoId(v.id);
@@ -155,8 +170,20 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
   const restaurarMensagem = (v: VisitanteFluxoExt) => {
     setMensagensEditadas((prev) => ({
       ...prev,
-      [v.id]: getMensagem(v.etapa_fluxo, v.nome_completo),
+      [v.id]: textoPadrao(v),
     }));
+  };
+
+  // trocar a situação de quem ainda não editou à mão muda o texto na hora; quem já editou refaz com "Restaurar"
+  const escolherSituacao = (v: VisitanteFluxoExt, s: SituacaoDaMensagem) => {
+    setSituacaoEscolhida((prev) => ({ ...prev, [v.id]: s }));
+    setMensagensEditadas((prev) => {
+      if (prev[v.id] === undefined || prev[v.id] === textoPadrao(v)) {
+        const { [v.id]: _descartado, ...resto } = prev;
+        return resto;
+      }
+      return prev;
+    });
   };
 
   // ── Ações ─────────────────────────────────────────────────────────────────
@@ -257,7 +284,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
             const link      = buildWhatsAppLink(v.telefone, msgFinal);
             const editando  = editandoId === v.id;
             const editada   = !!mensagensEditadas[v.id] &&
-                              mensagensEditadas[v.id] !== getMensagem(v.etapa_fluxo, v.nome_completo);
+                              mensagensEditadas[v.id] !== textoPadrao(v);
             const evolucao  = avaliarEvolucao({
               tipo_pessoa:         "visitante",
               numero_visitas:      v.numero_visitas,
@@ -328,6 +355,19 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                               <Restore className="w-3 h-3" /> Restaurar
                             </Button>
                           </div>
+                          {pacoteDeMensagens && (
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                              Mensagem para
+                              <select
+                                aria-label="Tipo de mensagem"
+                                className="h-9 flex-1 rounded-md border border-input bg-background px-2 text-xs text-foreground"
+                                value={situacaoDe(v)}
+                                onChange={(e) => escolherSituacao(v, e.target.value as SituacaoDaMensagem)}
+                              >
+                                {SITUACOES.map((s) => <option key={s} value={s}>{ROTULO_DA_SITUACAO[s]}</option>)}
+                              </select>
+                            </label>
+                          )}
                           <Textarea
                             className="text-base md:text-xs resize-none min-h-[120px] leading-relaxed"
                             value={mensagensEditadas[v.id] ?? ""}
