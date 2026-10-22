@@ -21,6 +21,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
 import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
+import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const CORS = {
@@ -44,6 +45,7 @@ Deno.serve(async (req) => {
   if (error) return resposta({ erro: error.message }, 500);   // sem a migration: erro claro, nunca um e-mail
   const dados = data as DadosDoDiario;
   dados.contas_extrato = await lerExtratoDasContas(supabase);   // sem a migration 20261022220000 vem vazio: o e-mail sai sem o bloco de saldo
+  dados.reembolsos_a_pagar = await lerReembolsosAPagar(supabase);   // sem a migration 20261022230000 vem vazio: o e-mail sai sem a seção de reembolsos
 
   const preparo = prepararDiario(dados);
   const motivo = motivoDeNaoEnviar(dados, preparo);
@@ -66,14 +68,17 @@ Deno.serve(async (req) => {
   if (enviados === 0) return resposta({ erro: "Falha ao enviar pelo Resend", detalhe: envios.filter(e => !e.ok) }, 502);
 
   // o registro do que foi listado (é o que evita o pagamento em duplicidade no e-mail seguinte). Uma falha aqui não desfaz o envio — só é avisada.
+  // os reembolsos entram no mesmo registro (a obrigação-raiz é a chave): quem pagou ontem pode ainda não ter dado baixa
   let registrados = 0;
-  if (preparo.email.listados.length > 0) {
-    const { error: eReg } = await supabase.from("resumo_diario_enviados").insert(
-      preparo.email.listados.map(i => ({ lancamento_id: i.id, valor: i.valor, vencimento: i.vencimento, destinatarios: enviados })),
-    );
-    if (!eReg) registrados = preparo.email.listados.length;
+  const registro = [
+    ...preparo.email.listados.map(i => ({ lancamento_id: i.id, valor: i.valor, vencimento: i.vencimento, destinatarios: enviados })),
+    ...preparo.email.reembolsosListados.filter(r => r.obrigacao_id).map(r => ({ lancamento_id: r.obrigacao_id as string, valor: r.valor, vencimento: r.data_despesa ?? null, destinatarios: enviados })),
+  ];
+  if (registro.length > 0) {
+    const { error: eReg } = await supabase.from("resumo_diario_enviados").insert(registro);
+    if (!eReg) registrados = registro.length;
   }
 
   // Resposta enxuta: esta função é alcançável sem login. Contagens, nunca destinatário nem conteúdo.
-  return resposta({ ok: true, enviados, falharam, itens: preparo.email.listados.length, registrados });
+  return resposta({ ok: true, enviados, falharam, itens: preparo.email.listados.length, reembolsos: preparo.email.reembolsosListados.length, registrados });
 });

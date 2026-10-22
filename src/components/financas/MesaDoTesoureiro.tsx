@@ -31,6 +31,7 @@ import { FilaDoDia } from "@/components/financas/mesa/FilaDoDia";
 import { SaneamentoDeCadastros } from "@/components/financas/SaneamentoDeCadastros";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { ROTULO_FILA, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
+import { contaPrevista, quemRecebe } from "@/lib/reembolsoApresentacao";
 import { quitacaoDisponivel, quitacoesDasObrigacoes, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { toast } from "sonner";
 import { mensagemErro } from "@/lib/erroRede";
@@ -111,16 +112,19 @@ export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarR
       {chip && <span className="shrink-0 sm:w-[8.5rem]">{chip}</span>}
       <span className={`w-14 shrink-0 text-xs tabular-nums ${dias < 0 ? "text-destructive-text font-semibold" : "text-muted-foreground"}`}>{quando}</span>
       <span className="min-w-0 flex-1 basis-40">
-        <span className="block truncate font-medium">{principal}</span>
+        {/* reembolso a pagar: a dívida da igreja é com QUEM PAGOU — ele vem em destaque e o fornecedor passa a ser "o que ele quitou" (pedido dela, 22/10/2026) */}
+        <span data-quem-recebe={reembolsoAPagar ? "" : undefined} className="block truncate font-medium">{reembolsoAPagar ? quemRecebe({ quem_recebe: quitacao.responsavelNome }) : principal}</span>
         <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-          {secundario && <span className="truncate">{secundario}</span>}
+          {reembolsoAPagar
+            ? <span data-reembolso-detalhe className="truncate">Quitou: {principal} · Conta prevista para pagamento: {contaPrevista({ conta_prevista: v.conta_nome })}</span>
+            : secundario && <span className="truncate">{secundario}</span>}
           {v.centro_custo_nome && <span className="truncate">{v.centro_custo_nome}</span>}
           {v.valor_variavel && <span>valor estimado</span>}
         </span>
         {quitacao && (
           <span className="block text-xs text-warning-text">
             {quitacao.responsavel === "nao_localizado" ? "Marcada como Não localizado: ninguém sabe quem pagou"
-              : reembolsoAPagar ? `Reembolso a pagar a ${quitacao.responsavelNome ?? ROTULO_RESPONSAVEL[quitacao.responsavel]} · saldo ${brl(quitacao.saldoAReembolsar ?? quitacao.valorDaObrigacao)}`
+              : reembolsoAPagar ? `Reembolso a pagar · saldo ${brl(quitacao.saldoAReembolsar ?? quitacao.valorDaObrigacao)}`
               : `Quitada por Terceiro — ${quitacao.responsavelNome ?? ROTULO_RESPONSAVEL[quitacao.responsavel]}`}{!reembolsoAPagar && quitacao.fila ? ` · fila: ${ROTULO_FILA[quitacao.fila]}` : ""}
           </span>
         )}

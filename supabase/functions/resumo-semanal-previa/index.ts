@@ -13,6 +13,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ASSUNTO, montarBlocos, montarHtml, type Digest } from "../_shared/resumoSemanal/blocos.ts";
 import { juntarExtrato, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
+import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { PERFIS, blocosDaPessoa, mesclarConfig, paraSalvar, type Perfil } from "../_shared/resumoSemanal/catalogo.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
@@ -66,6 +67,7 @@ Deno.serve(async (req) => {
     if (d.error) throw new Error(d.error.message);
     const digest = d.data as Digest;
     if (digest.tesouraria?.saldo_contas) digest.tesouraria.saldo_contas.contas = juntarExtrato(digest.tesouraria.saldo_contas.contas, await lerExtratoDasContas(supabase));
+    if (digest.tesouraria?.reembolsos && digest.tesouraria.reembolsos.n > 0) digest.tesouraria.reembolsos.itens = await lerReembolsosAPagar(supabase);
     const aviso = ids.length === 0
       ? "Nenhum bloco ativo neste perfil — nada seria enviado."
       : corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo semanal" : "PRÉVIA — nada foi enviado";

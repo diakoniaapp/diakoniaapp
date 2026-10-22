@@ -156,7 +156,7 @@ export interface ResumoDiarioStatus {
 }
 export interface PreviaDoDiario {
   assunto: string; html: string; hoje: string;
-  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number; sigilososIncluidos: number };
+  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number; sigilososIncluidos: number; /** reembolsos a pagar listados (ausente em respostas de funções ainda não reimplantadas) */ reembolsos?: number };
   total: { quantidade: number; valor: number; atrasados: { quantidade: number; valor: number }; hoje: { quantidade: number; valor: number } };
 }
 

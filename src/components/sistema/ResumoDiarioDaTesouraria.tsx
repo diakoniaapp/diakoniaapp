@@ -223,7 +223,7 @@ export function ResumoDiarioDaTesouraria({ servico = SERVICO_REAL }: { servico?:
             <DialogTitle>E-mail diário da Tesouraria</DialogTitle>
             <DialogDescription>
               {previa?.dados
-                ? <>Assunto: <b>{previa.dados.assunto}</b> · nada foi enviado{previa.dados.total.quantidade > 0 ? ` · ${previa.dados.total.quantidade} para pagar (${brl(previa.dados.total.valor)})` : ""}{previa.dados.contagem.conferir > 0 ? ` · ${previa.dados.contagem.conferir} a conferir` : ""}{previa.dados.contagem.semMeio > 0 ? ` · ${previa.dados.contagem.semMeio} sem meio automático` : ""}</>
+                ? <>Assunto: <b>{previa.dados.assunto}</b> · nada foi enviado{previa.dados.total.quantidade > 0 ? ` · ${previa.dados.total.quantidade} para pagar (${brl(previa.dados.total.valor)})` : ""}{(previa.dados.contagem.reembolsos ?? 0) > 0 ? ` · ${previa.dados.contagem.reembolsos} ${previa.dados.contagem.reembolsos === 1 ? "reembolso" : "reembolsos"} a pagar` : ""}{previa.dados.contagem.conferir > 0 ? ` · ${previa.dados.contagem.conferir} a conferir` : ""}{previa.dados.contagem.semMeio > 0 ? ` · ${previa.dados.contagem.semMeio} sem meio automático` : ""}</>
                 : "Como o e-mail sairia agora"}
             </DialogDescription>
           </DialogHeader>

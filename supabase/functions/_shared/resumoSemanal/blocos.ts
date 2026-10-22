@@ -5,6 +5,11 @@
 
 import { avisoDeExtratoDefasado, ehContaDeBanco, hojeEmBrasilia, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 
+import { textoCurtoDoReembolso, type ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
+
+/** Quantos reembolsos o bloco semanal lista (o resto vira "+ N outros"). */
+const LIMITE_DE_REEMBOLSOS = 10;
+
 export interface ItemDeLista { quem: string; vencimento: string; valor: number }
 export interface DigestTesouraria {
   fiscal_atrasados: number; fiscal_urgentes: number; caixas_abertos: number; aprovacoes_pendentes: number; centros_criticos: number;
@@ -12,7 +17,7 @@ export interface DigestTesouraria {
   contas_atrasadas?: { n: number; total: number; itens: ItemDeLista[] };
   vencimentos_semana?: { ate: string; n: number; total: number; itens: ItemDeLista[] };
   debitos_automaticos?: { ate: string; previstos_n: number; previstos_total: number; aguardando_n: number; possivel_falha_n: number; possivel_falha_total: number; itens: ItemDeLista[] };
-  reembolsos?: { n: number; total: number };
+  reembolsos?: { n: number; total: number; /** quem recebe, o que quitou, quanto e a conta prevista — juntado pela Edge Function; ausente se a migration 20261022230000 ainda não foi aplicada */ itens?: ReembolsoParaExibir[] };
   // `ultimo_movimento` e `ultima_conciliacao` são juntados pela Edge Function (resumo_ultimo_extrato_das_contas); ausentes se a migration 20261022220000 ainda não foi aplicada
   saldo_contas?: { total: number; contas: { nome: string; saldo: number; ultimo_movimento?: string | null; ultima_conciliacao?: string | null }[] };
 }
@@ -102,8 +107,12 @@ export function montarBloco(id: string, d: Digest): BlocoPronto | null {
     }
     case "reembolsos": {
       const r = t.reembolsos; if (!r) return semDado(id, "Reembolsos");
+      // quem VAI RECEBER vem primeiro: a dívida da igreja é com o terceiro que pagou, não com o fornecedor (pedido dela, 22/10/2026). `itens` é juntado pela Edge Function (resumo_reembolsos_a_pagar).
+      const lista = (r.itens ?? []).slice(0, LIMITE_DE_REEMBOLSOS).map(i => textoCurtoDoReembolso(i, brl));
+      const restantes = r.n - lista.length;
+      if (lista.length > 0 && restantes > 0) lista.push(`+ ${restantes} ${restantes === 1 ? "outro" : "outros"}`);
       return r.n > 0
-        ? bloco(id, "Reembolsos", `${plural(r.n, "reembolso", "reembolsos")} a pagar, somando ${brl(r.total)}.`, "atencao")
+        ? bloco(id, "Reembolsos", `${plural(r.n, "reembolso", "reembolsos")} a pagar, somando ${brl(r.total)}.`, "atencao", lista)
         : bloco(id, "Reembolsos", "Nenhum reembolso a pagar.", "ok");
     }
     case "saldo_contas": {

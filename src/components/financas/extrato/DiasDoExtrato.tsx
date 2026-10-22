@@ -3,7 +3,8 @@
 // "TOTAL DO DIA" — por VENCIMENTO, porque o extrato é de obrigações e não de pagamentos. A MESMA peça serve à tela (todos os campos + as ações) e ao papel (só os campos do modelo escolhido).
 import { memo, type ReactNode } from "react";
 import { brl } from "@/services/finService";
-import { dataDoExtrato, diaDaSemana, seloDaSituacao, type ChaveDoSelo, type DiaDoExtrato, type LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
+import { dataDoExtrato, diaDaSemana, ROTULO_SEM_CONTA, seloDaSituacao, type ChaveDoSelo, type DiaDoExtrato, type LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
+import { contaPrevista, oQueQuitou, quemRecebe } from "@/lib/reembolsoApresentacao";
 import type { CampoDeImpressao } from "@/lib/perfilDeImpressaoDoExtrato";
 import { DocumentacaoChip } from "@/components/financas/DocumentacaoChip";
 import { DebitoChip } from "@/components/financas/DebitoChip";
@@ -47,10 +48,20 @@ export function ObrigacaoItem({ l, campos, acoes, onAbrir, anexosZero }: { l: Li
   // a situação documental (sem documentos / parcial / completa): vai junto do campo "documentos anexados"
   const mostraDocumentacao = campos.anexos && !!l.documentacao;
   const marcas = (campos.projeto && l.projeto ? 1 : 0) + (campos.conta && l.conta ? 1 : 0) + (mostraAnexos ? 1 : 0) + (mostraDocumentacao ? 1 : 0) + (l.debito ? 1 : 0);
-  const quemCampos = [
-    campos.responsavel && `Pago por: ${l.responsavel}`, campos.intencao && l.intencao !== "—" && `Intenção: ${l.intencao}`, campos.grau && l.grau && `Prova: ${l.grau}`,
-    reembolso && l.reembolsoAPagar && l.saldoAReembolsar !== null ? `Saldo a reembolsar: ${brl(l.saldoAReembolsar)}` : "",
-  ].filter(Boolean).join("  ·  ");
+  // reembolso A PAGAR: a dívida da igreja é com QUEM PAGOU — quem recebe, o que quitou, quanto e de qual conta sai, sempre, independente dos campos escolhidos (pedido dela, 22/10/2026)
+  const aPagar = reembolso && l.reembolsoAPagar;
+  const quemRecebeNome = l.responsavel.includes(" — ") ? l.responsavel.slice(l.responsavel.indexOf(" — ") + 3) : l.responsavel;
+  const quemCampos = aPagar
+    ? [
+        `Quem recebe: ${quemRecebe({ quem_recebe: quemRecebeNome })}`, `Quitou: ${oQueQuitou({ quitou: l.fornecedor, descricao: l.descricao })}`,
+        l.saldoAReembolsar !== null ? `Saldo a reembolsar: ${brl(l.saldoAReembolsar)}` : "",
+        `Conta prevista para pagamento: ${contaPrevista({ conta_prevista: l.conta && l.conta !== ROTULO_SEM_CONTA ? l.conta : null })}`,
+        campos.grau && l.grau && `Prova: ${l.grau}`,
+      ].filter(Boolean).join("  ·  ")
+    : [
+        campos.responsavel && `Pago por: ${l.responsavel}`, campos.intencao && l.intencao !== "—" && `Intenção: ${l.intencao}`, campos.grau && l.grau && `Prova: ${l.grau}`,
+        reembolso && l.reembolsoAPagar && l.saldoAReembolsar !== null ? `Saldo a reembolsar: ${brl(l.saldoAReembolsar)}` : "",
+      ].filter(Boolean).join("  ·  ");
   const mostraQuem = (terceiro || reembolso) && quemCampos !== "";
   const cor = terceiro ? "bg-violeta-soft border-l-[5px] border-l-violeta" : reembolso ? "bg-gold/10 border-l-[5px] border-l-gold" : "border-l-[5px] border-l-transparent";
   return (

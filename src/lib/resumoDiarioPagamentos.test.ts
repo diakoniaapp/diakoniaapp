@@ -88,7 +88,7 @@ describe("montarEmailDiario", () => {
   });
   it("os totais são só da seção 'pagar', com atrasados e hoje à parte", () => {
     expect(e.total).toEqual({ quantidade: 3, valor: 430, atrasados: { quantidade: 1, valor: 300 }, hoje: { quantidade: 2, valor: 130 } });
-    expect(e.contagem).toEqual({ pagar: 3, conferir: 1, semMeio: 1, sigilosos: 1, sigilososIncluidos: 0 });
+    expect(e.contagem).toEqual({ pagar: 3, conferir: 1, semMeio: 1, sigilosos: 1, sigilososIncluidos: 0, reembolsos: 0 });
   });
   it("atrasada primeiro; mostra o banco, a linha em grupos de 5 e a ORIGEM do código", () => {
     expect(e.html.indexOf("LIGHT SERVIÇOS")).toBeLessThan(e.html.indexOf("CEDAE"));

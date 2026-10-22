@@ -38,7 +38,11 @@ describe("linha da Mesa", () => {
   it("reembolso aprovado a pagar: o botão é Pagar reembolso (outro fluxo), com o saldo e quem recebe", () => {
     const el = montar(quit({ fila: "reembolso_a_pagar", saldoAReembolsar: 1500 } as Partial<QuitacaoDaObrigacao>));
     expect(rotulos(el)).toEqual(["Editar", "Pagar reembolso"]);
-    expect(el.textContent).toContain("Reembolso a pagar a Lucio Paulo Paz Barreto");
+    // quem recebe vem em DESTAQUE (é o título da linha); o fornecedor passa a ser "o que ele quitou"; e a conta prevista aparece (pedido dela, 22/10/2026)
+    expect(el.querySelector("[data-quem-recebe]")!.textContent).toBe("Lucio Paulo Paz Barreto");
+    expect(el.querySelector("[data-reembolso-detalhe]")!.textContent).toContain("Quitou:");
+    expect(el.querySelector("[data-reembolso-detalhe]")!.textContent).toContain("Conta prevista para pagamento:");
+    expect(el.textContent).toContain("Reembolso a pagar · saldo");
     act(() => { ([...el.querySelectorAll("button")].find(b => b.textContent!.includes("Pagar reembolso")) as HTMLButtonElement).click(); });
     expect(chamadas).toEqual(["reembolso"]);
   });

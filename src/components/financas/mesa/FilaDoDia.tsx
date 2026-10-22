@@ -9,6 +9,7 @@ import {
   NATUREZA_DA_ACAO, ROTULO_DA_ACAO, ROTULO_DA_URGENCIA, montarFilaDoDia, resumirFila, type AcaoDaObrigacao, type ItemDaFila, type UrgenciaDaFila,
 } from "@/lib/filaDoDia";
 import { ROTULO_INTENCAO, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
+import { contaPrevista, oQueQuitou, quemRecebe } from "@/lib/reembolsoApresentacao";
 import type { DebitoDoMes } from "@/services/mesaOperacoesService";
 import { brl, type FinVencimento } from "@/services/finService";
 import {
@@ -122,11 +123,23 @@ function LinhaDaFilaDoDia({ i, acoes }: { i: ItemDaFila; acoes: AcoesDaFila }) {
       <span className="shrink-0 sm:w-[8.5rem]"><ChipDaAcao acao={i.acao} /></span>
       <span className="w-10 shrink-0 text-xs tabular-nums text-muted-foreground">{dataCurta(i.data)}</span>
       <button type="button" onClick={() => acoes.onAbrirObrigacao(i.obrigacaoId)} className="min-w-0 flex-1 basis-40 text-left hover:underline">
-        <span className="block truncate font-medium">{q.emitente ?? q.descricao ?? "Despesa"}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {q.responsavelNome ? `${q.responsavelNome} · ` : ""}{ROTULO_RESPONSAVEL[q.responsavel]}{q.responsavel !== "nao_localizado" ? ` · ${ROTULO_INTENCAO[q.intencao]}` : ""} · {i.porque}
-          {i.acao === "pagar_reembolso" && (q.reembolsado ?? 0) > 0 ? ` · já reembolsado ${brl(q.reembolsado ?? 0)}` : ""}
-        </span>
+        {i.acao === "pagar_reembolso" ? (
+          // a dívida da igreja é com QUEM PAGOU: ele vem em destaque; o fornecedor é só "o que ele quitou" (pedido dela, 22/10/2026)
+          <>
+            <span data-quem-recebe className="block truncate font-medium">{quemRecebe({ quem_recebe: q.responsavelNome })}</span>
+            <span data-reembolso-detalhe className="block truncate text-xs text-muted-foreground">
+              Quitou: {oQueQuitou({ quitou: q.emitente, descricao: q.descricao })} · Conta prevista para pagamento: {contaPrevista({ conta_prevista: q.contaPrevistaNome })}
+              {(q.reembolsado ?? 0) > 0 ? ` · já reembolsado ${brl(q.reembolsado ?? 0)}` : ""}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="block truncate font-medium">{q.emitente ?? q.descricao ?? "Despesa"}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {q.responsavelNome ? `${q.responsavelNome} · ` : ""}{ROTULO_RESPONSAVEL[q.responsavel]}{q.responsavel !== "nao_localizado" ? ` · ${ROTULO_INTENCAO[q.intencao]}` : ""} · {i.porque}
+            </span>
+          </>
+        )}
       </button>
       <span className="shrink-0 font-medium tabular-nums">{brl(i.valor)}</span>
       {i.acao === "pagar_reembolso" && acoes.podePagar ? (

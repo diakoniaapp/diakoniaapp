@@ -145,6 +145,8 @@ export async function quitacoesDasObrigacoes(obrigacaoIds: string[]): Promise<Ma
 export interface ItemDeFila extends QuitacaoDaObrigacao {
   descricao: string | null;
   emitente: string | null;
+  /** a conta da despesa — a que o reembolso usará, salvo escolha em contrário ao pagar; null = a despesa está na conta estrutural das ofertas (a conta se escolhe ao pagar) */
+  contaPrevistaNome: string | null;
   /** dias desde a data da despesa */
   idadeEmDias: number;
 }
@@ -158,7 +160,11 @@ export async function listarFilasDeQuitacao(hoje: string): Promise<ItemDeFila[]>
   if (linhas.length === 0) return [];
   const nomes = await nomesDosResponsaveis(linhas);
   const ids = linhas.map(l => String(l.obrigacao_id));
-  const lancs = await supabase.from("fin_lancamentos").select("id, descricao, fornecedor_id").in("id", ids);
+  const lancs = await supabase.from("fin_lancamentos").select("id, descricao, fornecedor_id, conta_id").in("id", ids);
+  // a conta prevista do reembolso é a da despesa (a mesma que o diálogo "Pagar reembolso" sugere); a conta estrutural das ofertas não é conta financeira
+  const contaIds = [...new Set((lancs.data ?? []).map(l => txt(l.conta_id)).filter((x): x is string => !!x && x !== CONTA_NAO_APLICAVEL_ID))];
+  const nomeDaConta = new Map<string, string>();
+  if (contaIds.length) { const c = await supabase.from("fin_contas").select("id, nome").in("id", contaIds); for (const x of c.data ?? []) nomeDaConta.set(String(x.id), String(x.nome)); }
   const fornIds = [...new Set((lancs.data ?? []).map(l => txt(l.fornecedor_id)).filter((x): x is string => !!x))];
   const emit = new Map<string, string>();
   if (fornIds.length) { const f = await supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds); for (const x of f.data ?? []) emit.set(String(x.id), String(x.nome)); }
@@ -167,7 +173,7 @@ export async function listarFilasDeQuitacao(hoje: string): Promise<ItemDeFila[]>
   return linhas.map(r => {
     const nome = txt(r.responsavel_pessoa_id) ? nomes.pessoas.get(String(r.responsavel_pessoa_id)) ?? null : txt(r.responsavel_fornecedor_id) ? nomes.fornecedores.get(String(r.responsavel_fornecedor_id)) ?? null : null;
     const lanc = porId.get(String(r.obrigacao_id));
-    return { ...daLinha(r, nome), descricao: lanc ? txt(lanc.descricao) : null, emitente: lanc && txt(lanc.fornecedor_id) ? emit.get(String(lanc.fornecedor_id)) ?? null : null, idadeEmDias: dias(String(r.data_despesa).slice(0, 10)) };
+    return { ...daLinha(r, nome), descricao: lanc ? txt(lanc.descricao) : null, emitente: lanc && txt(lanc.fornecedor_id) ? emit.get(String(lanc.fornecedor_id)) ?? null : null, contaPrevistaNome: lanc && txt(lanc.conta_id) ? nomeDaConta.get(String(lanc.conta_id)) ?? null : null, idadeEmDias: dias(String(r.data_despesa).slice(0, 10)) };
   });
 }
 

@@ -5,6 +5,7 @@
 import { montarEmailDiario, type EmailDoDiario } from "./emailDiario.ts";
 import { montarItensDoDia, type CandidataDoDia, type ItemDoDia } from "./itensDoDia.ts";
 import type { ExtratoDaConta } from "../saldos/extratoDasContas.ts";
+import type { ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
 
 export interface ConfigDoDiario { ativo: boolean; dias_semana: number[]; hora: number; minuto: number; janela_dias: number; enviar_sem_pagamentos: boolean; incluir_sigilosos?: boolean }
 /** O que `resumo_diario_dados()` devolve. */
@@ -21,6 +22,8 @@ export interface DadosDoDiario {
   ultimo_envio_geral: string | null;
   /** saldo das contas com a data do último extrato do banco; a Edge Function o acrescenta (função `resumo_ultimo_extrato_das_contas`) — ausente/vazio = o e-mail sai sem o bloco de saldo */
   contas_extrato?: ExtratoDaConta[];
+  /** reembolsos aprovados a pagar (quem recebe, o que quitou, valor, conta prevista); a Edge Function os acrescenta (`resumo_reembolsos_a_pagar`) — ausente/vazio = o e-mail sai sem a seção */
+  reembolsos_a_pagar?: ReembolsoParaExibir[];
 }
 
 /** Quanto tempo depois de um envio um novo disparo é tratado como repetição do mesmo (agendamento duplicado, chamada repetida na URL pública). */
@@ -36,7 +39,7 @@ export interface PreparoDoDiario { itens: ItemDoDia[]; email: EmailDoDiario }
  */
 export function prepararDiario(d: DadosDoDiario, aviso?: string, incluirSigilosos?: boolean): PreparoDoDiario {
   const itens = montarItensDoDia(d.itens);
-  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.contas_extrato, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
+  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.contas_extrato, reembolsos: d.reembolsos_a_pagar, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
 }
 
 /**
@@ -48,6 +51,7 @@ export function motivoDeNaoEnviar(d: DadosDoDiario, preparo: PreparoDoDiario, ag
   if (!d.config.dias_semana.includes(d.dow)) return "fora_dos_dias";
   if (d.destinatarios.length === 0) return "sem_destinatarios";
   if (d.ultimo_envio_geral && agora - new Date(d.ultimo_envio_geral).getTime() < INTERVALO_MINIMO_ENTRE_ENVIOS_MS) return "enviado_ha_pouco";
-  if (preparo.email.listados.length === 0 && !d.config.enviar_sem_pagamentos) return "nada_a_pagar";
+  // reembolso aprovado a pagar também é "algo a pagar": o e-mail sai mesmo sem nenhuma conta a pagar
+  if (preparo.email.listados.length === 0 && preparo.email.reembolsosListados.length === 0 && !d.config.enviar_sem_pagamentos) return "nada_a_pagar";
   return null;
 }
