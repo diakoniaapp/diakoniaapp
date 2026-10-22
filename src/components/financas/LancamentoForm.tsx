@@ -103,6 +103,9 @@ export function LancamentoForm({
 
   const [tipo, setTipo] = useState<FinMovimentoTipo>(tipoPadrao);
   const [data, setData] = useState(hojeLocal());
+  // A DATA DO PAGAMENTO (22/10/2026): num lançamento já pago o extrato mostra o dia em que o banco movimentou (`data_pagamento`) e, ao lado, "venc. dd/mm" (o `data`, vencimento). O campo "Data"
+  // deste formulário sempre editou só o VENCIMENTO — então "alterar a data" não mexia no que o extrato mostra, e parecia que a edição não pegava. Agora o lançamento pago tem os dois campos.
+  const [dataPagamento, setDataPagamento] = useState("");
   const [valor, setValor] = useState<number>(0);
   // Campo em si é texto livre (não `type="number"`) — achado numa revisão
   // em 13/09/2026: o mesmo bug já corrigido em `ContaForm.tsx` (número
@@ -370,6 +373,7 @@ export function LancamentoForm({
     if (lancamento) {
       setTipo(lancamento.tipo);
       setData(lancamento.data);
+      setDataPagamento(lancamento.data_pagamento ? String(lancamento.data_pagamento).slice(0, 10) : "");
       atualizarValor(Number(lancamento.valor));
       setContaId(lancamento.conta_id);
       setCategoriaId(lancamento.categoria_id ?? "");
@@ -682,6 +686,14 @@ export function LancamentoForm({
         comprovante_url: comprovantePath,
         nf_dados_extraidos: nfDadosExtraidos,
       };
+      // só vai quando MUDOU (a coluna existe há muito, mas editar outra coisa não deve reescrever a data de pagamento): pago → o dia do pagamento escolhido; deixou de ser pago → sem data de pagamento
+      if (isEdit && lancamento) {
+        const eraPago = lancamento.status === "realizado" || lancamento.status === "conciliado";
+        const eAgoraPago = status === "realizado" || status === "conciliado";
+        const antes = lancamento.data_pagamento ? String(lancamento.data_pagamento).slice(0, 10) : "";
+        if (eAgoraPago && dataPagamento && dataPagamento !== antes) payload.data_pagamento = dataPagamento;
+        else if (!eAgoraPago && eraPago && antes) payload.data_pagamento = null;
+      }
 
       const liquidacaoOriginal = normalizarLiquidacao(lancamento?.forma_liquidacao);
       if (tipo === "saida" && status === "previsto" && (liquidacao !== "manual" || liquidacaoOriginal !== "manual")) {
@@ -810,9 +822,19 @@ export function LancamentoForm({
                 limite ao corrigir (ex.: "26666"), estourando a caixa por
                 dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
-              <Label>Data *</Label>
+              <Label>{isEdit && (status === "realizado" || status === "conciliado") ? "Vencimento *" : "Data *"}</Label>
               <CampoData value={data} onChange={(v) => setData(v)} className="w-full" />
             </div>
+            {isEdit && (status === "realizado" || status === "conciliado") && (
+              <div className="min-w-0">
+                <Label>Data do pagamento</Label>
+                <CampoData value={dataPagamento || data} onChange={(v) => setDataPagamento(v)} className="w-full" />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  É a data que aparece no extrato e no saldo do dia.
+                  {status === "conciliado" && " Está conciliado: a data do banco é a do extrato — só altere se a do banco estiver errada."}
+                </p>
+              </div>
+            )}
             <div>
               <Label>Valor (R$) *</Label>
               <Input type="text" inputMode="decimal" required
