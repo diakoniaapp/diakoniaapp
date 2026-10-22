@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import {
   Mail, Loader2, Save, Send, CheckCircle2, XCircle, Users, History, Info,
 } from "lucide-react";
+import { ConteudoDoResumoSemanal } from "@/components/sistema/ConteudoDoResumoSemanal";
 import {
   carregarStatusResumoSemanal, definirHorarioResumoSemanal, pausarResumoSemanal,
   dispararResumoSemanalAgora,
@@ -126,10 +127,10 @@ export default function ResumoSemanalAdmin() {
     <div>
       <PageHeader
         title="Resumo Semanal por E-mail"
-        description="Fase 4 da Bússola do Diakonia — quando dispara, quem recebe, e o histórico dos últimos envios"
+        description="Quando dispara, quem recebe, o que cada perfil recebe e em que ordem — e o histórico dos últimos envios"
       />
 
-      <div className="p-4 md:p-8 space-y-6 max-w-2xl">
+      <div className="p-4 md:p-8 space-y-6 max-w-3xl">
 
         {/* ── Agendamento ── */}
         <Card className="shadow-card-soft">
@@ -179,46 +180,8 @@ export default function ResumoSemanalAdmin() {
           </CardContent>
         </Card>
 
-        {/* ── Destinatários ── */}
-        <Card className="shadow-card-soft">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-serif flex items-center gap-2 text-lg">
-              <Users className="w-4 h-4 text-gold" /> Quem recebe
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-start gap-2 rounded-md bg-muted/50 border px-3 py-2.5">
-              <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Calculado sozinho a partir de quem tem cada papel (Usuários) e do e-mail
-                cadastrado na ficha da pessoa — não dá pra editar aqui. Sem e-mail
-                cadastrado, a pessoa não aparece na lista.
-              </p>
-            </div>
-            <div className="flex items-center justify-between rounded-md border px-3 py-2.5">
-              <div>
-                <p className="text-sm font-medium">Admin / dono do sistema</p>
-                <p className="text-xs text-muted-foreground">Resumo completo — pastoral, secretaria e tesouraria</p>
-              </div>
-              <Badge variant="outline">e-mail fixo em Secrets</Badge>
-            </div>
-            {(status?.destinatarios.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-3">
-                Ninguém mais com e-mail cadastrado para pastor, secretaria ou tesouraria.
-              </p>
-            ) : (
-              status?.destinatarios.map((d, i) => (
-                <div key={i} className="flex items-center justify-between rounded-md border px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{d.nome}</p>
-                    <p className="text-xs text-muted-foreground truncate">{d.email}</p>
-                  </div>
-                  <Badge variant="outline" className="shrink-0">{PAPEL_LABEL[d.papel]} — só a própria seção</Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        {/* ── Quem recebe e o que recebe (por perfil) ── */}
+        <ConteudoDoResumoSemanal />
 
         {/* ── Últimas execuções ── */}
         <Card className="shadow-card-soft">
@@ -253,7 +216,7 @@ export default function ResumoSemanalAdmin() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Dispara um envio real AGORA, pros mesmos destinatários acima — não é uma prévia.
+              Dispara um envio real AGORA, para todos os perfis ligados acima — não é uma prévia (para ver o e-mail sem enviar, use "Visualizar e-mail" no perfil).
               Fora do horário programado, então cada disparo aqui é um e-mail a mais na caixa de cada um.
             </p>
             <Button variant="outline" onClick={() => setConfirmandoDisparo(true)} disabled={disparando} className="gap-1.5">
@@ -269,9 +232,8 @@ export default function ResumoSemanalAdmin() {
           <AlertDialogHeader>
             <AlertDialogTitle>Enviar o resumo semanal agora?</AlertDialogTitle>
             <AlertDialogDescription>
-              Manda e-mail de verdade agora mesmo, pra {(status?.destinatarios.length ?? 0) + 1} pessoa(s)
-              (admin/dono do sistema + {status?.destinatarios.length ?? 0} papel(éis) com e-mail cadastrado).
-              Não dá pra desfazer depois de enviado.
+              Manda e-mail de verdade agora mesmo, para todas as pessoas dos perfis ligados em "Conteúdo do e-mail"
+              (e o endereço fixo da administração), cada uma com o que o perfil dela recebe. Não dá pra desfazer depois de enviado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
