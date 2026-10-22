@@ -4,6 +4,9 @@
 // ligam e desligam (boas-vindas, texto pastoral, próximos eventos, endereço/contato, WhatsApp, redes, pedido de oração, plano de leitura), variações por momento (primeira visita, segunda visita, não
 // retornou, interesse em membresia, infantil, jovem, indicado por ministério) e a MESMA estrutura para WhatsApp, e-mail e (futuro) SMS.
 //
+// DE ONDE VEM CADA DADO (decisão dela, 22/10/2026: Identidade da Igreja é a fonte única): nome da igreja, site, redes, WhatsApp, endereço, telefone e e-mail vêm da IDENTIDADE (`IdentidadeDaIgreja`);
+// a configuração das mensagens (`ConfigDaMensagem`) guarda só o que é DELAS: assinatura, links de oração e leitura, título da lista de eventos, prazo de "não retornou", quantos eventos e quais redes ocultar.
+//
 // Este módulo só transforma configuração em texto. Quem guarda a configuração é o banco (`visitante_mensagens()`); quem envia é a pessoa (link do WhatsApp) ou a Edge Function (e-mail).
 // Nada aqui lê rede. Todo texto vindo da configuração é tratado como não confiável: o HTML escapa tudo e só endereços http(s) viram link.
 
@@ -11,7 +14,8 @@ export const SITUACOES = ["primeira_visita", "segunda_visita", "nao_retornou", "
 export type SituacaoDaMensagem = (typeof SITUACOES)[number];
 export const CANAIS = ["whatsapp", "email", "sms"] as const;
 export type CanalDaMensagem = (typeof CANAIS)[number];
-export const TIPOS_DE_REDE = ["instagram", "facebook", "youtube", "spotify", "site"] as const;
+/** As redes que a mensagem sabe mostrar (o WhatsApp tem bloco próprio; "outro" não tem nome para mostrar). `site` vem do campo "Site oficial" da Identidade. */
+export const TIPOS_DE_REDE = ["instagram", "facebook", "youtube", "tiktok", "spotify", "telegram", "site"] as const;
 export type TipoDeRede = (typeof TIPOS_DE_REDE)[number];
 
 export const ROTULO_DA_SITUACAO: Record<SituacaoDaMensagem, string> = {
@@ -28,7 +32,7 @@ export const QUANDO_USA_A_SITUACAO: Record<SituacaoDaMensagem, string> = {
   indicado_ministerio: "Escolhida por quem envia (o sistema não registra o ministério que indicou).",
 };
 export const ROTULO_DO_CANAL: Record<CanalDaMensagem, string> = { whatsapp: "WhatsApp", email: "E-mail", sms: "SMS (futuro)" };
-export const ROTULO_DA_REDE: Record<TipoDeRede, string> = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", spotify: "Spotify", site: "Site" };
+export const ROTULO_DA_REDE: Record<TipoDeRede, string> = { instagram: "Instagram", facebook: "Facebook", youtube: "YouTube", tiktok: "TikTok", spotify: "Spotify", telegram: "Telegram", site: "Site" };
 
 export interface ModeloDaMensagem {
   situacao: SituacaoDaMensagem;
@@ -49,15 +53,9 @@ export interface ModeloDaMensagem {
   incluir_oracao: boolean;
   incluir_leitura: boolean;
 }
-export interface RedeDaMensagem { tipo: TipoDeRede; url: string; ativo: boolean }
+/** O que as mensagens guardam de PRÓPRIO (o resto vem da Identidade da Igreja). */
 export interface ConfigDaMensagem {
-  igreja_nome: string;
   assinatura: string;
-  endereco: string;
-  telefone: string;
-  /** número do WhatsApp da igreja (só dígitos, com DDD); vira o link wa.me */
-  whatsapp: string;
-  email_contato: string;
   link_pedido_oracao: string;
   link_plano_leitura: string;
   titulo_eventos: string;
@@ -65,11 +63,24 @@ export interface ConfigDaMensagem {
   dias_sem_retorno: number;
   /** quantos próximos eventos entram na mensagem */
   eventos_max: number;
-  redes: RedeDaMensagem[];
+  /** redes que existem na Identidade mas que a mensagem NÃO mostra */
+  redes_ocultas: TipoDeRede[];
+}
+/** O que a Identidade da Igreja dá às mensagens. `redes` é o que está cadastrado lá, do jeito que foi digitado ("@usuario" ou endereço). */
+export interface IdentidadeDaIgreja {
+  nome: string;
+  site: string;
+  redes: { plataforma: string; url: string }[];
+  endereco: string;
+  telefone: string;
+  email: string;
+  /** texto institucional curto (marca {{resumo}}) e missão (marca {{missao}}) */
+  resumo?: string;
+  missao?: string;
 }
 export interface EventoDaMensagem { titulo: string; quando?: string | null; local?: string | null; link?: string | null }
 export interface VisitanteDaMensagem { nome: string; culto?: string | null }
-export interface ContextoDaMensagem { config: ConfigDaMensagem; eventos: readonly EventoDaMensagem[]; visitante: VisitanteDaMensagem }
+export interface ContextoDaMensagem { config: ConfigDaMensagem; igreja: IdentidadeDaIgreja; eventos: readonly EventoDaMensagem[]; visitante: VisitanteDaMensagem }
 
 export interface MensagemMontada {
   assunto: string;
@@ -81,31 +92,74 @@ export interface MensagemMontada {
   blocos: string[];
 }
 
-// ── texto ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── endereços ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Só http(s): nada de `javascript:` vindo da configuração. */
 export const urlSegura = (u: string | null | undefined): string | null => {
   const s = (u ?? "").trim();
   return /^https?:\/\/[^\s<>"']+$/i.test(s) ? s : null;
 };
-/** "21983991229" ou "(21) 98399-1229" → "https://wa.me/5521983991229"; número que não é de celular/fixo brasileiro → null. */
-export function linkDoWhatsApp(numero: string | null | undefined): string | null {
-  const d = (numero ?? "").replace(/\D/g, "");
+/**
+ * "21983991229", "(21) 98399-1229", "5521983991229" ou um link wa.me / api.whatsapp.com (do jeito que a Identidade guarda) → "https://wa.me/5521983991229".
+ * Número que não é de celular/fixo brasileiro → null. O texto pré-preenchido do link da Identidade (?text=) não é aproveitado.
+ */
+export function linkDoWhatsApp(valor: string | null | undefined): string | null {
+  const v = (valor ?? "").trim();
+  if (!v) return null;
+  const doLink = /wa\.me\/(\+?\d+)/i.exec(v) ?? /[?&]phone=(\+?\d+)/i.exec(v);
+  const d = (doLink ? doLink[1] : v).replace(/\D/g, "");
   if (/^55\d{10,11}$/.test(d)) return `https://wa.me/${d}`;
   if (/^\d{10,11}$/.test(d)) return `https://wa.me/55${d}`;
   return null;
 }
+const APELIDO: Partial<Record<TipoDeRede, (h: string) => string>> = {
+  instagram: h => `https://www.instagram.com/${h}/`, facebook: h => `https://www.facebook.com/${h}/`, youtube: h => `https://www.youtube.com/@${h}`,
+  tiktok: h => `https://www.tiktok.com/@${h}`, telegram: h => `https://t.me/${h}`,
+};
+/** O endereço de uma rede como a Identidade a guarda: endereço completo (com ou sem https://) ou só o "@usuario". Spotify só aceita endereço. Inválido → null. */
+export function urlDaRede(tipo: TipoDeRede, valor: string | null | undefined): string | null {
+  const v = (valor ?? "").trim();
+  if (!v) return null;
+  const apelido = v.replace(/^@/, "");
+  const soApelido = !/[\s/:.]/.test(apelido) || (v.startsWith("@") && !/[\s/:]/.test(v));
+  if (soApelido) { const f = APELIDO[tipo]; return f ? urlSegura(f(apelido)) : null; }
+  if (/^[a-z][a-z0-9+.\-]*:(?!\d)/i.test(v) && !/^https?:\/\//i.test(v)) return null;   // outro esquema (javascript:, ftp:…) nunca vira link
+  return urlSegura(/^https?:\/\//i.test(v) ? v : `https://${v.replace(/^\/+/, "")}`);
+}
+export interface RedeResolvida { tipo: TipoDeRede; url: string }
+/** As redes da Identidade que a mensagem PODE mostrar, na ordem de `TIPOS_DE_REDE`: com endereço válido e fora das ocultas. O site oficial entra como "site". */
+export function redesDaIdentidade(igreja: IdentidadeDaIgreja, ocultas: readonly TipoDeRede[] = []): RedeResolvida[] {
+  const out: RedeResolvida[] = [];
+  for (const tipo of TIPOS_DE_REDE) {
+    if (ocultas.includes(tipo)) continue;
+    const bruto = tipo === "site" ? igreja.site : igreja.redes.find(r => r.plataforma === tipo && urlDaRede(tipo, r.url))?.url;
+    const url = urlDaRede(tipo, bruto);
+    if (url) out.push({ tipo, url });
+  }
+  return out;
+}
+/** O WhatsApp da igreja, como a Identidade o guarda (rede "whatsapp": número ou link) → link wa.me. */
+export const whatsappDaIdentidade = (igreja: IdentidadeDaIgreja): string | null => {
+  for (const r of igreja.redes) if (r.plataforma === "whatsapp") { const l = linkDoWhatsApp(r.url); if (l) return l; }
+  return null;
+};
+
+// ── texto ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
 export const primeiroNome = (nome: string): string => (nome ?? "").trim().split(/\s+/)[0] ?? "";
 
-/** {{nome}} {{nome_completo}} {{igreja}} {{culto}}; marca desconhecida some (nunca aparece "{{x}}" para o visitante). */
-export function substituir(texto: string, v: { nome: string; igreja: string; culto?: string | null }): string {
-  const mapa: Record<string, string> = { nome: primeiroNome(v.nome), nome_completo: (v.nome ?? "").trim(), igreja: v.igreja, culto: (v.culto ?? "").trim() };
+/** {{nome}} {{nome_completo}} {{igreja}} {{culto}} {{resumo}} {{missao}}; marca desconhecida some (nunca aparece "{{x}}" para o visitante). */
+export function substituir(texto: string, v: { nome: string; igreja: string; culto?: string | null; resumo?: string | null; missao?: string | null }): string {
+  const mapa: Record<string, string> = {
+    nome: primeiroNome(v.nome), nome_completo: (v.nome ?? "").trim(), igreja: v.igreja, culto: (v.culto ?? "").trim(), resumo: (v.resumo ?? "").trim(), missao: (v.missao ?? "").trim(),
+  };
   return (texto ?? "").replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_m, k: string) => mapa[k.toLowerCase()] ?? "").replace(/[ \t]+\n/g, "\n").replace(/ {2,}/g, " ").trim();
 }
 /** Marcas que a tela de edição oferece (e que `substituir` entende). */
 export const MARCAS_DISPONIVEIS: { marca: string; descricao: string }[] = [
   { marca: "{{nome}}", descricao: "primeiro nome do visitante" }, { marca: "{{nome_completo}}", descricao: "nome completo" },
-  { marca: "{{igreja}}", descricao: "nome da igreja" }, { marca: "{{culto}}", descricao: "culto ou evento da visita" },
+  { marca: "{{igreja}}", descricao: "nome da igreja (da Identidade)" }, { marca: "{{culto}}", descricao: "culto ou evento da visita" },
+  { marca: "{{resumo}}", descricao: "resumo institucional (da Identidade)" }, { marca: "{{missao}}", descricao: "missão da igreja (da Identidade)" },
 ];
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -114,10 +168,10 @@ const linhaDoEvento = (e: EventoDaMensagem) => `${e.titulo}${e.quando ? ` – ${
 
 interface Bloco { id: string; titulo?: string; linhas: string[]; /** link opcional por linha, na mesma ordem */ links?: (string | null)[]; marcadores?: boolean; paragrafo?: boolean }
 
-/** Os blocos que ENTRAM, na ordem fixa: boas-vindas · texto pastoral · eventos · convite · endereço · contato · WhatsApp · redes · oração · leitura · fechamento · assinatura. */
+/** Os blocos que ENTRAM, na ordem fixa: boas-vindas · texto pastoral · convite · eventos · endereço · contato · WhatsApp · redes · oração · leitura · fechamento · assinatura. */
 function blocosDaMensagem(m: ModeloDaMensagem, ctx: ContextoDaMensagem): Bloco[] {
-  const { config: c, visitante: v } = ctx;
-  const sub = (t: string) => substituir(t, { nome: v.nome, igreja: c.igreja_nome, culto: v.culto });
+  const { config: c, igreja: ig, visitante: v } = ctx;
+  const sub = (t: string) => substituir(t, { nome: v.nome, igreja: ig.nome, culto: v.culto, resumo: ig.resumo, missao: ig.missao });
   const out: Bloco[] = [];
   const texto = (id: string, t: string) => { const s = sub(t); if (s) out.push({ id, linhas: [s], paragrafo: true }); };
 
@@ -127,13 +181,13 @@ function blocosDaMensagem(m: ModeloDaMensagem, ctx: ContextoDaMensagem): Bloco[]
   const eventos = m.incluir_eventos ? ctx.eventos.filter(e => e.titulo && e.titulo.trim()).slice(0, Math.max(1, Math.min(10, c.eventos_max || 4))) : [];
   texto("convite_retorno", m.convite_retorno);
   if (eventos.length > 0) out.push({ id: "eventos", titulo: sub(c.titulo_eventos) || "Próximos eventos", linhas: eventos.map(linhaDoEvento), links: eventos.map(e => urlSegura(e.link)), marcadores: true });
-  if (m.incluir_endereco && c.endereco.trim()) out.push({ id: "endereco", titulo: "Onde estamos", linhas: [c.endereco.trim()] });
-  const contato = [c.telefone.trim() && `Telefone: ${c.telefone.trim()}`, c.email_contato.trim() && `E-mail: ${c.email_contato.trim()}`].filter(Boolean) as string[];
+  if (m.incluir_endereco && ig.endereco.trim()) out.push({ id: "endereco", titulo: "Onde estamos", linhas: [ig.endereco.trim()] });
+  const contato = [ig.telefone.trim() && `Telefone: ${ig.telefone.trim()}`, ig.email.trim() && `E-mail: ${ig.email.trim()}`].filter(Boolean) as string[];
   if (m.incluir_contato && contato.length > 0) out.push({ id: "contato", titulo: "Fale com a gente", linhas: contato });
-  const zap = linkDoWhatsApp(c.whatsapp);
+  const zap = whatsappDaIdentidade(ig);
   if (m.incluir_whatsapp && zap) out.push({ id: "whatsapp", titulo: "WhatsApp", linhas: ["Converse com a nossa equipe:"], links: [zap] });
-  const redes = m.incluir_redes ? c.redes.filter(r => r.ativo && urlSegura(r.url)) : [];
-  if (redes.length > 0) out.push({ id: "redes", titulo: "Siga a gente", linhas: redes.map(r => ROTULO_DA_REDE[r.tipo] ?? r.tipo), links: redes.map(r => urlSegura(r.url)), marcadores: true });
+  const redes = m.incluir_redes ? redesDaIdentidade(ig, c.redes_ocultas) : [];
+  if (redes.length > 0) out.push({ id: "redes", titulo: "Siga a gente", linhas: redes.map(r => ROTULO_DA_REDE[r.tipo]), links: redes.map(r => r.url), marcadores: true });
   const oracao = urlSegura(c.link_pedido_oracao);
   if (m.incluir_oracao && oracao) out.push({ id: "oracao", titulo: "Pedido de oração", linhas: ["Quer que oremos por você? Envie seu pedido:"], links: [oracao] });
   const leitura = urlSegura(c.link_plano_leitura);
@@ -148,7 +202,7 @@ const CORES = { fundo: "#f6f3ec", cartao: "#ffffff", titulo: "#6b4b10", texto: "
 /** Monta a mensagem no canal do modelo. */
 export function montarMensagem(m: ModeloDaMensagem, ctx: ContextoDaMensagem): MensagemMontada {
   const blocos = blocosDaMensagem(m, ctx);
-  const assunto = substituir(m.assunto, { nome: ctx.visitante.nome, igreja: ctx.config.igreja_nome, culto: ctx.visitante.culto }) || ctx.config.igreja_nome;
+  const assunto = substituir(m.assunto, { nome: ctx.visitante.nome, igreja: ctx.igreja.nome, culto: ctx.visitante.culto, resumo: ctx.igreja.resumo, missao: ctx.igreja.missao }) || ctx.igreja.nome;
   const ids = blocos.map(b => b.id);
 
   if (m.canal === "sms") {
@@ -177,7 +231,7 @@ export function montarMensagem(m: ModeloDaMensagem, ctx: ContextoDaMensagem): Me
   // e-mail: cartão simples, tudo escapado, só http(s) vira link
   const a = (url: string, rotulo: string) => `<a href="${esc(url)}" style="color:${CORES.link};font-weight:bold;text-decoration:none">${esc(rotulo)}</a>`;
   let h = `<div style="background:${CORES.fundo};padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:560px;margin:0 auto;background:${CORES.cartao};border-radius:10px;padding:28px 30px;color:${CORES.texto};font-size:15px;line-height:1.55">`;
-  h += `<p style="margin:0 0 18px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${CORES.titulo};font-weight:bold">${esc(ctx.config.igreja_nome)}</p>`;
+  h += `<p style="margin:0 0 18px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${CORES.titulo};font-weight:bold">${esc(ctx.igreja.nome)}</p>`;
   for (const b of blocos) {
     if (b.paragrafo) { h += `<p style="margin:0 0 14px">${paragrafos(b.linhas[0])}</p>`; continue; }
     if (b.id === "assinatura") { h += `<p style="margin:22px 0 0;color:${CORES.suave}">${esc(b.linhas[0]).replace(/\n/g, "<br>")}</p>`; continue; }

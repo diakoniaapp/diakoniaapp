@@ -7367,6 +7367,9 @@ export type Database = {
       }
       identidade_igreja: {
         Row: {
+          endereco: string | null
+          telefone: string | null
+          email_contato: string | null
           ativa: boolean
           cnpj: string | null
           created_at: string
@@ -7388,6 +7391,9 @@ export type Database = {
           visao: string | null
         }
         Insert: {
+          endereco?: string | null
+          telefone?: string | null
+          email_contato?: string | null
           ativa?: boolean
           cnpj?: string | null
           created_at?: string
@@ -7409,6 +7415,9 @@ export type Database = {
           visao?: string | null
         }
         Update: {
+          endereco?: string | null
+          telefone?: string | null
+          email_contato?: string | null
           ativa?: boolean
           cnpj?: string | null
           created_at?: string

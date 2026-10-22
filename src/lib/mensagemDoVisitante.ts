@@ -25,7 +25,7 @@ export function textoDoVisitante(
   if (!pacote) return null;
   const modelo = escolherModelo(pacote.modelos, situacao, canal);
   if (!modelo) return null;
-  const t = montarMensagem(modelo, { config: pacote.config, eventos: pacote.eventos, visitante }).texto.trim();
+  const t = montarMensagem(modelo, { config: pacote.config, igreja: pacote.igreja, eventos: pacote.eventos, visitante }).texto.trim();
   return t || null;
 }
 

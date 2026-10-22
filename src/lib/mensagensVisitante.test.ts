@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import {
-  CONFIG_PADRAO, SITUACOES, TEXTOS_PADRAO, completarRedes, escolherModelo, fecharUrl, idadeEmAnos, lerPacote, linkDoWhatsApp, modeloOuPadrao, modeloPadrao, montarMensagem,
-  primeiroNome, problemasDaConfig, problemasDoModelo, situacaoAutomatica, substituir, urlSegura, type ConfigDaMensagem, type EventoDaMensagem, type ModeloDaMensagem,
+  CONFIG_PADRAO, SITUACOES, TEXTOS_PADRAO, TIPOS_DE_REDE, escolherModelo, fecharUrl, idadeEmAnos, lerPacote, linkDoWhatsApp, modeloOuPadrao, modeloPadrao, montarMensagem,
+  primeiroNome, problemasDaConfig, problemasDoModelo, redesDaIdentidade, situacaoAutomatica, substituir, urlDaRede, urlSegura, whatsappDaIdentidade,
+  type ConfigDaMensagem, type EventoDaMensagem, type IdentidadeDaIgreja, type ModeloDaMensagem,
 } from "@/lib/mensagensVisitante";
 
 const config = (o: Partial<ConfigDaMensagem> = {}): ConfigDaMensagem => ({
-  ...CONFIG_PADRAO, igreja_nome: "Quarta Igreja Batista", assinatura: "Com carinho,\nEquipe de Acolhimento", endereco: "Rua das Flores, 100 — Centro", telefone: "(21) 3333-4444",
-  whatsapp: "21983991229", email_contato: "acolhimento@qibrj.org.br", link_pedido_oracao: "https://qibrj.org.br/oracao", link_plano_leitura: "https://qibrj.org.br/leitura",
+  ...CONFIG_PADRAO, assinatura: "Com carinho,\nEquipe de Acolhimento", link_pedido_oracao: "https://qibrj.org.br/oracao", link_plano_leitura: "https://qibrj.org.br/leitura", ...o,
+});
+/** A Identidade da Igreja do jeito que ela guarda: redes como "@usuario", endereço completo ou número; o site sem https://. */
+const igreja = (o: Partial<IdentidadeDaIgreja> = {}): IdentidadeDaIgreja => ({
+  nome: "Quarta Igreja Batista", site: "qibrj.org.br", endereco: "Rua das Flores, 100 — Centro", telefone: "(21) 3333-4444", email: "acolhimento@qibrj.org.br",
   redes: [
-    { tipo: "instagram", url: "https://instagram.com/qibrj", ativo: true }, { tipo: "facebook", url: "", ativo: false }, { tipo: "youtube", url: "https://youtube.com/@qibrj", ativo: true },
-    { tipo: "spotify", url: "https://open.spotify.com/user/qibrj", ativo: false }, { tipo: "site", url: "https://qibrj.org.br", ativo: true },
-  ], ...o,
+    { plataforma: "instagram", url: "@qibrj" }, { plataforma: "youtube", url: "https://youtube.com/@qibrj" }, { plataforma: "spotify", url: "https://open.spotify.com/user/qibrj" },
+    { plataforma: "whatsapp", url: "21983991229" }, { plataforma: "outro", url: "https://blog.qibrj.org.br" },
+  ],
+  resumo: "Uma igreja que ama o Rio.", missao: "Pregar o Evangelho.", ...o,
 });
 const eventos: EventoDaMensagem[] = [
   { titulo: "Culto de Oração", quando: "quarta-feira" }, { titulo: "Pequenos Grupos", quando: "semana" }, { titulo: "Congresso de Casais", quando: "15/11", link: "https://qibrj.org.br/casais" },
@@ -19,12 +24,13 @@ const eventos: EventoDaMensagem[] = [
 ];
 const visitante = { nome: "Maria da Silva", culto: "Culto da Manhã" };
 const zap = (o: Partial<ModeloDaMensagem> = {}): ModeloDaMensagem => ({ ...modeloPadrao("primeira_visita", "whatsapp"), ...o });
-const monta = (m: ModeloDaMensagem, c = config(), ev = eventos) => montarMensagem(m, { config: c, eventos: ev, visitante });
+const monta = (m: ModeloDaMensagem, c = config(), ig = igreja(), ev = eventos) => montarMensagem(m, { config: c, igreja: ig, eventos: ev, visitante });
 
 describe("marcas {{…}}", () => {
-  it("troca nome, nome completo, igreja e culto; marca desconhecida some", () => {
+  it("troca nome, nome completo, igreja, culto, resumo e missão; marca desconhecida some", () => {
     expect(substituir("Olá, {{nome}} ({{nome_completo}}) — {{igreja}} / {{culto}} {{xyz}}!", { nome: "Maria da Silva", igreja: "QIBRJ", culto: "Culto da Manhã" })).toBe("Olá, Maria (Maria da Silva) — QIBRJ / Culto da Manhã !");
     expect(substituir("Oi {{ NOME }}", { nome: "joão pedro", igreja: "x" })).toBe("Oi joão");
+    expect(substituir("{{resumo}} {{missao}}", { nome: "A", igreja: "x", resumo: "Resumo.", missao: "Missão." })).toBe("Resumo. Missão.");
   });
   it("culto ausente não deixa buraco nem a marca", () => {
     expect(substituir("Visita no {{culto}}.", { nome: "A", igreja: "x" })).toBe("Visita no .");
@@ -35,10 +41,47 @@ describe("marcas {{…}}", () => {
     expect(urlSegura("javascript:alert(1)")).toBeNull();
     expect(urlSegura("ftp://a.com")).toBeNull();
     expect(urlSegura("https://a.com/<script>")).toBeNull();
+  });
+});
+
+describe("WhatsApp da igreja: o número, ou o link, como a Identidade o guarda", () => {
+  it("aceita número com ou sem máscara, com ou sem 55, e links wa.me / api.whatsapp.com", () => {
     expect(linkDoWhatsApp("(21) 98399-1229")).toBe("https://wa.me/5521983991229");
     expect(linkDoWhatsApp("5521983991229")).toBe("https://wa.me/5521983991229");
+    expect(linkDoWhatsApp("https://wa.me/5521983991229")).toBe("https://wa.me/5521983991229");
+    expect(linkDoWhatsApp("https://wa.me/5521983991229?text=Ol%C3%A1")).toBe("https://wa.me/5521983991229");
+    expect(linkDoWhatsApp("https://api.whatsapp.com/send?phone=5521983991229&text=oi")).toBe("https://wa.me/5521983991229");
     expect(linkDoWhatsApp("123")).toBeNull();
     expect(linkDoWhatsApp("")).toBeNull();
+  });
+  it("whatsappDaIdentidade lê a rede 'whatsapp'; sem ela (ou com número inválido) não há link", () => {
+    expect(whatsappDaIdentidade(igreja())).toBe("https://wa.me/5521983991229");
+    expect(whatsappDaIdentidade(igreja({ redes: [] }))).toBeNull();
+    expect(whatsappDaIdentidade(igreja({ redes: [{ plataforma: "whatsapp", url: "9839" }] }))).toBeNull();
+  });
+});
+
+describe("redes da Identidade", () => {
+  it("'@usuario' vira o endereço da rede; endereço completo fica; sem https:// ganha; esquema perigoso nunca", () => {
+    expect(urlDaRede("instagram", "@qibrj")).toBe("https://www.instagram.com/qibrj/");
+    expect(urlDaRede("instagram", "qibrj")).toBe("https://www.instagram.com/qibrj/");
+    expect(urlDaRede("facebook", "igrejaqibrj")).toBe("https://www.facebook.com/igrejaqibrj/");
+    expect(urlDaRede("youtube", "@qibrj")).toBe("https://www.youtube.com/@qibrj");
+    expect(urlDaRede("tiktok", "@qibrj")).toBe("https://www.tiktok.com/@qibrj");
+    expect(urlDaRede("telegram", "qibrj")).toBe("https://t.me/qibrj");
+    expect(urlDaRede("instagram", "instagram.com/qibrj")).toBe("https://instagram.com/qibrj");
+    expect(urlDaRede("youtube", "https://youtube.com/@qibrj")).toBe("https://youtube.com/@qibrj");
+    expect(urlDaRede("site", "qibrj.org.br")).toBe("https://qibrj.org.br");
+    expect(urlDaRede("spotify", "javascript:alert(1)")).toBeNull();
+    expect(urlDaRede("spotify", "qibrj")).toBeNull();           // Spotify não tem "@usuario": só endereço
+    expect(urlDaRede("instagram", "")).toBeNull();
+    expect(urlDaRede("instagram", undefined)).toBeNull();
+  });
+  it("redesDaIdentidade: na ordem fixa, só as com endereço válido, o site entra como 'site', 'outro' e o WhatsApp ficam de fora, e as ocultas saem", () => {
+    expect(redesDaIdentidade(igreja()).map(r => r.tipo)).toEqual(["instagram", "youtube", "spotify", "site"]);
+    expect(redesDaIdentidade(igreja(), ["spotify", "site"]).map(r => r.tipo)).toEqual(["instagram", "youtube"]);
+    expect(redesDaIdentidade(igreja({ redes: [], site: "" }))).toEqual([]);
+    expect(TIPOS_DE_REDE).toContain("tiktok");
   });
 });
 
@@ -48,9 +91,12 @@ describe("WhatsApp — a mensagem montada por blocos", () => {
     expect(r.blocos).toEqual(["abertura", "texto_pastoral", "convite_retorno", "eventos", "endereco", "contato", "whatsapp", "redes", "oracao", "leitura", "fechamento", "assinatura"]);
     expect(r.html).toBeNull();
   });
-  it("personaliza: nome do visitante e da igreja", () => {
-    const r = monta(zap());
-    expect(r.texto).toContain("Olá, Maria! 😊 Que alegria receber você na Quarta Igreja Batista!");
+  it("personaliza: nome do visitante e nome da igreja (da Identidade)", () => {
+    expect(monta(zap()).texto).toContain("Olá, Maria! 😊 Que alegria receber você na Quarta Igreja Batista!");
+  });
+  it("a assinatura pode usar {{igreja}}", () => {
+    const t = monta(zap(), config({ assinatura: "Com carinho,\nEquipe — {{igreja}}" })).texto;
+    expect(t.endsWith("Equipe — Quarta Igreja Batista")).toBe(true);
   });
   it("os próximos eventos saem como lista (• título – quando), só os 4 primeiros, com o link quando houver", () => {
     const r = monta(zap());
@@ -61,12 +107,16 @@ describe("WhatsApp — a mensagem montada por blocos", () => {
     const t = monta(zap()).texto;
     expect(t.indexOf("Esperamos ver você de novo")).toBeLessThan(t.indexOf("Próximos eventos"));
   });
-  it("redes: só as ligadas e com endereço; o WhatsApp tem bloco próprio com o link wa.me", () => {
+  it("redes: as da Identidade (resolvidas), sem as ocultas; o WhatsApp tem bloco próprio com o link wa.me", () => {
     const t = monta(zap()).texto;
-    expect(t).toContain("*Siga a gente*\n• Instagram: https://instagram.com/qibrj\n• YouTube: https://youtube.com/@qibrj\n• Site: https://qibrj.org.br");
+    expect(t).toContain("*Siga a gente*\n• Instagram: https://www.instagram.com/qibrj/\n• YouTube: https://youtube.com/@qibrj\n• Spotify: https://open.spotify.com/user/qibrj\n• Site: https://qibrj.org.br");
     expect(t).not.toContain("Facebook");
-    expect(t).not.toContain("Spotify");   // desligada, mesmo com endereço
+    expect(t).not.toContain("blog.qibrj");   // "outro" não entra
     expect(t).toContain("https://wa.me/5521983991229");
+    const sem = monta(zap(), config({ redes_ocultas: ["spotify", "instagram"] })).texto;
+    expect(sem).not.toContain("Spotify");
+    expect(sem).not.toContain("Instagram");
+    expect(sem).toContain("• YouTube:");
   });
   it("endereço, contato, oração e leitura", () => {
     const t = monta(zap({ incluir_leitura: true })).texto;
@@ -75,17 +125,21 @@ describe("WhatsApp — a mensagem montada por blocos", () => {
     expect(t).toContain("*Pedido de oração*\nQuer que oremos por você? Envie seu pedido: https://qibrj.org.br/oracao");
     expect(t).toContain("*Plano de leitura bíblica*\nLeia a Bíblia com a gente: https://qibrj.org.br/leitura");
   });
+  it("{{resumo}} e {{missao}} (da Identidade) podem entrar nos textos", () => {
+    const t = monta(zap({ texto_pastoral: "{{resumo}} Nossa missão: {{missao}}" })).texto;
+    expect(t).toContain("Uma igreja que ama o Rio. Nossa missão: Pregar o Evangelho.");
+  });
   it("cada opção desligada tira o seu bloco", () => {
     const r = monta(zap({ incluir_eventos: false, incluir_redes: false, incluir_endereco: false, incluir_contato: false, incluir_whatsapp: false, incluir_oracao: false, incluir_leitura: false }));
     expect(r.blocos).toEqual(["abertura", "texto_pastoral", "convite_retorno", "fechamento", "assinatura"]);
   });
-  it("bloco ligado mas sem o dado (link vazio, WhatsApp vazio, sem eventos) simplesmente não aparece", () => {
-    const vazio = config({ link_pedido_oracao: "", link_plano_leitura: "", whatsapp: "", endereco: "", telefone: "", email_contato: "", redes: completarRedes([]) });
-    const r = monta(zap({ incluir_leitura: true }), vazio, []);
+  it("bloco ligado mas sem o dado (Identidade sem endereço/contato/WhatsApp/redes, links vazios, sem eventos) simplesmente não aparece", () => {
+    const vazia = igreja({ site: "", endereco: "", telefone: "", email: "", redes: [] });
+    const r = monta(zap({ incluir_leitura: true }), config({ link_pedido_oracao: "", link_plano_leitura: "" }), vazia, []);
     expect(r.blocos).toEqual(["abertura", "texto_pastoral", "convite_retorno", "fechamento", "assinatura"]);
   });
-  it("endereço de link inseguro vindo da configuração nunca entra na mensagem", () => {
-    const r = monta(zap(), config({ link_pedido_oracao: "javascript:alert(1)", redes: [{ tipo: "site", url: "javascript:x", ativo: true }, ...completarRedes([]).slice(0, 0)] }));
+  it("endereço inseguro vindo da configuração ou da Identidade nunca entra na mensagem", () => {
+    const r = monta(zap(), config({ link_pedido_oracao: "javascript:alert(1)" }), igreja({ site: "javascript:x", redes: [{ plataforma: "spotify", url: "javascript:y" }] }));
     expect(r.texto).not.toContain("javascript");
     expect(r.blocos).not.toContain("oracao");
     expect(r.blocos).not.toContain("redes");
@@ -117,9 +171,14 @@ describe("e-mail — o mesmo conteúdo, com assunto e HTML", () => {
     expect(r.html).not.toContain("<script>");
     expect(r.html).toContain("&lt;script&gt;alert(1)&lt;/script&gt; Olá Maria &amp; cia");
   });
+  it("o nome da igreja vindo da Identidade também é escapado no cabeçalho", () => {
+    const r = monta({ ...modeloPadrao("primeira_visita", "email") }, config(), igreja({ nome: "Igreja <b>X</b> & Cia" }));
+    expect(r.html).toContain("Igreja &lt;b&gt;X&lt;/b&gt; &amp; Cia");
+    expect(r.html).not.toContain("<b>X</b>");
+  });
   it("só http(s) vira link, e o link do evento vira 'saiba mais'", () => {
     const r = email();
-    expect(r.html).toContain('href="https://instagram.com/qibrj"');
+    expect(r.html).toContain('href="https://www.instagram.com/qibrj/"');
     expect(r.html).toContain('href="https://qibrj.org.br/casais"');
     expect(r.html).toContain("saiba mais");
     expect(r.html).not.toMatch(/href="javascript/i);
@@ -193,24 +252,27 @@ describe("modelos", () => {
 });
 
 describe("leitura do que o banco devolve", () => {
-  it("completa as cinco redes na ordem, ignora modelo de situação/canal desconhecidos e campos ausentes viram padrão", () => {
+  it("config com padrão onde falta, redes ocultas só as conhecidas, Identidade como veio, modelos desconhecidos ignorados", () => {
     const p = lerPacote({
-      config: { igreja_nome: "QIBRJ", redes: [{ tipo: "youtube", url: "https://y.com", ativo: true }], dias_sem_retorno: 20 },
+      config: { dias_sem_retorno: 20, redes_ocultas: ["spotify", "tiktok", "myspace"] },
+      igreja: { nome: "QIBRJ", site: "qibrj.org.br", redes: [{ plataforma: "instagram", url: "@qibrj" }, { plataforma: 1, url: "x" }, null], endereco: "Rua A", telefone: "", email: "a@b.org", resumo: "R", missao: "M" },
       modelos: [{ situacao: "jovem", canal: "email", abertura: "Oi", ativo: true }, { situacao: "inventada", canal: "email" }, { situacao: "jovem", canal: "fax" }],
       eventos: [{ titulo: "Culto", quando: "dom" }, { titulo: "  " }, null],
     });
-    expect(p.config.redes.map(r => r.tipo)).toEqual(["instagram", "facebook", "youtube", "spotify", "site"]);
-    expect(p.config.redes.find(r => r.tipo === "youtube")).toMatchObject({ ativo: true, url: "https://y.com" });
-    expect(p.config.redes.find(r => r.tipo === "instagram")).toMatchObject({ ativo: false, url: "" });
     expect(p.config.dias_sem_retorno).toBe(20);
     expect(p.config.eventos_max).toBe(4);
+    expect(p.config.assinatura).toBe(CONFIG_PADRAO.assinatura);
+    expect(p.config.redes_ocultas).toEqual(["spotify", "tiktok"]);
+    expect(p.igreja).toMatchObject({ nome: "QIBRJ", site: "qibrj.org.br", endereco: "Rua A", email: "a@b.org" });
+    expect(p.igreja.redes).toEqual([{ plataforma: "instagram", url: "@qibrj" }]);
     expect(p.modelos).toHaveLength(1);
     expect(p.modelos[0]).toMatchObject({ situacao: "jovem", canal: "email", abertura: "Oi", incluir_eventos: true, incluir_leitura: false });
     expect(p.eventos).toEqual([{ titulo: "Culto", quando: "dom", local: null, link: null }]);
   });
-  it("resposta vazia ou estranha não quebra", () => {
+  it("resposta vazia ou estranha não quebra: sem Identidade, só o nome padrão", () => {
     expect(lerPacote(null).modelos).toEqual([]);
-    expect(lerPacote({}).config.igreja_nome).toBe(CONFIG_PADRAO.igreja_nome);
+    expect(lerPacote({}).igreja.nome).toBe("Quarta Igreja Batista do Rio de Janeiro");
+    expect(lerPacote({ igreja: {} }).igreja.redes).toEqual([]);
   });
 });
 
@@ -222,13 +284,11 @@ describe("validação do que a administração digita", () => {
     expect(problemasDoModelo(zap({ abertura: "", texto_pastoral: "", ativo: false }))).toEqual([]);
     expect(problemasDoModelo({ ...modeloPadrao("jovem", "email"), assunto: "" })[0]).toMatch(/assunto/);
   });
-  it("config: nome, e-mail, WhatsApp, links, redes ligadas sem endereço, prazo", () => {
+  it("config: assinatura, links, prazo e quantidade", () => {
     expect(problemasDaConfig(config())).toEqual([]);
-    expect(problemasDaConfig(config({ igreja_nome: " " }))[0]).toMatch(/nome da igreja/);
-    expect(problemasDaConfig(config({ email_contato: "x@y" }))[0]).toMatch(/e-mail/);
-    expect(problemasDaConfig(config({ whatsapp: "9839" }))[0]).toMatch(/WhatsApp/);
+    expect(problemasDaConfig(config({ assinatura: "x".repeat(401) }))[0]).toMatch(/assinatura/);
     expect(problemasDaConfig(config({ link_pedido_oracao: "javascript:alert(1)" }))[0]).toMatch(/pedido de oração/);
-    expect(problemasDaConfig(config({ redes: [{ tipo: "instagram", url: "", ativo: true }] }))[0]).toMatch(/Instagram/);
+    expect(problemasDaConfig(config({ link_plano_leitura: "qibrj.org.br/leitura" }))).toEqual([]);   // ganha https:// ao salvar
     expect(problemasDaConfig(config({ dias_sem_retorno: 1 }))[0]).toMatch(/3 a 90/);
     expect(problemasDaConfig(config({ eventos_max: 11 }))[0]).toMatch(/1 a 10/);
   });
@@ -251,8 +311,17 @@ describe("a migration traz exatamente os textos de padroes.ts", () => {
     }
     expect((sql.match(/^ {2}\('(primeira_visita|segunda_visita|nao_retornou|interesse_membresia|infantil|jovem|indicado_ministerio)', '(whatsapp|email)'/gm) ?? []).length).toBe(14);
   });
-  it("a assinatura e o nome da igreja de partida também", () => {
+  it("a assinatura de partida também; a lista de redes da CHECK é a mesma de TIPOS_DE_REDE", () => {
     expect(sql).toContain(q(CONFIG_PADRAO.assinatura));
-    expect(sql).toContain(q(CONFIG_PADRAO.igreja_nome));
+    expect(sql).toContain(`ARRAY[${TIPOS_DE_REDE.map(t => q(t)).join(", ")}]`);
+  });
+  it("a Identidade é a fonte única: a migration NÃO guarda nome, endereço, telefone, WhatsApp, e-mail nem redes nas mensagens", () => {
+    const tabela = sql.slice(sql.indexOf("CREATE TABLE IF NOT EXISTS public.visitante_mensagem_config"), sql.indexOf("CREATE TABLE IF NOT EXISTS public.visitante_mensagem_modelos"));
+    for (const col of ["igreja_nome", "endereco", "telefone", "whatsapp", "email_contato"]) expect(tabela, col).not.toContain(col);
+    expect(tabela).not.toMatch(/^\s+redes\s+jsonb/m);   // só `redes_ocultas` (text[]): os endereços ficam na Identidade
+    expect(sql).toContain("redes_ocultas");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS endereco");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS telefone");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS email_contato");
   });
 });

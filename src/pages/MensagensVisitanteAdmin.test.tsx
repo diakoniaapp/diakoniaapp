@@ -9,20 +9,21 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: () => true, rolesCarregados: true }) }));
 
 import MensagensVisitanteAdmin, { type ServicoDasMensagens } from "./MensagensVisitanteAdmin";
-import { CONFIG_PADRAO, SITUACOES, modeloPadrao, type ConfigDaMensagem, type ModeloDaMensagem, type PacoteDeMensagens } from "@/lib/mensagensVisitante";
+import { CONFIG_PADRAO, SITUACOES, modeloPadrao, type ConfigDaMensagem, type IdentidadeDaIgreja, type ModeloDaMensagem, type PacoteDeMensagens } from "@/lib/mensagensVisitante";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let raiz: Root | null = null;
 beforeAll(() => { (Element.prototype as unknown as { hasPointerCapture?: () => boolean }).hasPointerCapture ??= () => false; });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; vi.clearAllMocks(); });
 
-const CONFIG: ConfigDaMensagem = {
-  ...CONFIG_PADRAO, igreja_nome: "Quarta Igreja Batista", assinatura: "Com carinho,\nEquipe de Acolhimento", endereco: "Rua das Flores, 100", telefone: "(21) 3333-4444",
-  whatsapp: "21983991229", email_contato: "acolhimento@qibrj.org.br", link_pedido_oracao: "https://qibrj.org.br/oracao",
-  redes: [{ tipo: "instagram", url: "https://instagram.com/qibrj", ativo: true }, { tipo: "facebook", url: "", ativo: false }, { tipo: "youtube", url: "", ativo: false }, { tipo: "spotify", url: "", ativo: false }, { tipo: "site", url: "https://qibrj.org.br", ativo: true }],
+const CONFIG: ConfigDaMensagem = { ...CONFIG_PADRAO, assinatura: "Com carinho,\nEquipe de Acolhimento", link_pedido_oracao: "https://qibrj.org.br/oracao" };
+/** A Identidade como ela guarda: "@usuario", número solto e site sem https://. */
+const IGREJA: IdentidadeDaIgreja = {
+  nome: "Quarta Igreja Batista", site: "qibrj.org.br", endereco: "Rua das Flores, 100", telefone: "(21) 3333-4444", email: "acolhimento@qibrj.org.br",
+  redes: [{ plataforma: "instagram", url: "@qibrj" }, { plataforma: "whatsapp", url: "21983991229" }],
 };
 const pacote = (o: Partial<PacoteDeMensagens> = {}): PacoteDeMensagens => ({
-  config: CONFIG,
+  config: CONFIG, igreja: IGREJA,
   modelos: SITUACOES.flatMap(s => (["whatsapp", "email"] as const).map(c => modeloPadrao(s, c))),
   eventos: [{ titulo: "Culto de Oração", quando: "quarta-feira" }, { titulo: "Congresso de Casais", quando: "15/11" }],
   ...o,
@@ -66,7 +67,7 @@ describe("Mensagens ao Visitante — a tela de administração", () => {
     expect(previa()).toContain("Olá, Maria! 😊 Que alegria receber você na Quarta Igreja Batista!");
     expect(previa()).toContain("• Culto de Oração – quarta-feira");
     expect(previa()).toContain("• Congresso de Casais – 15/11");
-    expect(previa()).toContain("• Instagram: https://instagram.com/qibrj");
+    expect(previa()).toContain("• Instagram: https://www.instagram.com/qibrj/");
     expect(previa()).toContain("Equipe de Acolhimento");
   });
 
@@ -127,9 +128,9 @@ describe("Mensagens ao Visitante — a tela de administração", () => {
   });
 
   it("bloco ligado SEM o dado avisa o que falta (plano de leitura sem link; endereço vazio)", async () => {
-    const p = pacote({ config: { ...CONFIG, endereco: "" } });
+    const p = pacote({ igreja: { ...IGREJA, endereco: "" } });
     await abrir(servico({ pacote: p }));
-    expect(q('[data-bloco="incluir_endereco"] [data-falta]')!.textContent).toMatch(/Falta o endereço/);
+    expect(q('[data-bloco="incluir_endereco"] [data-falta]')!.textContent).toMatch(/Falta o endereço na Identidade/);
     await clicar(q('[data-bloco="incluir_leitura"] button[role="switch"]'));
     expect(q('[data-bloco="incluir_leitura"] [data-falta]')!.textContent).toMatch(/link do plano de leitura/);
     expect(q('[data-bloco="incluir_whatsapp"] [data-falta]')).toBeNull();
@@ -152,7 +153,8 @@ describe("Mensagens ao Visitante — a tela de administração", () => {
     await clicar(botao(/Enviar e-mail de teste/));
     expect(s.chamadas.testes).toHaveLength(1);
     expect(s.chamadas.testes[0].modelo).toMatchObject({ situacao: "primeira_visita", canal: "email", assunto: "Assunto do rascunho" });
-    expect(s.chamadas.testes[0].config.igreja_nome).toBe("Quarta Igreja Batista");
+    expect(s.chamadas.testes[0].config.assinatura).toContain("Equipe de Acolhimento");
+    expect(s.chamadas.testes[0]).not.toHaveProperty("igreja");   // a Identidade nunca viaja do navegador
     expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("telma@diakoniaapp.com.br"));
     expect(s.chamadas.modelos).toHaveLength(0);
 
@@ -191,33 +193,59 @@ describe("Mensagens ao Visitante — a tela de administração", () => {
     expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/ao menos a abertura/));
   });
 
-  it("Dados da igreja: editar, validar e salvar (e-mail inválido é barrado antes de gravar)", async () => {
-    const s = servico();
-    await abrir(s);
-    await abrirAba(/Dados da igreja/);
-    digitar(q("#ig-mail") as HTMLInputElement, "x@y");
-    await clicar(botao(/Salvar dados da igreja/));
-    expect(s.chamadas.configs).toHaveLength(0);
-    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/e-mail/i));
-    digitar(q("#ig-mail") as HTMLInputElement, "novo@qibrj.org.br");
-    digitar(q("#ig-end") as HTMLInputElement, "Av. Nova, 50");
-    await clicar(botao(/Salvar dados da igreja/));
-    expect(s.chamadas.configs).toHaveLength(1);
-    expect(s.chamadas.configs[0]).toMatchObject({ email_contato: "novo@qibrj.org.br", endereco: "Av. Nova, 50" });
+  it("Redes e links: mostra o que vem da Identidade (só leitura) e o atalho para editá-la", async () => {
+    await abrir(servico());
+    await abrirAba(/Redes e links/);
+    const campo = (r: string) => q('[data-identidade-campo="' + r + '"]')!.textContent;
+    expect(campo("Igreja")).toBe("Quarta Igreja Batista");
+    expect(campo("Endereço")).toBe("Rua das Flores, 100");
+    expect(campo("WhatsApp")).toBe("https://wa.me/5521983991229");
+    expect(campo("E-mail")).toBe("acolhimento@qibrj.org.br");
+    expect(document.body.textContent).toContain("uma vez só");
+    expect([...document.body.querySelectorAll("a")].some(x => x.getAttribute("href") === "/admin/identidade")).toBe(true);
+    expect(q("#ig-end")).toBeNull();   // nenhum campo de endereço/telefone/e-mail aqui: a Identidade é a fonte única
+    expect(q("#ig-mail")).toBeNull();
   });
 
-  it("redes: cada uma liga e desliga; ligada sem endereço é barrada", async () => {
+  it("Identidade incompleta: o que falta aparece como 'não cadastrado'", async () => {
+    await abrir(servico({ pacote: pacote({ igreja: { ...IGREJA, endereco: "", telefone: "", email: "" } }) }));
+    await abrirAba(/Redes e links/);
+    expect(q('[data-identidade-campo="Endereço"]')!.textContent).toBe("não cadastrado");
+    expect(q('[data-identidade-campo="Telefone"]')!.textContent).toBe("não cadastrado");
+  });
+
+  it("Redes e links: assinatura e links editam e salvam; link inválido é barrado antes de gravar", async () => {
     const s = servico();
     await abrir(s);
-    await abrirAba(/Dados da igreja/);
-    expect(document.body.querySelectorAll("[data-rede]")).toHaveLength(5);
-    await clicar(q('[data-rede="spotify"] button[role="switch"]'));
-    await clicar(botao(/Salvar dados da igreja/));
+    await abrirAba(/Redes e links/);
+    digitar(q("#ig-oracao") as HTMLInputElement, "javascript:alert(1)");
+    await clicar(botao(/Salvar redes e links/));
     expect(s.chamadas.configs).toHaveLength(0);
-    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Spotify/));
-    digitar(q("#rede-spotify") as HTMLInputElement, "open.spotify.com/user/qibrj");
-    await clicar(botao(/Salvar dados da igreja/));
-    expect(s.chamadas.configs[0].redes.find(r => r.tipo === "spotify")).toMatchObject({ ativo: true, url: "open.spotify.com/user/qibrj" });   // o https:// é acrescentado no serviço, ao gravar
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/pedido de oração/));
+    digitar(q("#ig-oracao") as HTMLInputElement, "https://qibrj.org.br/oracao-nova");
+    digitar(q("#ig-assinatura") as HTMLTextAreaElement, "Abraço, {{igreja}}");
+    await clicar(botao(/Salvar redes e links/));
+    expect(s.chamadas.configs).toHaveLength(1);
+    expect(s.chamadas.configs[0]).toMatchObject({ link_pedido_oracao: "https://qibrj.org.br/oracao-nova", assinatura: "Abraço, {{igreja}}", redes_ocultas: [] });
+  });
+
+  it("redes: uma linha por rede conhecida; as sem endereço na Identidade ficam desligadas; esconder uma tira da prévia e vai nas ocultas", async () => {
+    const s = servico();
+    await abrir(s);
+    expect(previa()).toContain("• Instagram:");
+    await abrirAba(/Redes e links/);
+    expect(document.body.querySelectorAll("[data-rede]")).toHaveLength(7);
+    const sw = (t: string) => q('[data-rede="' + t + '"] button[role="switch"]') as HTMLButtonElement;
+    expect(sw("instagram").getAttribute("aria-checked")).toBe("true");
+    expect(sw("site").getAttribute("aria-checked")).toBe("true");
+    expect(sw("spotify").disabled).toBe(true);
+    expect(q('[data-rede="spotify"]')!.textContent).toContain("não cadastrada na Identidade");
+    await clicar(sw("instagram"));
+    expect(sw("instagram").getAttribute("aria-checked")).toBe("false");
+    await clicar(botao(/Salvar redes e links/));
+    expect(s.chamadas.configs[0].redes_ocultas).toEqual(["instagram"]);
+    await abrirAba(/^Mensagens/);
+    expect(previa()).not.toContain("• Instagram:");
   });
 
   it("sem a migration (nada vem do banco) a tela explica em vez de quebrar", async () => {

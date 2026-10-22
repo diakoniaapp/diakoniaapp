@@ -10,7 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { montarMensagem } from "../_shared/mensagensVisitante/montar.ts";
-import { sanearConfig, sanearModelo } from "../_shared/mensagensVisitante/sanear.ts";
+import { sanearConfig, sanearIdentidade, sanearModelo } from "../_shared/mensagensVisitante/sanear.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
   const { data: papeis } = await supabase.from("user_roles").select("role").eq("user_id", usuario.id).in("role", ["admin", "diakonia", "secretaria"]);
   if (!papeis || papeis.length === 0) return resposta({ erro: "Só a administração pode enviar o teste." }, 403);
 
+  // o RASCUNHO vem da tela (modelo e configuração das mensagens); a IDENTIDADE da igreja (nome, redes, endereço…) vem SEMPRE do banco, nunca da chamada
   const corpo = await req.json().catch(() => ({})) as { modelo?: unknown; config?: unknown };
   const modelo = sanearModelo(corpo.modelo);
   if (!modelo) return resposta({ erro: "Modelo inválido." }, 400);
@@ -45,14 +46,15 @@ Deno.serve(async (req) => {
     const para = (pessoa?.email ?? "").trim();
     if (!para) return resposta({ erro: "A sua ficha não tem e-mail cadastrado — cadastre em Pessoas para receber o teste." }, 400);
 
-    // próximos eventos: os da agenda (sem a migration, o teste sai sem a lista)
+    // a Identidade e os próximos eventos (da agenda) vêm do banco; sem a migration o teste sai só com o nome padrão e sem lista
     const pacote = await supabase.rpc("visitante_mensagens");
+    const igreja = sanearIdentidade((pacote.data as { igreja?: unknown } | null)?.igreja);
     const eventos = Array.isArray((pacote.data as { eventos?: unknown } | null)?.eventos)
       ? ((pacote.data as { eventos: Record<string, unknown>[] }).eventos).filter(e => e && typeof e.titulo === "string").map(e => ({ titulo: String(e.titulo), quando: e.quando ? String(e.quando) : null, local: e.local ? String(e.local) : null, link: e.link ? String(e.link) : null }))
       : [];
 
     const nome = (pessoa?.nome_completo ?? "").trim() || "Maria da Silva";
-    const m = montarMensagem(modelo, { config, eventos, visitante: { nome, culto: "Culto da Manhã" } });
+    const m = montarMensagem(modelo, { config, igreja, eventos, visitante: { nome, culto: "Culto da Manhã" } });
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },

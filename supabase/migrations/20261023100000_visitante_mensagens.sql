@@ -4,37 +4,49 @@
 -- boas-vindas, texto pastoral, convite para retorno, assinatura, contatos, redes, próximos eventos da agenda, pedido de oração e plano de leitura — tudo editável numa área administrativa
 -- (/admin/mensagens-visitante), com variações por momento e a MESMA estrutura para WhatsApp, e-mail e (futuro) SMS.
 --
+-- A IDENTIDADE DA IGREJA É A FONTE ÚNICA (decisão dela, 22/10/2026, ao revisar a arquitetura do acolhimento): nome, site, redes sociais (inclui WhatsApp e Spotify), endereço, telefone e e-mail vêm de
+-- `identidade_igreja`. Antes desta revisão a configuração das mensagens guardava a sua própria cópia das redes e dos contatos — a terceira cópia (as outras duas: Identidade e a tela de Boas-vindas);
+-- como esta migration ainda não tinha sido aplicada, ela foi reformulada em vez de remendada depois.
+--
 -- Desenho (e por quê):
---   • `visitante_mensagem_config` — UMA linha (id boolean fixo): nome da igreja, assinatura, endereço, telefone, WhatsApp, e-mail, links de pedido de oração e plano de leitura, título da lista de eventos, prazo
---     de "não retornou" (15 dias) e quantos eventos entram. As REDES (Instagram, Facebook, YouTube, Spotify, Site) ficam aqui, num jsonb [{tipo, url, ativo}], semeadas a partir da config de Boas-vindas ao
---     Visitante (que não tem Spotify nem é a mesma escolha: a mensagem pode mostrar redes diferentes da tela de agradecimento).
---   • `visitante_mensagem_modelos` — uma linha por (situação, canal): abertura, texto pastoral, convite de retorno, fechamento, assunto (e-mail) e as sete chaves de bloco. Semeadas 7 situações × WhatsApp e E-mail
---     (SMS fica previsto na CHECK e sem linhas: é futuro). Os textos de partida são os de supabase/functions/_shared/mensagensVisitante/padroes.ts (um teste confere que são os mesmos).
+--   • `identidade_igreja` ganha 3 colunas, todas opcionais e nulas no que já existe: `endereco`, `telefone`, `email_contato` (a Identidade tinha nome, site e redes, mas não onde a igreja fica nem como falar com ela).
+--     Nenhuma linha existente é alterada.
+--   • `visitante_mensagem_config` — UMA linha (id boolean fixo): só o que é DAS MENSAGENS — assinatura, links de pedido de oração e de plano de leitura, título da lista de eventos, prazo de "não retornou"
+--     (15 dias), quantos eventos entram e `redes_ocultas` (redes que existem na Identidade mas a mensagem não mostra; vazio = mostra todas as que têm endereço).
+--   • `visitante_mensagem_modelos` — uma linha por (situação, canal): abertura, texto pastoral, convite de retorno, fechamento, assunto (e-mail) e as sete chaves de bloco. Semeadas 7 situações × WhatsApp
+--     e E-mail (SMS fica previsto na CHECK e sem linhas: é futuro). Os textos de partida são os de supabase/functions/_shared/mensagensVisitante/padroes.ts (um teste confere que são os mesmos). A assinatura
+--     de partida usa a marca {{igreja}}, o nome da Identidade.
 --   • Os PRÓXIMOS EVENTOS não são copiados: vêm de `visitante_boasvindas()` (a lista que já lê a agenda e some sozinha quando a data passa). Uma fonte só.
---   • Quem lê para ENVIAR (a equipe de acolhimento, qualquer usuário logado) chama `visitante_mensagens()` — config + modelos + eventos num só jsonb; as tabelas em si só a administração (admin, diakonia,
---     secretaria) lê e escreve, como a config de Boas-vindas. Anon não tem acesso a nada daqui. Nenhum dado de visitante é guardado nestas tabelas.
+--   • Quem lê para ENVIAR (a equipe de acolhimento, qualquer usuário logado) chama `visitante_mensagens()` — config + modelos + identidade + eventos num só jsonb; as tabelas de mensagens só a administração
+--     (admin, diakonia, secretaria) lê e escreve, como a config de Boas-vindas. Anon não tem acesso a nada daqui. Nenhum dado de visitante é guardado nestas tabelas.
 -- Nada é enviado por esta migration. Reverter: DROP FUNCTION public.visitante_mensagens(); DROP TABLE public.visitante_mensagem_modelos, public.visitante_mensagem_config;
+-- (e, se quiser, ALTER TABLE public.identidade_igreja DROP COLUMN endereco, DROP COLUMN telefone, DROP COLUMN email_contato — só depois de conferir que ninguém preencheu).
 
+-- ── 1) a Identidade passa a ter onde a igreja fica e como falar com ela ──────────────────────────────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.identidade_igreja
+  ADD COLUMN IF NOT EXISTS endereco      text CHECK (endereco IS NULL OR length(endereco) <= 300),
+  ADD COLUMN IF NOT EXISTS telefone      text CHECK (telefone IS NULL OR length(telefone) <= 40),
+  ADD COLUMN IF NOT EXISTS email_contato text CHECK (email_contato IS NULL OR length(email_contato) <= 160);
+COMMENT ON COLUMN public.identidade_igreja.endereco IS 'Onde a igreja fica (uma linha). Alimenta as mensagens ao visitante.';
+COMMENT ON COLUMN public.identidade_igreja.telefone IS 'Telefone de contato da igreja. Alimenta as mensagens ao visitante.';
+COMMENT ON COLUMN public.identidade_igreja.email_contato IS 'E-mail de contato da igreja (não é o e-mail de login de ninguém). Alimenta as mensagens ao visitante.';
+
+-- ── 2) o que é DAS MENSAGENS ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.visitante_mensagem_config (
   id                 boolean PRIMARY KEY DEFAULT true CHECK (id),
-  igreja_nome        text NOT NULL DEFAULT 'Quarta Igreja Batista do Rio de Janeiro' CHECK (length(btrim(igreja_nome)) BETWEEN 1 AND 120),
   assinatura         text NOT NULL DEFAULT 'Com carinho,
 Equipe de Acolhimento
-Quarta Igreja Batista do Rio de Janeiro' CHECK (length(assinatura) <= 400),
-  endereco           text NOT NULL DEFAULT '' CHECK (length(endereco) <= 300),
-  telefone           text NOT NULL DEFAULT '' CHECK (length(telefone) <= 40),
-  whatsapp           text NOT NULL DEFAULT '' CHECK (length(whatsapp) <= 30),
-  email_contato      text NOT NULL DEFAULT '' CHECK (length(email_contato) <= 160),
+{{igreja}}' CHECK (length(assinatura) <= 400),
   link_pedido_oracao text NOT NULL DEFAULT '' CHECK (link_pedido_oracao = '' OR link_pedido_oracao ~* '^https?://[^\s<>"'']+$'),
   link_plano_leitura text NOT NULL DEFAULT '' CHECK (link_plano_leitura = '' OR link_plano_leitura ~* '^https?://[^\s<>"'']+$'),
   titulo_eventos     text NOT NULL DEFAULT 'Próximos eventos' CHECK (length(btrim(titulo_eventos)) BETWEEN 1 AND 80),
   dias_sem_retorno   smallint NOT NULL DEFAULT 15 CHECK (dias_sem_retorno BETWEEN 3 AND 90),
   eventos_max        smallint NOT NULL DEFAULT 4 CHECK (eventos_max BETWEEN 1 AND 10),
-  redes              jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(redes) = 'array' AND jsonb_array_length(redes) <= 10),
+  redes_ocultas      text[] NOT NULL DEFAULT '{}' CHECK (redes_ocultas <@ ARRAY['instagram', 'facebook', 'youtube', 'tiktok', 'spotify', 'telegram', 'site']),
   atualizado_em      timestamptz NOT NULL DEFAULT now(),
   atualizado_por     uuid DEFAULT auth.uid()
 );
-COMMENT ON TABLE public.visitante_mensagem_config IS 'Configuração (uma linha) das mensagens ao visitante: nome da igreja, assinatura, contatos, links, redes e o prazo de "não retornou".';
+COMMENT ON TABLE public.visitante_mensagem_config IS 'Configuração (uma linha) das mensagens ao visitante: assinatura, links de oração e leitura, prazo de "não retornou", quantos eventos e quais redes ocultar. Nome, redes, endereço e contatos vêm da Identidade da Igreja.';
 
 CREATE TABLE IF NOT EXISTS public.visitante_mensagem_modelos (
   situacao         text NOT NULL CHECK (situacao IN ('primeira_visita', 'segunda_visita', 'nao_retornou', 'interesse_membresia', 'infantil', 'jovem', 'indicado_ministerio')),
@@ -77,24 +89,9 @@ CREATE POLICY "Administracao" ON public.visitante_mensagem_modelos FOR ALL TO au
   WITH CHECK (has_any_role((SELECT auth.uid()), ARRAY['admin'::app_role, 'diakonia'::app_role, 'secretaria'::app_role]));
 GRANT SELECT, INSERT, UPDATE ON public.visitante_mensagem_config, public.visitante_mensagem_modelos TO authenticated;
 
--- ── a linha inicial: o nome da igreja da Identidade e as redes que a tela de Boas-vindas já tem (ativas só se tinham endereço) + Spotify vazio e desligado ──────────────────
-INSERT INTO public.visitante_mensagem_config (id, igreja_nome, redes)
-SELECT true,
-       COALESCE((SELECT nullif(btrim(nome_igreja), '') FROM public.identidade_igreja WHERE ativa ORDER BY created_at LIMIT 1), 'Quarta Igreja Batista do Rio de Janeiro'),
-       jsonb_build_array(
-         jsonb_build_object('tipo', 'instagram', 'url', COALESCE(c.instagram, ''), 'ativo', COALESCE(c.instagram, '') ~* '^https?://'),
-         jsonb_build_object('tipo', 'facebook',  'url', COALESCE(c.facebook, ''),  'ativo', COALESCE(c.facebook, '')  ~* '^https?://'),
-         jsonb_build_object('tipo', 'youtube',   'url', COALESCE(c.youtube, ''),   'ativo', COALESCE(c.youtube, '')   ~* '^https?://'),
-         jsonb_build_object('tipo', 'spotify',   'url', '', 'ativo', false),
-         jsonb_build_object('tipo', 'site',      'url', COALESCE(c.site, ''),      'ativo', COALESCE(c.site, '')      ~* '^https?://'))
-  FROM (SELECT (SELECT x->>'url' FROM jsonb_array_elements(b.canais) x WHERE x->>'tipo' = 'instagram' LIMIT 1) AS instagram,
-               (SELECT x->>'url' FROM jsonb_array_elements(b.canais) x WHERE x->>'tipo' = 'facebook'  LIMIT 1) AS facebook,
-               (SELECT x->>'url' FROM jsonb_array_elements(b.canais) x WHERE x->>'tipo' = 'youtube'   LIMIT 1) AS youtube,
-               (SELECT x->>'url' FROM jsonb_array_elements(b.canais) x WHERE x->>'tipo' = 'site'      LIMIT 1) AS site
-          FROM (SELECT canais FROM public.visitante_boasvindas WHERE id UNION ALL SELECT '[]'::jsonb LIMIT 1) b) c
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.visitante_mensagem_config (id) VALUES (true) ON CONFLICT (id) DO NOTHING;
 
--- ── os 14 modelos de partida (7 situações × WhatsApp e E-mail): os textos de padroes.ts ─────────────────────────────────────────────────────────────────────────────────
+-- ── 3) os 14 modelos de partida (7 situações × WhatsApp e E-mail): os textos de padroes.ts ─────────────────────────────────────────────────────────────────────────────────
 INSERT INTO public.visitante_mensagem_modelos
   (situacao, canal, ativo, assunto, abertura, texto_pastoral, convite_retorno, fechamento, incluir_eventos, incluir_redes, incluir_endereco, incluir_contato, incluir_whatsapp, incluir_oracao, incluir_leitura)
 VALUES
@@ -114,7 +111,8 @@ VALUES
   ('indicado_ministerio', 'email', true, 'Seja muito bem-vindo(a), {{nome}}!', 'Olá, {{nome}}! 😊 Que alegria receber você na {{igreja}}!', 'Soubemos que você chegou até nós por meio de um dos nossos ministérios. Ele ficará feliz em saber da sua visita, e queremos que você se sinta acolhido(a) em toda a igreja.', 'Venha conhecer mais da nossa programação:', 'Deus abençoe você!', true, true, true, true, true, true, false)
 ON CONFLICT (situacao, canal) DO NOTHING;
 
--- ── a leitura para quem ENVIA: config + modelos + próximos eventos (da agenda, via visitante_boasvindas) num só jsonb ───────────────────────────────────────────────────
+-- ── 4) a leitura para quem ENVIA: config + modelos + IDENTIDADE + próximos eventos (da agenda, via visitante_boasvindas) num só jsonb ───────────────────────────────────────
+-- 'igreja' é a Identidade ATIVA mais antiga (a mesma que a tela de Boas-vindas usou para semear os canais). Sem Identidade cadastrada, 'igreja' vem vazio e o app usa o nome padrão.
 CREATE OR REPLACE FUNCTION public.visitante_mensagens()
 RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
@@ -122,10 +120,15 @@ AS $f$
   SELECT jsonb_build_object(
     'config', to_jsonb(c) - 'id' - 'atualizado_por',
     'modelos', COALESCE((SELECT jsonb_agg(to_jsonb(m) - 'atualizado_por' ORDER BY m.situacao, m.canal) FROM public.visitante_mensagem_modelos m), '[]'::jsonb),
+    'igreja', COALESCE((
+       SELECT jsonb_build_object('nome', i.nome_igreja, 'site', COALESCE(i.site_oficial, ''), 'redes', COALESCE(i.redes_sociais, '[]'::jsonb),
+                                 'endereco', COALESCE(i.endereco, ''), 'telefone', COALESCE(i.telefone, ''), 'email', COALESCE(i.email_contato, ''),
+                                 'resumo', COALESCE(i.resumo, ''), 'missao', COALESCE(i.missao, ''))
+         FROM public.identidade_igreja i WHERE i.ativa ORDER BY i.created_at LIMIT 1), '{}'::jsonb),
     'eventos', COALESCE(public.visitante_boasvindas() -> 'eventos', '[]'::jsonb)
   )
   FROM public.visitante_mensagem_config c WHERE c.id
 $f$;
-COMMENT ON FUNCTION public.visitante_mensagens IS 'Config, modelos e próximos eventos das mensagens ao visitante, para quem envia (usuário logado) e para as Edge Functions. Não contém dado de visitante.';
+COMMENT ON FUNCTION public.visitante_mensagens IS 'Config, modelos, Identidade da Igreja e próximos eventos das mensagens ao visitante, para quem envia (usuário logado) e para as Edge Functions. Não contém dado de visitante.';
 REVOKE ALL ON FUNCTION public.visitante_mensagens() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.visitante_mensagens() TO authenticated, service_role;

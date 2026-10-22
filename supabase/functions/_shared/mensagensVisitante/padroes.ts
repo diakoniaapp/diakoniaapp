@@ -1,7 +1,7 @@
 // ─── mensagensVisitante/padroes — os textos que a igreja recebe de partida (a migration semeia ESTES mesmos; "Restaurar padrão" na tela volta a eles) ───────────────────────────────────────────
 // Não são "texto fixo em código": são o ponto de partida editável. O que vale para o envio é sempre o que está no banco; estes só aparecem quando a administração pede para restaurar um modelo.
 // Um teste confere que a migration traz exatamente estes textos (src/lib/mensagensVisitante.test.ts).
-import type { ConfigDaMensagem, ModeloDaMensagem, SituacaoDaMensagem } from "./montar.ts";
+import type { ConfigDaMensagem, IdentidadeDaIgreja, ModeloDaMensagem, SituacaoDaMensagem } from "./montar.ts";
 
 type Texto = Pick<ModeloDaMensagem, "assunto" | "abertura" | "texto_pastoral" | "convite_retorno" | "fechamento">;
 
@@ -65,12 +65,10 @@ export function modeloPadrao(situacao: SituacaoDaMensagem, canal: ModeloDaMensag
 }
 
 export const CONFIG_PADRAO: ConfigDaMensagem = {
-  igreja_nome: "Quarta Igreja Batista do Rio de Janeiro",
-  assinatura: "Com carinho,\nEquipe de Acolhimento\nQuarta Igreja Batista do Rio de Janeiro",
-  endereco: "", telefone: "", whatsapp: "", email_contato: "", link_pedido_oracao: "", link_plano_leitura: "",
-  titulo_eventos: "Próximos eventos", dias_sem_retorno: 15, eventos_max: 4,
-  redes: [
-    { tipo: "instagram", url: "", ativo: false }, { tipo: "facebook", url: "", ativo: false }, { tipo: "youtube", url: "", ativo: false },
-    { tipo: "spotify", url: "", ativo: false }, { tipo: "site", url: "", ativo: false },
-  ],
+  // {{igreja}} é o nome da Identidade da Igreja
+  assinatura: "Com carinho,\nEquipe de Acolhimento\n{{igreja}}",
+  link_pedido_oracao: "", link_plano_leitura: "", titulo_eventos: "Próximos eventos", dias_sem_retorno: 15, eventos_max: 4, redes_ocultas: [],
 };
+
+/** A Identidade quando ainda não há nenhuma cadastrada (ou a função do banco não a devolveu): só o nome, para a mensagem nunca sair sem a igreja. */
+export const IGREJA_PADRAO: IdentidadeDaIgreja = { nome: "Quarta Igreja Batista do Rio de Janeiro", site: "", redes: [], endereco: "", telefone: "", email: "", resumo: "", missao: "" };

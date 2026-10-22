@@ -20,9 +20,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import {
-  LIMITES, MARCAS_DISPONIVEIS, QUANDO_USA_A_SITUACAO, ROTULO_DA_REDE, ROTULO_DA_SITUACAO, ROTULO_DO_CANAL, SITUACOES, linkDoWhatsApp, modeloOuPadrao, modeloPadrao, montarMensagem,
-  problemasDaConfig, problemasDoModelo, urlSegura, fecharUrl,
-  type CanalDaMensagem, type ConfigDaMensagem, type ModeloDaMensagem, type PacoteDeMensagens, type SituacaoDaMensagem,
+  LIMITES, MARCAS_DISPONIVEIS, QUANDO_USA_A_SITUACAO, ROTULO_DA_REDE, ROTULO_DA_SITUACAO, ROTULO_DO_CANAL, SITUACOES, TIPOS_DE_REDE, modeloOuPadrao, modeloPadrao, montarMensagem,
+  problemasDaConfig, problemasDoModelo, redesDaIdentidade, urlDaRede, urlSegura, fecharUrl, whatsappDaIdentidade,
+  type CanalDaMensagem, type ConfigDaMensagem, type ModeloDaMensagem, type PacoteDeMensagens, type SituacaoDaMensagem, type TipoDeRede,
 } from "@/lib/mensagensVisitante";
 import * as real from "@/services/mensagensVisitanteService";
 
@@ -49,16 +49,17 @@ const BLOCOS: { flag: Flag; titulo: string; descricao: string }[] = [
   { flag: "incluir_leitura", titulo: "Plano de leitura bíblica", descricao: "Link do plano de leitura." },
 ];
 
-/** O que falta para o bloco aparecer de verdade (o bloco ligado, mas sem o dado, não entra na mensagem). */
+/** O que falta para o bloco aparecer de verdade (o bloco ligado, mas sem o dado, não entra na mensagem). Nome, redes, endereço e contatos vêm da Identidade da Igreja. */
 function faltaParaOBloco(flag: Flag, c: ConfigDaMensagem, pacote: PacoteDeMensagens): string | null {
+  const ig = pacote.igreja;
   switch (flag) {
     case "incluir_eventos": return pacote.eventos.length === 0 ? "A agenda não tem eventos próximos agora: o bloco só aparece quando houver." : null;
-    case "incluir_redes": return c.redes.some(r => r.ativo && urlSegura(fecharUrl(r.url))) ? null : "Nenhuma rede ligada com endereço.";
-    case "incluir_endereco": return c.endereco.trim() ? null : "Falta o endereço em “Dados da igreja”.";
-    case "incluir_contato": return c.telefone.trim() || c.email_contato.trim() ? null : "Faltam telefone e e-mail em “Dados da igreja”.";
-    case "incluir_whatsapp": return linkDoWhatsApp(c.whatsapp) ? null : "Falta o número do WhatsApp em “Dados da igreja”.";
-    case "incluir_oracao": return urlSegura(fecharUrl(c.link_pedido_oracao)) ? null : "Falta o link do pedido de oração em “Dados da igreja”.";
-    case "incluir_leitura": return urlSegura(fecharUrl(c.link_plano_leitura)) ? null : "Falta o link do plano de leitura em “Dados da igreja”.";
+    case "incluir_redes": return redesDaIdentidade(ig, c.redes_ocultas).length > 0 ? null : "Nenhuma rede para mostrar: cadastre na Identidade da Igreja ou ligue uma em “Redes e links”.";
+    case "incluir_endereco": return ig.endereco.trim() ? null : "Falta o endereço na Identidade da Igreja.";
+    case "incluir_contato": return ig.telefone.trim() || ig.email.trim() ? null : "Faltam telefone e e-mail na Identidade da Igreja.";
+    case "incluir_whatsapp": return whatsappDaIdentidade(ig) ? null : "Falta o WhatsApp (rede “WhatsApp”) na Identidade da Igreja.";
+    case "incluir_oracao": return urlSegura(fecharUrl(c.link_pedido_oracao)) ? null : "Falta o link do pedido de oração em “Redes e links”.";
+    case "incluir_leitura": return urlSegura(fecharUrl(c.link_plano_leitura)) ? null : "Falta o link do plano de leitura em “Redes e links”.";
   }
 }
 
@@ -101,7 +102,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
   const sujos = Object.keys(modelos).filter(k => JSON.stringify(modelos[k]) !== salvoModelos[k]);
 
   const montada = useMemo(
-    () => (config && pacote ? montarMensagem(atual, { config, eventos: pacote.eventos, visitante: { nome: nomeExemplo || "Visitante", culto: "Culto da Manhã" } }) : null),
+    () => (config && pacote ? montarMensagem(atual, { config, igreja: pacote.igreja, eventos: pacote.eventos, visitante: { nome: nomeExemplo || "Visitante", culto: "Culto da Manhã" } }) : null),
     [atual, config, pacote, nomeExemplo],
   );
 
@@ -118,7 +119,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
     const problemas = problemasDaConfig(config);
     if (problemas.length > 0) { toast.error(problemas[0] + (problemas.length > 1 ? ` (e mais ${problemas.length - 1})` : "")); return; }
     setSalvando("config");
-    try { await servico.salvarConfig(config); setSalvoConfig(JSON.stringify(config)); toast.success("Dados da igreja salvos. Valem para todas as mensagens."); }
+    try { await servico.salvarConfig(config); setSalvoConfig(JSON.stringify(config)); toast.success("Redes e links salvos. Valem para todas as mensagens."); }
     catch (e: any) { toast.error(e?.message ?? "Não foi possível salvar"); }
     finally { setSalvando(null); }
   }
@@ -157,7 +158,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
         <Tabs defaultValue="mensagens">
           <TabsList>
             <TabsTrigger value="mensagens">Mensagens{sujos.length > 0 ? ` · ${sujos.length} não salva${sujos.length > 1 ? "s" : ""}` : ""}</TabsTrigger>
-            <TabsTrigger value="igreja">Dados da igreja{configSuja ? " · não salvo" : ""}</TabsTrigger>
+            <TabsTrigger value="igreja">Redes e links{configSuja ? " · não salvo" : ""}</TabsTrigger>
           </TabsList>
 
           {/* ─── as mensagens ─── */}
@@ -186,7 +187,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground" data-quando>
-                      <b>Quando é usada:</b> {QUANDO_USA_A_SITUACAO[situacao]}{situacao === "nao_retornou" ? ` Prazo atual: ${config.dias_sem_retorno} dias (muda em “Dados da igreja”).` : ""}
+                      <b>Quando é usada:</b> {QUANDO_USA_A_SITUACAO[situacao]}{situacao === "nao_retornou" ? ` Prazo atual: ${config.dias_sem_retorno} dias (muda em “Redes e links”).` : ""}
                     </p>
                     <label className="flex items-center gap-2 text-sm"><Switch checked={atual.ativo} onCheckedChange={v => setModelo({ ativo: v })} aria-label="Usar esta mensagem" /> Usar esta mensagem {!atual.ativo && <span className="text-xs text-muted-foreground">(desligada: o sistema volta ao texto antigo)</span>}</label>
                   </CardContent>
@@ -201,7 +202,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
                     {campoTexto("msg-abertura", "Mensagem de boas-vindas", atual.abertura, LIMITES.abertura, v => setModelo({ abertura: v }), 2)}
                     {campoTexto("msg-pastoral", "Texto pastoral", atual.texto_pastoral, LIMITES.texto_pastoral, v => setModelo({ texto_pastoral: v }), 4, "Uma linha em branco separa os parágrafos.")}
                     {campoTexto("msg-convite", "Convite para retorno", atual.convite_retorno, LIMITES.convite_retorno, v => setModelo({ convite_retorno: v }), 2, "Vem antes da lista de próximos eventos.")}
-                    {campoTexto("msg-fechamento", "Fechamento", atual.fechamento, LIMITES.fechamento, v => setModelo({ fechamento: v }), 2, "A assinatura (em “Dados da igreja”) vem depois.")}
+                    {campoTexto("msg-fechamento", "Fechamento", atual.fechamento, LIMITES.fechamento, v => setModelo({ fechamento: v }), 2, "A assinatura (em “Redes e links”) vem depois.")}
                     <p className="text-xs text-muted-foreground">
                       Marcas que viram o dado do visitante: {MARCAS_DISPONIVEIS.map(m => <code key={m.marca} className="mr-2 rounded bg-muted px-1" title={m.descricao}>{m.marca}</code>)}
                     </p>
@@ -277,44 +278,51 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
             </div>
           </TabsContent>
 
-          {/* ─── os dados da igreja ─── */}
+          {/* ─── redes, links e prazos ─── */}
           <TabsContent value="igreja" className="mt-4">
             <div className="grid max-w-3xl gap-4">
-              <Card className="shadow-card-soft">
-                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Igreja e assinatura</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  <div><Label htmlFor="ig-nome">Nome da igreja</Label><Input id="ig-nome" maxLength={LIMITES.igreja_nome} value={config.igreja_nome} onChange={e => setC({ igreja_nome: e.target.value })} /></div>
-                  {campoTexto("ig-assinatura", "Assinatura", config.assinatura, LIMITES.assinatura, v => setC({ assinatura: v }), 3, "Fecha todas as mensagens.")}
+              <Card className="shadow-card-soft" data-identidade>
+                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Vem da Identidade da Igreja</CardTitle></CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <p className="text-xs text-muted-foreground">Nome, site, redes, WhatsApp, endereço, telefone e e-mail são cadastrados <b>uma vez só</b>, na Identidade da Igreja, e valem para todas as mensagens.</p>
+                  <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-[8rem_1fr]">
+                    {([
+                      ["Igreja", pacote.igreja.nome], ["Site", pacote.igreja.site], ["WhatsApp", whatsappDaIdentidade(pacote.igreja) ?? ""], ["Endereço", pacote.igreja.endereco],
+                      ["Telefone", pacote.igreja.telefone], ["E-mail", pacote.igreja.email],
+                    ] as const).map(([rotulo, valor]) => (
+                      <div key={rotulo} className="contents">
+                        <dt className="text-muted-foreground">{rotulo}</dt>
+                        <dd className={valor ? "break-words" : "text-warning-text"} data-identidade-campo={rotulo}>{valor || "não cadastrado"}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <Button asChild variant="outline" size="sm" className="mt-1"><Link to="/admin/identidade">Editar na Identidade da Igreja</Link></Button>
                 </CardContent>
               </Card>
 
               <Card className="shadow-card-soft">
-                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Informações de contato</CardTitle></CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2"><Label htmlFor="ig-end">Endereço</Label><Input id="ig-end" maxLength={LIMITES.endereco} value={config.endereco} onChange={e => setC({ endereco: e.target.value })} placeholder="Rua, número, bairro, cidade" /></div>
-                  <div><Label htmlFor="ig-tel">Telefone</Label><Input id="ig-tel" maxLength={LIMITES.telefone} value={config.telefone} onChange={e => setC({ telefone: e.target.value })} placeholder="(21) 3333-4444" /></div>
-                  <div><Label htmlFor="ig-zap">WhatsApp da igreja</Label><Input id="ig-zap" inputMode="tel" value={config.whatsapp} onChange={e => setC({ whatsapp: e.target.value })} placeholder="(21) 98399-1229" /></div>
-                  <div className="sm:col-span-2"><Label htmlFor="ig-mail">E-mail de contato</Label><Input id="ig-mail" type="email" maxLength={LIMITES.email_contato} value={config.email_contato} onChange={e => setC({ email_contato: e.target.value })} placeholder="acolhimento@igreja.org.br" /></div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-card-soft">
-                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Redes sociais</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Redes que aparecem nas mensagens</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Escolha quais aparecem. Cada mensagem ainda pode ligar ou desligar o bloco inteiro.</p>
-                  {config.redes.map((r, i) => (
-                    <div key={r.tipo} className="flex items-center gap-3" data-rede={r.tipo}>
-                      <Switch checked={r.ativo} onCheckedChange={v => setC({ redes: config.redes.map((x, k) => (k === i ? { ...x, ativo: v } : x)) })} aria-label={ROTULO_DA_REDE[r.tipo]} />
-                      <Label className="w-24 shrink-0" htmlFor={`rede-${r.tipo}`}>{ROTULO_DA_REDE[r.tipo]}</Label>
-                      <Input id={`rede-${r.tipo}`} value={r.url} placeholder="https://…" onChange={e => setC({ redes: config.redes.map((x, k) => (k === i ? { ...x, url: e.target.value } : x)) })} />
-                    </div>
-                  ))}
+                  <p className="text-xs text-muted-foreground">Os endereços vêm da Identidade. Aqui você só escolhe quais aparecem; cada mensagem ainda pode ligar ou desligar o bloco inteiro.</p>
+                  {TIPOS_DE_REDE.map(tipo => {
+                    const url = urlDaRede(tipo, tipo === "site" ? pacote.igreja.site : pacote.igreja.redes.find(r => r.plataforma === tipo)?.url);
+                    const mostra = !config.redes_ocultas.includes(tipo);
+                    return (
+                      <div key={tipo} className="flex items-center gap-3" data-rede={tipo}>
+                        <Switch checked={!!url && mostra} disabled={!url} aria-label={ROTULO_DA_REDE[tipo]}
+                          onCheckedChange={v => setC({ redes_ocultas: (v ? config.redes_ocultas.filter(t => t !== tipo) : [...config.redes_ocultas, tipo]) as TipoDeRede[] })} />
+                        <span className="w-24 shrink-0 text-sm font-medium">{ROTULO_DA_REDE[tipo]}</span>
+                        <span className={"min-w-0 truncate text-xs " + (url ? "text-muted-foreground" : "text-warning-text")}>{url ?? "não cadastrada na Identidade"}</span>
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
 
               <Card className="shadow-card-soft">
-                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Links úteis</CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Assinatura e links úteis</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
+                  {campoTexto("ig-assinatura", "Assinatura", config.assinatura, LIMITES.assinatura, v => setC({ assinatura: v }), 3, "Fecha todas as mensagens. {{igreja}} vira o nome da Identidade.")}
                   <div><Label htmlFor="ig-oracao">Formulário de pedido de oração</Label><Input id="ig-oracao" value={config.link_pedido_oracao} placeholder="https://…" onChange={e => setC({ link_pedido_oracao: e.target.value })} /></div>
                   <div><Label htmlFor="ig-leitura">Plano de leitura bíblica</Label><Input id="ig-leitura" value={config.link_plano_leitura} placeholder="https://…" onChange={e => setC({ link_plano_leitura: e.target.value })} /></div>
                 </CardContent>
@@ -331,7 +339,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
 
               <div className="flex justify-end">
                 <Button onClick={salvarOsDados} disabled={salvando !== null || !configSuja} className="gap-2">
-                  {salvando === "config" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {configSuja ? "Salvar dados da igreja" : "Dados salvos"}
+                  {salvando === "config" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {configSuja ? "Salvar redes e links" : "Redes e links salvos"}
                 </Button>
               </div>
             </div>

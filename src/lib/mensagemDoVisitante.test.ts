@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { diasEntre, situacaoPelaEtapa, situacaoPelosFatos, textoDoVisitante } from "@/lib/mensagemDoVisitante";
 import { CONFIG_PADRAO, SITUACOES, modeloPadrao, type PacoteDeMensagens } from "@/lib/mensagensVisitante";
-import { sanearConfig, sanearModelo } from "../../supabase/functions/_shared/mensagensVisitante/sanear";
+import { sanearConfig, sanearIdentidade, sanearModelo } from "../../supabase/functions/_shared/mensagensVisitante/sanear";
 
 const pacote = (o: Partial<PacoteDeMensagens> = {}): PacoteDeMensagens => ({
-  config: { ...CONFIG_PADRAO, igreja_nome: "QIBRJ", assinatura: "Equipe" },
+  config: { ...CONFIG_PADRAO, assinatura: "Equipe" },
+  igreja: { nome: "QIBRJ", site: "", redes: [], endereco: "", telefone: "", email: "" },
   modelos: SITUACOES.map(s => modeloPadrao(s, "whatsapp")),
   eventos: [{ titulo: "Culto de Oração", quando: "quarta-feira" }],
   ...o,
@@ -64,14 +65,22 @@ describe("o rascunho que chega à função do e-mail de teste", () => {
     expect(m.incluir_redes).toBe(true);     // não era booleano: volta ao padrão
     expect(m.incluir_eventos).toBe(false);
   });
-  it("config: campos cortados, redes sempre as cinco na ordem, números dentro dos limites", () => {
-    const c = sanearConfig({ igreja_nome: "", endereco: "e".repeat(999), dias_sem_retorno: 1000, eventos_max: -3, redes: [{ tipo: "youtube", url: "https://y.com", ativo: true }, { tipo: "tiktok", url: "x", ativo: true }] });
-    expect(c.igreja_nome).toBe(CONFIG_PADRAO.igreja_nome);
-    expect(c.endereco).toHaveLength(300);
+  it("config: campos cortados, números dentro dos limites, só redes conhecidas (sem repetir) na lista de ocultas", () => {
+    const c = sanearConfig({ assinatura: "a".repeat(999), link_pedido_oracao: "https://x.org/oracao", dias_sem_retorno: 1000, eventos_max: -3, redes_ocultas: ["spotify", "spotify", "myspace", 7] });
+    expect(c.assinatura).toHaveLength(400);
+    expect(c.link_pedido_oracao).toBe("https://x.org/oracao");
     expect(c.dias_sem_retorno).toBe(90);
     expect(c.eventos_max).toBe(1);
-    expect(c.redes.map(r => r.tipo)).toEqual(["instagram", "facebook", "youtube", "spotify", "site"]);
-    expect(c.redes.find(r => r.tipo === "youtube")).toMatchObject({ ativo: true, url: "https://y.com" });
+    expect(c.redes_ocultas).toEqual(["spotify"]);
+  });
+  it("Identidade como o banco a devolve: só redes com plataforma e url em texto; sem nome, o nome padrão; nada de fora entra", () => {
+    const i = sanearIdentidade({ nome: "  ", site: "qibrj.org.br", redes: [{ plataforma: "instagram", url: "@qibrj" }, { plataforma: 1, url: "x" }, null, { plataforma: "x" }], endereco: "e".repeat(999), email: "a@b.org" });
+    expect(i.nome).toBe("Quarta Igreja Batista do Rio de Janeiro");
+    expect(i.redes).toEqual([{ plataforma: "instagram", url: "@qibrj" }]);
+    expect(i.endereco).toHaveLength(300);
+    expect(i.site).toBe("qibrj.org.br");
+    expect(sanearIdentidade(undefined).redes).toEqual([]);
+    expect(sanearIdentidade("lixo").telefone).toBe("");
   });
   it("config vazia ou estranha vira o padrão, sem quebrar", () => {
     expect(sanearConfig(undefined).dias_sem_retorno).toBe(15);

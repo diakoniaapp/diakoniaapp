@@ -40,6 +40,10 @@ interface Identidade {
   resumo: string | null;
   pastor_id: string | null;
   ativa: boolean;
+  // contatos (migration 20261023100000) — ausentes enquanto ela não for aplicada
+  endereco?: string | null;
+  telefone?: string | null;
+  email_contato?: string | null;
 }
 
 interface ValorItem {
@@ -204,10 +208,16 @@ export default function IdentidadeAdmin() {
     slug: "",
     logo_url: "",
     site_oficial: "",
+    // Contatos que alimentam as mensagens ao visitante (migration 20261023100000)
+    endereco: "",
+    telefone: "",
+    email_contato: "",
     // Camada 2: referências documentais
     origem_missao_ref: "",
     origem_visao_ref: "",
   });
+  // As 3 colunas de contato só existem depois da migration: sem elas a tela nem as mostra nem as envia (um update com coluna desconhecida falharia e travaria o salvamento de TUDO).
+  const [contatoDisponivel, setContatoDisponivel] = useState(false);
 
   // Pastor
   const [pastorId, setPastorId] = useState<string>("");
@@ -315,6 +325,7 @@ export default function IdentidadeAdmin() {
     if (id) {
       const ident = id as any;
       setIdentidade(ident);
+      setContatoDisponivel("endereco" in ident);
       setForm({
         nome_igreja:       ident.nome_igreja        ?? "",
         cnpj:              ident.cnpj               ?? "",
@@ -325,6 +336,9 @@ export default function IdentidadeAdmin() {
         slug:              ident.slug               ?? "",
         logo_url:          ident.logo_url           ?? "",
         site_oficial:      ident.site_oficial       ?? "",
+        endereco:          ident.endereco           ?? "",
+        telefone:          ident.telefone           ?? "",
+        email_contato:     ident.email_contato      ?? "",
         origem_missao_ref: ident.origem_missao_ref  ?? "",
         origem_visao_ref:  ident.origem_visao_ref   ?? "",
       });
@@ -546,6 +560,7 @@ export default function IdentidadeAdmin() {
   // ── Salvar tudo ──
   const salvar = async () => {
     if (!form.nome_igreja.trim()) { toast.error("Nome da igreja é obrigatório"); return; }
+    if (contatoDisponivel && form.email_contato.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email_contato.trim())) { toast.error("O e-mail de contato parece incompleto"); return; }
     setSaving(true);
 
     const redesAtivas = redes.filter((r) => !r._delete && r.url.trim());
@@ -553,6 +568,7 @@ export default function IdentidadeAdmin() {
     Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
     payload.redes_sociais = redesAtivas.map(({ plataforma, url }) => ({ plataforma, url }));
     payload.pastor_id = pastorId || null;
+    if (!contatoDisponivel) { delete payload.endereco; delete payload.telefone; delete payload.email_contato; }
 
     let igrejId = identidade?.id ?? null;
 
@@ -1066,6 +1082,25 @@ export default function IdentidadeAdmin() {
                 onChange={(e) => setForm({ ...form, site_oficial: e.target.value })}
                 placeholder="https://www.suaigreja.com.br" />
             </div>
+
+            {/* Contato: alimenta as mensagens ao visitante (Mensagens ao Visitante) — cadastrado aqui, uma vez só */}
+            {contatoDisponivel && (
+              <div className="grid gap-4 sm:grid-cols-2" data-contato-da-igreja>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="ident-endereco">Endereço</Label>
+                  <Input id="ident-endereco" value={form.endereco} maxLength={300} onChange={(e) => setForm({ ...form, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade" />
+                </div>
+                <div>
+                  <Label htmlFor="ident-telefone">Telefone</Label>
+                  <Input id="ident-telefone" value={form.telefone} maxLength={40} onChange={(e) => setForm({ ...form, telefone: e.target.value })} placeholder="(21) 3333-4444" />
+                </div>
+                <div>
+                  <Label htmlFor="ident-email">E-mail de contato</Label>
+                  <Input id="ident-email" type="email" value={form.email_contato} maxLength={160} onChange={(e) => setForm({ ...form, email_contato: e.target.value })} placeholder="acolhimento@suaigreja.com.br" />
+                </div>
+                <p className="sm:col-span-2 text-xs text-muted-foreground">Usados nas mensagens ao visitante. O WhatsApp da igreja entra como uma rede social abaixo.</p>
+              </div>
+            )}
 
             {/* Redes sociais */}
             <div>

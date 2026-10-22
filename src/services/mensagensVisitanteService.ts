@@ -1,6 +1,6 @@
 // ─── mensagensVisitanteService — a configuração das mensagens ao visitante (leitura para quem envia; edição para a administração) ─────────────────────────────────────────────────────────────
 //
-// Leitura: a função `visitante_mensagens()` (qualquer usuário logado) devolve config + modelos + próximos eventos. Escrita: as tabelas `visitante_mensagem_config` (uma linha) e `visitante_mensagem_modelos`
+// Leitura: a função `visitante_mensagens()` (qualquer usuário logado) devolve config + modelos + Identidade da Igreja (nome, redes, endereço, contatos: fonte única, editada em /admin/identidade) + próximos eventos. Escrita: as tabelas `visitante_mensagem_config` (uma linha) e `visitante_mensagem_modelos`
 // (uma por situação e canal), só admin/diakonia/secretaria (RLS). Se a migration ainda não foi aplicada, `carregarMensagens()` devolve null e quem chama cai no texto antigo.
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
@@ -23,10 +23,8 @@ export const esquecerMensagens = () => { guardado = null; };
 export async function salvarConfig(c: ConfigDaMensagem): Promise<void> {
   const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
   const linha = {
-    id: true, igreja_nome: c.igreja_nome.trim(), assinatura: c.assinatura.trim(), endereco: c.endereco.trim(), telefone: c.telefone.trim(), whatsapp: c.whatsapp.replace(/\D/g, ""),
-    email_contato: c.email_contato.trim().toLowerCase(), link_pedido_oracao: fecharUrl(c.link_pedido_oracao), link_plano_leitura: fecharUrl(c.link_plano_leitura),
-    titulo_eventos: c.titulo_eventos.trim() || "Próximos eventos", dias_sem_retorno: c.dias_sem_retorno, eventos_max: c.eventos_max,
-    redes: c.redes.map(r => ({ tipo: r.tipo, url: fecharUrl(r.url), ativo: r.ativo && !!fecharUrl(r.url) })),
+    id: true, assinatura: c.assinatura.trim(), link_pedido_oracao: fecharUrl(c.link_pedido_oracao), link_plano_leitura: fecharUrl(c.link_plano_leitura),
+    titulo_eventos: c.titulo_eventos.trim() || "Próximos eventos", dias_sem_retorno: c.dias_sem_retorno, eventos_max: c.eventos_max, redes_ocultas: c.redes_ocultas,
     atualizado_em: new Date().toISOString(), atualizado_por: uid,
   };
   const r = conferir(await supabase.from("visitante_mensagem_config" as never).upsert(linha as never, { onConflict: "id" } as never).select("id"), "A configuração das mensagens");
