@@ -2,7 +2,7 @@
 //
 // Substitui o cartão físico: o visitante preenche os dados, e o banco cria a ficha (ou registra a nova visita de quem
 // já existe) e abre o acompanhamento pastoral. Três passos curtos, cada um cabe numa tela de celular sem rolar:
-// 1 Dados pessoais · 2 Sobre sua visita · 3 Oração e acompanhamento. Só "nome + um telefone + aceite" são obrigatórios.
+// 1 Dados pessoais · 2 Sobre sua visita · 3 Oração e acompanhamento. Só "nome + aceite" são obrigatórios (o telefone é opcional desde 22/10/2026).
 // Quem fala com o banco é UMA função (`visitante_autocadastro`); esta página nunca lê dado de ninguém.
 // Endereços: /bemvindo (o do QR), /visita e /visitante — todos abrem este formulário, sem código na URL; o link antigo
 // com `?p=<código>` continua valendo. A medição (até que passo chegou, em quantos segundos) não leva dado da pessoa.
@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { BoasVindasVisitante } from "@/components/visitante/BoasVindasVisitante";
 import { BOAS_VINDAS_PADRAO, lerRespostaPublica, type BoasVindasPublica } from "@/lib/boasVindasVisitante";
 import {
-  FORMULARIO_VAZIO, OPCOES_COMO_CONHECEU, PASSOS, TEXTO_DO_ACEITE, mascararData, mascararTelefone, montarPedido, problemasDoPasso,
+  FORMULARIO_VAZIO, OPCOES_COMO_CONHECEU, PASSOS, TEXTO_DO_ACEITE, mascararData, mascararTelefone, montarPedido, problemasDoPasso, temNumeroDeContato,
   type FormularioDoVisitante, type Problema,
 } from "@/lib/autocadastroVisitante";
 
@@ -184,7 +184,7 @@ export default function VisitanteAutocadastro() {
               <Erro id="v-nome" erros={erros} />
             </div>
             <div>
-              <Label htmlFor="v-tel">Telefone (com DDD) *</Label>
+              <Label htmlFor="v-tel">Telefone (com DDD)</Label>
               <Input id="v-tel" type="tel" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="(21) 99999-9999" className={CAMPO}
                 value={f.telefone} aria-invalid={erros.some(e => e.campo === "v-tel")} onChange={e => set("telefone", mascararTelefone(e.target.value))} />
               <Erro id="v-tel" erros={erros} />
@@ -271,6 +271,11 @@ export default function VisitanteAutocadastro() {
 
             <Opcoes rotulo="Deseja receber contato pastoral?" valor={f.desejaContato} onChange={v => set("desejaContato", v)}
               opcoes={[["sim", "Sim"], ["nao", "Não"]] as const} />
+            {f.desejaContato === "sim" && !temNumeroDeContato(f) && (
+              <p data-sem-numero role="note" className="rounded-md border border-warning-line bg-warning-soft p-3 text-sm text-warning-text">
+                Você não informou telefone nem WhatsApp, então a equipe não conseguirá ligar nem mandar mensagem. Volte ao passo 1 para deixar um número, ou procure a recepção.
+              </p>
+            )}
             {f.desejaContato === "sim" && (
               <div className="space-y-3 rounded-md border border-dashed p-3">
                 <Opcoes rotulo="Melhor forma de contato" valor={f.canalContato} onChange={v => set("canalContato", v)}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FORMULARIO_VAZIO, dataBrParaIso, emailValido, mascararData, mascararTelefone, montarPedido, nascimentoValido, pediuOracao,
-  preferenciaDeContato, problemasDoFormulario, problemasDoPasso, rotulosDaOracao, telefoneValido,
+  preferenciaDeContato, problemasDoFormulario, problemasDoPasso, rotulosDaOracao, telefoneValido, temNumeroDeContato,
   type FormularioDoVisitante,
 } from "./autocadastroVisitante";
 
@@ -56,13 +56,15 @@ describe("e-mail (opcional)", () => {
 });
 
 describe("validação por passo", () => {
-  it("o mínimo: nome, um telefone e o aceite — o resto é opcional (cabe em 1 minuto)", () => {
+  it("o mínimo: nome e o aceite — telefone e o resto são opcionais (cabe em 1 minuto)", () => {
     expect(problemasDoFormulario(ok())).toEqual([]);
+    expect(problemasDoFormulario(ok({ telefone: "" }))).toEqual([]);
+    expect(problemasDoFormulario({ ...FORMULARIO_VAZIO, nome: "Maria da Silva", lgpd: true })).toEqual([]);
   });
-  it("passo 1: nome e telefone; os erros apontam o campo", () => {
+  it("passo 1: o nome é obrigatório; o telefone é opcional, mas se vier precisa estar completo; os erros apontam o campo", () => {
     expect(problemasDoPasso(ok({ nome: "Ma" }), 1)).toEqual([{ campo: "v-nome", msg: "Informe seu nome completo." }]);
-    expect(problemasDoPasso(ok({ telefone: "" }), 1)[0]).toMatchObject({ campo: "v-tel", msg: expect.stringMatching(/telefone/) });
-    expect(problemasDoPasso(ok({ telefone: "(21) 9839" }), 1)[0].msg).toMatch(/incompleto/);
+    expect(problemasDoPasso(ok({ telefone: "" }), 1)).toEqual([]);
+    expect(problemasDoPasso(ok({ telefone: "(21) 9839" }), 1)[0]).toMatchObject({ campo: "v-tel", msg: expect.stringMatching(/incompleto/) });
     expect(problemasDoPasso(ok({ email: "x@y" }), 1)[0].campo).toBe("v-email");
     expect(problemasDoPasso(ok({ dataNascimento: "31/02/1990" }), 1)[0].campo).toBe("v-nasc");
   });
@@ -72,8 +74,23 @@ describe("validação por passo", () => {
     expect(problemasDoPasso(ok({ lgpd: false }), 3)[0]).toMatchObject({ campo: "v-lgpd" });
     expect(problemasDoFormulario(ok({ lgpd: false })).join(" ")).toMatch(/concordância/);
   });
-  it("só o WhatsApp (sem 'mesmo número') também basta", () => {
+  it("só o WhatsApp (sem 'mesmo número') também vale", () => {
     expect(problemasDoFormulario(ok({ telefone: "", mesmoNumero: false, whatsapp: "(21) 98399-1229" }))).toEqual([]);
+  });
+  it("um WhatsApp preenchido pela metade continua sendo recusado, mesmo sem telefone", () => {
+    expect(problemasDoPasso(ok({ telefone: "", mesmoNumero: false, whatsapp: "(21) 983" }), 1)[0]).toMatchObject({ campo: "v-zap" });
+  });
+  it("sem nenhum número o pedido segue com telefone e WhatsApp nulos (a função do banco aceita)", () => {
+    const p = montarPedido(ok({ telefone: "" }));
+    expect(p.telefone).toBeNull();
+    expect(p.whatsapp).toBeNull();
+  });
+  it("temNumeroDeContato: telefone ou WhatsApp válido; vazio ou incompleto não conta (a tela avisa quem pede contato)", () => {
+    expect(temNumeroDeContato(ok())).toBe(true);
+    expect(temNumeroDeContato(ok({ telefone: "" }))).toBe(false);
+    expect(temNumeroDeContato(ok({ telefone: "(21) 98" }))).toBe(false);
+    expect(temNumeroDeContato(ok({ telefone: "", mesmoNumero: false, whatsapp: "(21) 98399-1229" }))).toBe(true);
+    expect(temNumeroDeContato(ok({ telefone: "", mesmoNumero: true, whatsapp: "(21) 98399-1229" }))).toBe(false);   // 'mesmo número' ignora o campo do WhatsApp
   });
   it("'Outro' pedido de oração exige o texto", () => {
     expect(problemasDoFormulario(ok({ oracaoOutro: true })).join(" ")).toMatch(/pedido de oração/);

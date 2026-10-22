@@ -116,9 +116,8 @@ export function problemasDoPasso(f: FormularioDoVisitante, passo: 1 | 2 | 3): Pr
   const p: Problema[] = [];
   if (passo === 1) {
     if (f.nome.trim().length < 3) p.push({ campo: "v-nome", msg: "Informe seu nome completo." });
-    const tel = telefoneValido(f.telefone), zap = !f.mesmoNumero && f.whatsapp.trim() !== "" && telefoneValido(f.whatsapp);
-    if (f.telefone.trim() !== "" && !tel) p.push({ campo: "v-tel", msg: "O telefone parece incompleto (DDD + número)." });
-    else if (!tel && !zap) p.push({ campo: "v-tel", msg: "Informe um telefone com DDD." });
+    // telefone é OPCIONAL (pedido dela, 22/10/2026): vazio vale; preenchido precisa ser um número real, para não gravar lixo
+    if (f.telefone.trim() !== "" && !telefoneValido(f.telefone)) p.push({ campo: "v-tel", msg: "O telefone parece incompleto (DDD + número)." });
     if (!f.mesmoNumero && f.whatsapp.trim() !== "" && !telefoneValido(f.whatsapp)) p.push({ campo: "v-zap", msg: "O WhatsApp parece incompleto (DDD + número)." });
     if (!nascimentoValido(f.dataNascimento)) p.push({ campo: "v-nasc", msg: "Confira a data de nascimento (dia/mês/ano)." });
     if (!emailValido(f.email)) p.push({ campo: "v-email", msg: "Confira o e-mail (exemplo: nome@email.com)." });
@@ -129,6 +128,10 @@ export function problemasDoPasso(f: FormularioDoVisitante, passo: 1 | 2 | 3): Pr
   }
   return p;
 }
+
+/** O visitante deixou algum número (telefone ou WhatsApp)? Sem ele a equipe não consegue ligar nem mandar mensagem: a tela avisa quem pede contato pastoral. */
+export const temNumeroDeContato = (f: Pick<FormularioDoVisitante, "telefone" | "whatsapp" | "mesmoNumero">): boolean =>
+  telefoneValido(f.telefone) || (!f.mesmoNumero && telefoneValido(f.whatsapp));
 
 /** Tudo que impede de enviar (os três passos), em mensagens curtas. */
 export function problemasDoFormulario(f: FormularioDoVisitante): string[] {
