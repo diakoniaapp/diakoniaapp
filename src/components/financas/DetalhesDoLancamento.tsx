@@ -16,6 +16,7 @@ import { origemDoAnexo } from "@/lib/grupoDaObrigacao";
 import { ehAnexoDaQuitacao, ehDocumentoOriginal } from "@/lib/quitacao";
 import { dataHoraDaEdicao, textoDaEdicao } from "@/lib/edicaoDeLancamento";
 import { carregarDetalhesDaDespesa, type DetalhesDaDespesa } from "@/services/cicloDaDespesaService";
+import { FaixaDoVinculoBancario, useVinculosDoLancamento } from "@/components/financas/VinculoBancario";
 import { brl, comprovanteSignedUrl, FIN_ANEXO_TIPO_LABEL, nomeExtrato, STATUS_LABEL, type FinLancamentoExtenso } from "@/services/finService";
 
 const dataBr = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -55,6 +56,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
   const { hasRole } = useAuth();
   const [reabrir, setReabrir] = useState<AlvoDaReabertura | null>(null);
   const [recarga, setRecarga] = useState(0);   // depois de reabrir, o detalhe se recarrega
+  const vinculo = useVinculosDoLancamento(lancamento?.id);
 
   useEffect(() => {
     setD(null); setErro(false);
@@ -126,6 +128,8 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
 
                 {/* Fase 1A da Política de Compras por Terceiros: quem pagou e por quê (só aparece depois da migration) */}
                 <QuitacaoCard lancamento={l} recarga={recarga} onMudou={() => setRecarga(n => n + 1)} />
+
+                {l && <FaixaDoVinculoBancario lancamentoId={l.id} fitids={vinculo.fitids} compacta onDesvinculado={() => { void vinculo.recarregar(); setRecarga(n => n + 1); }} />}
 
                 <section aria-label="Datas e valores" className="grid grid-cols-2 gap-2 text-sm">
                   {l.data_emissao && <div className="rounded-md border px-3 py-2"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Emissão do documento</p><p className="tabular-nums">{dataBr(l.data_emissao)}</p></div>}

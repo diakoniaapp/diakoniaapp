@@ -45,6 +45,7 @@ import {
 import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
 import { CampoData } from "@/components/CampoData";
+import { FaixaDoVinculoBancario, useVinculosDoLancamento } from "@/components/financas/VinculoBancario";
 import { Textarea } from "@/components/ui/textarea";
 import { AVISO_DE_INVALIDACAO, MOTIVO_MINIMO_DA_EDICAO, patchDeclarado, type ImpactoDaEdicao } from "@/lib/edicaoDeLancamento";
 import { impactoDaEdicao } from "@/services/edicaoLancamentoService";
@@ -100,6 +101,9 @@ export function LancamentoForm({
   lancamento, rascunho, contaTravada, contaNomeTravado, categoriaIdPadrao, onSaved,
 }: Props) {
   const isEdit = !!lancamento;
+  // Vínculo bancário ativo (22/10/2026): valor, status, data de pagamento e a marca do extrato ficam TRAVADOS (o banco recusa); o caminho é "Desvincular do extrato" (com motivo) e depois editar.
+  const vinculo = useVinculosDoLancamento(open && lancamento ? lancamento.id : null);
+  const travadoPeloBanco = isEdit && vinculo.fitids.length > 0;
 
   const [tipo, setTipo] = useState<FinMovimentoTipo>(tipoPadrao);
   const [data, setData] = useState(hojeLocal());
@@ -780,6 +784,10 @@ export function LancamentoForm({
           </DialogDescription>
         </DialogHeader>
 
+        {isEdit && lancamento && (
+          <FaixaDoVinculoBancario lancamentoId={lancamento.id} fitids={vinculo.fitids} onDesvinculado={() => { void vinculo.recarregar(); }} />
+        )}
+
         {!isEdit && (
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm"
@@ -848,16 +856,16 @@ export function LancamentoForm({
             {isEdit && (status === "realizado" || status === "conciliado") && (
               <div className="min-w-0">
                 <Label>Data do pagamento</Label>
-                <CampoData value={dataPagamento || data} onChange={(v) => setDataPagamento(v)} className="w-full" />
+                <CampoData value={dataPagamento || data} onChange={(v) => setDataPagamento(v)} disabled={travadoPeloBanco} className="w-full" />
                 <p className="mt-1 text-xs text-muted-foreground">
                   É a data que aparece no extrato e no saldo do dia.
-                  {status === "conciliado" && " Está conciliado: a data do banco é a do extrato — só altere se a do banco estiver errada."}
+                  {travadoPeloBanco && " Ligado ao extrato: é a data do banco — desvincule para alterar."}
                 </p>
               </div>
             )}
             <div>
               <Label>Valor (R$) *</Label>
-              <Input type="text" inputMode="decimal" required
+              <Input type="text" inputMode="decimal" required disabled={travadoPeloBanco} title={travadoPeloBanco ? "Ligado ao extrato do banco: desvincule para alterar o valor" : undefined}
                 value={valorTexto}
                 onChange={(e) => { setValorTexto(e.target.value); setValor(paraNumero(e.target.value)); }}
                 autoFocus={!isEdit} />
@@ -1167,7 +1175,7 @@ export function LancamentoForm({
               <Select value={status} onValueChange={(v) => setStatus(v as FinStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro" && (k !== "aguardando_aprovacao" || status === k)).map(([k, l]) => (
+                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro" && (k !== "aguardando_aprovacao" || status === k) && (!travadoPeloBanco || k === "realizado" || k === "conciliado" || k === status)).map(([k, l]) => (
                     <SelectItem key={k} value={k}>{l}</SelectItem>
                   ))}
                 </SelectContent>

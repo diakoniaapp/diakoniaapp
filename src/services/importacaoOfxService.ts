@@ -706,13 +706,46 @@ export async function vincularMovimentos(itens: PagamentoParaConciliar[]): Promi
   return res;
 }
 
-/** Desfaz um vínculo recém-feito: tira do lançamento a marca daquela linha (o gatilho fecha o vínculo; o lançamento volta a ser como era). */
+/**
+ * As linhas do extrato (FITID) a que o lançamento está LIGADO agora (vínculo ativo, migration 20261013120000). Enquanto houver alguma, o banco trava valor, sentido, data de pagamento,
+ * o status (só realizado/conciliado) e a marca [ofx:…] (migration 20261022150000). Sem a tabela, não há vínculo a mostrar.
+ */
+export async function vinculosAtivosDoLancamento(lancamentoId: string): Promise<string[]> {
+  const { data, error } = await supabase.from("fin_extrato_vinculos" as never).select("fitid")
+    .eq("lancamento_id" as never, lancamentoId as never).is("desfeito_em" as never, null as never);
+  if (error) return [];
+  return ((data ?? []) as unknown as { fitid: string }[]).map(v => v.fitid);
+}
+
+/**
+ * "Desvincular do extrato" (22/10/2026): fecha o vínculo do lançamento com a linha do banco, COM motivo obrigatório, e deixa a trilha (fin_lancamento_historico, campo vinculo_extrato).
+ * É o único caminho para mudar valor, status ou data de pagamento de um lançamento conciliado com o banco. Devolve quantos vínculos fechou.
+ */
+export async function desvincularDoExtrato(lancamentoId: string, motivo: string): Promise<number> {
+  if (motivo.trim().length < 5) throw new Error("Informe o motivo (pelo menos 5 caracteres) para desvincular o lançamento do extrato.");
+  const { data, error } = await supabase.rpc("fin_desvincular_do_extrato" as never, { p_lancamento: lancamentoId, p_motivo: motivo.trim() } as never);
+  if (error) {
+    if (/Could not find the function|fin_desvincular_do_extrato/i.test(error.message) && /Could not find|does not exist/i.test(error.message)) {
+      throw new Error("A proteção do vínculo bancário ainda não está ativa no banco (falta aplicar a migration 20261022150000).");
+    }
+    throw new Error(error.message);
+  }
+  return Number(data ?? 0);
+}
+
+/** Desfaz um vínculo recém-feito (o "Desfazer" da conciliação): agora pelo caminho explícito, porque o banco recusa tirar a marca à mão. O lançamento volta a ser como era. */
 export async function desvincularMovimento(lancamentoId: string, fitid: string): Promise<void> {
-  const { data: atual, error } = await supabase.from("fin_lancamentos").select("observacoes").eq("id", lancamentoId).maybeSingle();
-  if (error) throw error;
-  const obs = (atual?.observacoes ?? "").split("\n").map(l => l.replace(`[ofx:${fitid}]`, "").trim()).filter(Boolean).join("\n");
-  const r = conferir(await supabase.from("fin_lancamentos").update({ observacoes: obs || null } as never).eq("id", lancamentoId).select("id"), "O lançamento");
-  if (!r.ok) throw new Error(r.erro);
+  try {
+    await desvincularDoExtrato(lancamentoId, "Desfeito na própria conciliação do extrato, logo depois de vincular (não era este movimento)");
+  } catch (e) {
+    // antes da migration 20261022150000 a função não existe e a marca ainda pode sair à mão (o caminho de sempre); com a migration aplicada, qualquer outro erro é real
+    if (!/ainda não está ativa no banco/.test((e as Error)?.message ?? "")) throw e;
+    const { data: atual, error } = await supabase.from("fin_lancamentos").select("observacoes").eq("id", lancamentoId).maybeSingle();
+    if (error) throw error;
+    const obs = (atual?.observacoes ?? "").split("\n").map(l => l.replace(`[ofx:${fitid}]`, "").trim()).filter(Boolean).join("\n");
+    const r = conferir(await supabase.from("fin_lancamentos").update({ observacoes: obs || null } as never).eq("id", lancamentoId).select("id"), "O lançamento");
+    if (!r.ok) throw new Error(r.erro);
+  }
 }
 
 // ── busca e associação manual: o que o motor não achou, a pessoa acha ──────────────────────────────────────────────────────────────────────
