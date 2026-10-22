@@ -3,7 +3,10 @@ export type EventoTipo = "culto" | "reuniao" | "ensaio" | "acao_social" | "curso
 export type Resp = "principal" | "apoio";
 export type AgendaView = "dia" | "semana" | "mes" | "lista";
 export type ColorBy = "ministerio" | "tipo";
-export type CategoriaEvento = "igreja" | "batista" | "feriado" | "aniversario" | "casamento" | "arrecadacao";
+export type CategoriaEvento =
+  | "igreja" | "aniversario" | "casamento" | "arrecadacao"
+  // As Datas Especiais — ver o cabeçalho delas em externalEvents.ts.
+  | "crista" | "batista" | "familiar" | "profissional" | "feriado" | "institucional";
 
 export type RecorrenciaFreq = "nao" | "diario" | "semanal" | "mensal" | "anual" | "personalizado";
 
@@ -84,6 +87,13 @@ export interface AgendaFiltros {
    */
   tiposConhecidos?: EventoTipo[];
   /**
+   * O mesmo, para categorias (22/10/2026). Sem isso, as categorias novas
+   * (cristãs, familiares, institucionais) nasceriam FORA da lista salva de
+   * quem já tinha filtro — e não apareceriam para ninguém que já usava a
+   * Agenda. Ver `migrarFiltros`.
+   */
+  categoriasConhecidas?: CategoriaEvento[];
+  /**
    * O mesmo para ministérios, áreas e locais (16/10/2026): os ids que existiam da última vez. Sem essa memória a tela tratava TODO id fora da seleção como "novo" e o
    * remarcava a cada abertura — a escolha "só o Templo" não sobrevivia a fechar a Agenda. Com ela, só o que nasceu depois entra marcado sozinho.
    */
@@ -120,8 +130,26 @@ export const STATUS_LABEL: Record<EventoStatus, string> = {
  */
 export const TODOS_OS_TIPOS = Object.keys(TIPO_LABEL) as EventoTipo[];
 
-/** Todas as categorias da agenda (igreja, Batista, feriados, aniversários, casamentos, arrecadação). */
-export const TODAS_AS_CATEGORIAS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
+/** Todas as categorias da agenda: as da igreja, as de pessoas e as seis das Datas Especiais. */
+export const TODAS_AS_CATEGORIAS: CategoriaEvento[] = [
+  "igreja", "aniversario", "casamento", "arrecadacao",
+  "crista", "batista", "familiar", "profissional", "feriado", "institucional",
+];
+
+/**
+ * As que a agenda mostra sem ninguém pedir: todas, menos as profissionais.
+ *
+ * "Dia do Médico", "Dia do Contador", "Dia do Engenheiro"… são vinte linhas
+ * por ano que só fazem sentido para quem as quer — decisão dela, 22/10/2026.
+ * Quem marca a caixa passa a vê-las; "Mostrar tudo" também as liga.
+ */
+export const CATEGORIAS_PADRAO: CategoriaEvento[] = TODAS_AS_CATEGORIAS.filter((c) => c !== "profissional");
+
+/**
+ * As seis que existiam antes das Datas Especiais. É o que um filtro gravado
+ * sem `categoriasConhecidas` conhecia — ver `migrarFiltros`.
+ */
+const CATEGORIAS_ATE_OUT_2026: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
 export const TODOS_OS_STATUS = Object.keys(STATUS_LABEL) as EventoStatus[];
 
 export const DEFAULT_FILTROS: AgendaFiltros = {
@@ -139,8 +167,9 @@ export const DEFAULT_FILTROS: AgendaFiltros = {
   locais: [],
   status: TODOS_OS_STATUS,
   colorBy: "tipo",
-  categorias: TODAS_AS_CATEGORIAS,
+  categorias: CATEGORIAS_PADRAO,
   tiposConhecidos: TODOS_OS_TIPOS,
+  categoriasConhecidas: TODAS_AS_CATEGORIAS,
 };
 
 /**
@@ -178,7 +207,22 @@ export function migrarFiltros(gravado: unknown): AgendaFiltros {
 
   // Categorias vazias ANTES de qualquer outra regra: "nenhuma categoria" escondia a agenda inteira, e o passo da arrecadação abaixo transformava o vazio em ["arrecadacao"] —
   // quem desmarcou tudo reabria vendo só a camada de arrecadação.
-  if (!Array.isArray(p.categorias) || p.categorias.length === 0) p.categorias = TODAS_AS_CATEGORIAS;
+  if (!Array.isArray(p.categorias) || p.categorias.length === 0) p.categorias = CATEGORIAS_PADRAO;
+
+  // Categoria nova entra marcada — se for das que aparecem por padrão. É a
+  // mesma lógica de `tiposConhecidos` logo abaixo: o que falta em `categorias`
+  // mas consta de `categoriasConhecidas` foi desmarcado por alguém e continua
+  // desmarcado. As profissionais nascem desmarcadas para todo mundo.
+  {
+    const conhecidas: string[] = Array.isArray(p.categoriasConhecidas)
+      ? (p.categoriasConhecidas as string[])
+      : CATEGORIAS_ATE_OUT_2026;
+    const atuais = (p.categorias as string[]).filter((c) => TODAS_AS_CATEGORIAS.includes(c as CategoriaEvento));
+    const novas = CATEGORIAS_PADRAO.filter((c) => !conhecidas.includes(c) && !atuais.includes(c));
+    p.categorias = [...atuais, ...novas];
+    if ((p.categorias as string[]).length === 0) p.categorias = CATEGORIAS_PADRAO;
+    p.categoriasConhecidas = TODAS_AS_CATEGORIAS;
+  }
 
   // Camada de arrecadação: quem tem filtro anterior a ela não a veria.
   if (Array.isArray(p.categorias) && !p.categorias.includes("arrecadacao")) {
@@ -230,7 +274,7 @@ export function filtrosTodosMarcados(atual: AgendaFiltros, universo: UniversoDos
     ...atual,
     ministerios: universo.ministerios, areas: universo.areas, locais: universo.locais,
     tipos: TODOS_OS_TIPOS, status: TODOS_OS_STATUS, categorias: TODAS_AS_CATEGORIAS,
-    tiposConhecidos: TODOS_OS_TIPOS,
+    tiposConhecidos: TODOS_OS_TIPOS, categoriasConhecidas: TODAS_AS_CATEGORIAS,
     ministeriosConhecidos: universo.ministerios, areasConhecidas: universo.areas, locaisConhecidos: universo.locais,
   };
 }
@@ -255,5 +299,17 @@ export function algumFiltroRestringe(f: AgendaFiltros, universo: UniversoDosFilt
   const restringe = (sel: number, total: number) => sel > 0 && sel < total;
   return restringe(f.ministerios.length, universo.ministerios.length) || restringe(f.areas.length, universo.areas.length)
     || restringe(f.locais.length, universo.locais.length) || restringe(f.tipos.length, TODOS_OS_TIPOS.length)
-    || restringe(f.status.length, TODOS_OS_STATUS.length) || restringe((f.categorias ?? TODAS_AS_CATEGORIAS).length, TODAS_AS_CATEGORIAS.length);
+    || restringe(f.status.length, TODOS_OS_STATUS.length) || categoriasRestringem(f.categorias);
+}
+
+/**
+ * Categoria restringe quando falta alguma das que aparecem POR PADRÃO.
+ *
+ * Não é "falta alguma de todas": as profissionais vêm desmarcadas de fábrica,
+ * e contar isso como filtro ligado deixaria o aviso "há filtros ativos" aceso
+ * para todo mundo, sempre — e um aviso sempre aceso não avisa nada.
+ */
+export function categoriasRestringem(categorias: CategoriaEvento[] | undefined): boolean {
+  const sel = categorias ?? CATEGORIAS_PADRAO;
+  return sel.length > 0 && CATEGORIAS_PADRAO.some((c) => !sel.includes(c));
 }

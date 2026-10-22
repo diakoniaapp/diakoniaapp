@@ -17,8 +17,10 @@ import {
 import {
   Church, Save, Loader2, Plus, Trash2, Heart, Info,
   Globe, Building2, Link, ExternalLink, AlertTriangle,
-  CheckCircle2, Zap, Sparkles, User, X,
+  CheckCircle2, Sparkles, User, X, CalendarDays,
 } from "lucide-react";
+import { datasPorInstituicao } from "@/lib/agenda/externalEvents";
+import { esquecerCalendarioDaIgreja } from "@/services/calendarioDaIgreja";
 import { toast } from "sonner";
 import { CampoData } from "@/components/CampoData";
 
@@ -89,6 +91,27 @@ const TIPOS_INSTITUICAO: Record<string, string> = {
   organizacao:  "Organização",
   outro:        "Outro",
 };
+
+/**
+ * Quantas datas da Agenda cada sigla liga (22/10/2026). Vincular uma
+ * instituição é o que põe o calendário dela na Agenda — ver
+ * services/calendarioDaIgreja.ts. Mostrar o número ao lado de cada uma é o
+ * que deixa claro o que o vínculo faz, e quais ainda não têm calendário.
+ */
+const DATAS_POR_SIGLA = datasPorInstituicao();
+
+function SeloCalendario({ sigla, vinculada }: { sigla: string | null; vinculada: boolean }) {
+  const n = sigla ? DATAS_POR_SIGLA[sigla.trim().toUpperCase()] ?? 0 : 0;
+  if (n === 0) {
+    return vinculada ? <p className="text-xs text-muted-foreground mt-0.5">Sem calendário no sistema</p> : null;
+  }
+  return (
+    <p className={`flex items-center gap-1 text-xs mt-0.5 ${vinculada ? "text-primary" : "text-muted-foreground"}`}
+      title={vinculada ? "Estas datas aparecem na Agenda" : "Vincule para estas datas aparecerem na Agenda"}>
+      <CalendarDays className="w-3 h-3 shrink-0" /> {n} {n === 1 ? "data" : "datas"} na Agenda
+    </p>
+  );
+}
 
 const plataformaLabel = (v: string) =>
   PLATAFORMAS.find((p) => p.value === v) ?? { label: v, icon: "🔗" };
@@ -598,6 +621,8 @@ export default function IdentidadeAdmin() {
     }
 
     setSaving(false);
+    // A Agenda guarda o calendário carregado; os vínculos podem ter mudado.
+    esquecerCalendarioDaIgreja();
     if (algumErro) {
       toast.error("Identidade salva, mas algum item (valor ou vínculo) não pôde ser alterado — seu perfil pode não ter permissão.");
     } else {
@@ -1089,7 +1114,8 @@ export default function IdentidadeAdmin() {
               <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Convenções, juntas e entidades às quais a igreja é filiada.
-                Instituições com <Zap className="inline w-3 h-3 text-warning-text" /> permitem integração futura com agenda.
+                Vincular uma instituição põe o calendário dela na Agenda; desvincular o retira.
+                Vale depois de salvar.
               </p>
             </div>
 
@@ -1104,15 +1130,11 @@ export default function IdentidadeAdmin() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium leading-tight">{inst.nome}</p>
                         {inst.sigla && <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{inst.sigla}</span>}
-                        {inst.permite_integracao && (
-                          <span title="Permite integração com agenda">
-                            <Zap className="w-3 h-3 text-warning-text" />
-                          </span>
-                        )}
                         <Badge variant="outline" className="text-xs py-0 px-1.5 h-4">
                           {TIPOS_INSTITUICAO[inst.tipo_instituicao] ?? inst.tipo_instituicao}
                         </Badge>
                       </div>
+                      <SeloCalendario sigla={inst.sigla} vinculada={vinculadas.has(inst.id)} />
                       {inst.site_oficial && (
                         <a href={inst.site_oficial} target="_blank" rel="noopener noreferrer"
                           className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
@@ -1141,6 +1163,7 @@ export default function IdentidadeAdmin() {
                           {TIPOS_INSTITUICAO[inst.tipo_instituicao] ?? inst.tipo_instituicao}
                         </Badge>
                       </div>
+                      <SeloCalendario sigla={inst.sigla} vinculada={vinculadas.has(inst.id)} />
                       {inst.site_oficial && (
                         <a href={inst.site_oficial} target="_blank" rel="noopener noreferrer"
                           className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"

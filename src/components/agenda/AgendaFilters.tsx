@@ -7,14 +7,24 @@ import { Filter, Palette } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AgendaFiltros, AreaOpt, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt,
-  STATUS_LABEL, TIPO_LABEL, TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, TODOS_OS_TIPOS, filtrosTodosMarcados,
+  STATUS_LABEL, TIPO_LABEL, CATEGORIAS_PADRAO, TODOS_OS_STATUS, TODOS_OS_TIPOS, filtrosTodosMarcados, categoriasRestringem,
 } from "@/lib/agenda/types";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
 
-const ALL_CATS: CategoriaEvento[] = TODAS_AS_CATEGORIAS;
+// As categorias em DOIS chips (22/10/2026): o que é da igreja e das pessoas, e as
+// Datas Especiais. Seis tipos de data especial dentro de um chip só, junto de
+// "Igreja" e "Aniversariantes", fariam uma lista de dez caixas em que ninguém
+// acha a das datas profissionais. Os dois escrevem na mesma `filtros.categorias`.
+const CATS_DA_IGREJA: { id: CategoriaEvento; nome: string }[] = [
+  { id: "igreja", nome: "Igreja" },
+  { id: "arrecadacao", nome: "🛍️ Arrecadação" },
+  ...CATEGORIA_PESSOAS.map((c) => ({ id: c.id as CategoriaEvento, nome: c.label })),
+];
+const CATS_DATAS_ESPECIAIS: { id: CategoriaEvento; nome: string }[] =
+  CATEGORIA_EXTERNAS.map((c) => ({ id: c.id, nome: c.label }));
 
 interface Props {
   filtros: AgendaFiltros;
@@ -104,16 +114,26 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   // Quantos filtros de fato restringem — a mesma definicao do contador de cada
   // chip. Serve de aviso no celular, onde os chips ficam recolhidos: sem isso,
   // um filtro esquecido ligado viraria "sumiram eventos da agenda".
-  const totalCategorias =
-    2 + CATEGORIA_EXTERNAS.length + CATEGORIA_PESSOAS.length;
-  const restringindo = [
+  const restringindo = (categoriasRestringem(filtros.categorias) ? 1 : 0) + [
     [filtros.ministerios.length, ministerios.length],
     [filtros.areas.length,       areas.length],
     [filtros.tipos.length,       Object.keys(TIPO_LABEL).length],
     [filtros.locais.length,      locais.length],
     [filtros.status.length,      Object.keys(STATUS_LABEL).length],
-    [(filtros.categorias ?? ALL_CATS).length, totalCategorias],
   ].filter(([sel, tot]) => sel > 0 && sel < tot).length;
+
+  // Categoria: tirar a última caixa de TODAS volta ao padrão (nunca à agenda vazia).
+  const cats = filtros.categorias ?? CATEGORIAS_PADRAO;
+  const toggleCategoria = (v: string) => {
+    const next = cats.includes(v as CategoriaEvento) ? cats.filter((x) => x !== v) : [...cats, v as CategoriaEvento];
+    onChange({ ...filtros, categorias: next.length === 0 ? CATEGORIAS_PADRAO : next });
+  };
+  // "Limpar" de um chip marca todas as caixas DELE e não mexe nas do outro.
+  const marcarGrupo = (grupo: { id: CategoriaEvento }[]) => {
+    const ids = grupo.map((g) => g.id);
+    onChange({ ...filtros, categorias: [...cats.filter((c) => !ids.includes(c)), ...ids] });
+  };
+  const doGrupo = (grupo: { id: CategoriaEvento }[]) => cats.filter((c) => grupo.some((g) => g.id === c));
 
   const chips = (
     <>
@@ -137,24 +157,10 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
         selected={filtros.locais} onToggle={(v) => toggle("locais", v)} onClear={() => marcarTodos("locais")} />
       <MultiPopover label="Status" items={statusItems}
         selected={filtros.status} onToggle={(v) => toggle("status", v)} onClear={() => marcarTodos("status")} />
-      <MultiPopover
-        label="Categoria"
-        items={[
-          { id: "igreja", nome: "Igreja" },
-          { id: "arrecadacao", nome: "🛍️ Arrecadação" },
-          ...CATEGORIA_EXTERNAS.map((c) => ({ id: c.id, nome: c.label })),
-          ...CATEGORIA_PESSOAS.map((c) => ({ id: c.id, nome: c.label })),
-        ]}
-        selected={filtros.categorias ?? ALL_CATS}
-        onToggle={(v) => {
-          const cur = filtros.categorias ?? ALL_CATS;
-          const next = cur.includes(v as CategoriaEvento)
-            ? cur.filter((x) => x !== v)
-            : [...cur, v as CategoriaEvento];
-          onChange({ ...filtros, categorias: next.length === 0 ? ALL_CATS : next });
-        }}
-        onClear={() => onChange({ ...filtros, categorias: ALL_CATS })}
-      />
+      <MultiPopover label="Categoria" items={CATS_DA_IGREJA}
+        selected={doGrupo(CATS_DA_IGREJA)} onToggle={toggleCategoria} onClear={() => marcarGrupo(CATS_DA_IGREJA)} />
+      <MultiPopover label="Datas especiais" items={CATS_DATAS_ESPECIAIS}
+        selected={doGrupo(CATS_DATAS_ESPECIAIS)} onToggle={toggleCategoria} onClear={() => marcarGrupo(CATS_DATAS_ESPECIAIS)} />
     </>
   );
 

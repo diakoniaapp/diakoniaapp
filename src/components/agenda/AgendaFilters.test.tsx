@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { AgendaFilters } from "./AgendaFilters";
-import { DEFAULT_FILTROS, TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, TODOS_OS_TIPOS, type AgendaFiltros } from "@/lib/agenda/types";
+import { CATEGORIAS_PADRAO, DEFAULT_FILTROS, TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, TODOS_OS_TIPOS, type AgendaFiltros } from "@/lib/agenda/types";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -69,7 +69,7 @@ describe("Filtros da Agenda", () => {
     let onChange = await abrir({ ...todos, categorias: ["igreja"] });
     await abrirChip("Categoria");
     await act(async () => { ([...document.querySelectorAll("[role=checkbox]")][0] as HTMLElement).click(); });   // "Igreja", a única marcada
-    expect((onChange.mock.calls.at(-1)![0] as AgendaFiltros).categorias).toEqual(TODAS_AS_CATEGORIAS);
+    expect((onChange.mock.calls.at(-1)![0] as AgendaFiltros).categorias).toEqual(CATEGORIAS_PADRAO);
     act(() => raiz?.unmount()); document.body.innerHTML = "";
     onChange = await abrir({ ...todos, status: ["agendado"] });
     await abrirChip("Status");

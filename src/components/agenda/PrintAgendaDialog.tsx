@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Printer } from "lucide-react";
 import { format, addDays, startOfMonth, endOfMonth } from "date-fns";
-import { AgendaFiltros, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt, AreaOpt, TIPO_LABEL, STATUS_LABEL } from "@/lib/agenda/types";
+import { AgendaFiltros, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt, AreaOpt, TIPO_LABEL, STATUS_LABEL, TODAS_AS_CATEGORIAS, CATEGORIAS_PADRAO } from "@/lib/agenda/types";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
 import { CampoData } from "@/components/CampoData";
 
-const ALL_CATS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
+// Era uma cópia à mão das seis categorias de então — e teria ficado sem as Datas Especiais.
+const ALL_CATS: CategoriaEvento[] = TODAS_AS_CATEGORIAS;
 
 interface Props {
   open: boolean;
@@ -39,7 +40,7 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
   const [locs, setLocs] = useState<string[]>(filtrosAtuais.locais);
   const [tipos, setTipos] = useState<EventoTipo[]>(filtrosAtuais.tipos);
   const [status, setStatus] = useState<EventoStatus[]>(filtrosAtuais.status);
-  const [cats, setCats] = useState<CategoriaEvento[]>(filtrosAtuais.categorias ?? ALL_CATS);
+  const [cats, setCats] = useState<CategoriaEvento[]>(filtrosAtuais.categorias ?? CATEGORIAS_PADRAO);
 
   useEffect(() => {
     if (open) {
@@ -49,7 +50,7 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
       setLocs(filtrosAtuais.locais);
       setTipos(filtrosAtuais.tipos);
       setStatus(filtrosAtuais.status);
-      setCats(filtrosAtuais.categorias ?? ALL_CATS);
+      setCats(filtrosAtuais.categorias ?? CATEGORIAS_PADRAO);
     }
   }, [open, refDate, filtrosAtuais]);
 

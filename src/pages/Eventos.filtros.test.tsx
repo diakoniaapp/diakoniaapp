@@ -39,6 +39,7 @@ vi.mock("@/lib/agenda/arrecadacao", async (orig) => ({ ...(await orig<object>())
 vi.mock("sonner", () => ({ toast: { info: (...a: unknown[]) => avisos(...a), error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 import Eventos from "./Eventos";
+import { CATEGORIAS_PADRAO, TODAS_AS_CATEGORIAS } from "@/lib/agenda/types";
 
 let raiz: Root | null = null;
 beforeAll(() => {
@@ -67,7 +68,7 @@ describe("a Agenda ao abrir", () => {
     expect(f.locais).toEqual(["l1", "l2"]);
     expect(f.ministerios).toEqual(["m1", "m2"]);
     expect(f.status.length).toBe(3);
-    expect(f.categorias.length).toBe(6);
+    expect(f.categorias).toEqual(CATEGORIAS_PADRAO);   // tudo, menos as datas profissionais
   });
 
   it("a última seleção do usuário é restaurada quando ainda mostra eventos", async () => {
@@ -92,20 +93,22 @@ describe("a Agenda ao abrir", () => {
   });
 
   it("seleção salva que esconde TUDO é desfeita na abertura: volta tudo marcado e avisa", async () => {
-    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ locais: ["l2"], categorias: ["igreja"] }));
+    // `categoriasConhecidas`: sem ela, o filtro é tratado como anterior às Datas Especiais e
+    // as categorias novas entram marcadas — e a agenda deixaria de estar vazia.
+    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ locais: ["l2"], categorias: ["igreja"], categoriasConhecidas: TODAS_AS_CATEGORIAS }));
     const el = await abrir();
     expect(el.textContent).toContain("Culto de Celebração");
     expect(avisos).toHaveBeenCalledTimes(1);
     expect(String(avisos.mock.calls[0][0])).toContain("voltei a mostrar tudo");
     expect(gravado().locais).toEqual(["l1", "l2"]);
-    expect(gravado().categorias.length).toBe(6);
+    expect(gravado().categorias).toEqual(TODAS_AS_CATEGORIAS);   // "mostrar tudo" é tudo mesmo
   });
 
   it("categorias salvas VAZIAS (o estado que deixava a agenda em branco) abrem com tudo marcado", async () => {
     localStorage.setItem("agenda:filtros:v1", JSON.stringify({ categorias: [], status: [] }));
     const el = await abrir();
     expect(el.textContent).toContain("Culto de Celebração");
-    expect(gravado().categorias.length).toBe(6);
+    expect(gravado().categorias).toEqual(CATEGORIAS_PADRAO);
     expect(gravado().status.length).toBe(3);
   });
 });

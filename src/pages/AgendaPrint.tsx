@@ -5,6 +5,9 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
 import { eventosExternos } from "@/lib/agenda/externalEvents";
+import { CATEGORIA_CURTA } from "@/lib/agenda/aparenciaDoEvento";
+import { CATEGORIAS_PADRAO } from "@/lib/agenda/types";
+import { useCalendarioDaIgreja } from "@/services/calendarioDaIgreja";
 import { aniversariosNoIntervalo, type PessoaAniv } from "@/lib/agenda/birthdays";
 import type { CategoriaEvento, EventoOcorrencia, EventoRow, EventoStatus, EventoTipo } from "@/lib/agenda/types";
 import { Button } from "@/components/ui/button";
@@ -24,10 +27,11 @@ export default function AgendaPrint() {
   const fLocs = (sp.get("locais") || "").split(",").filter(Boolean);
   const fTipos = (sp.get("tipos") || "").split(",").filter(Boolean) as EventoTipo[];
   const fStatus = (sp.get("status") || "").split(",").filter(Boolean) as EventoStatus[];
-  // As SEIS categorias da agenda. Faltava `arrecadacao` nesta lista: quem
-  // abrisse /agenda/print sem o parâmetro — um link salvo, um F5 na página —
-  // recebia um PDF sem as reservas de espaço, sem nada dizer que faltavam.
-  const fCats = ((sp.get("categorias") || "igreja,batista,feriado,aniversario,casamento,arrecadacao").split(",").filter(Boolean)) as CategoriaEvento[];
+  // Sem o parâmetro — um link salvo, um F5 na página — valem as categorias de
+  // fábrica da Agenda. Era uma lista escrita à mão, e já tinha ficado sem
+  // `arrecadacao` uma vez: o PDF saía sem as reservas de espaço, sem aviso.
+  const fCats = (sp.get("categorias") ? sp.get("categorias")!.split(",").filter(Boolean) : CATEGORIAS_PADRAO) as CategoriaEvento[];
+  const calendario = useCalendarioDaIgreja();
 
   const [eventos, setEventos] = useState<EventoRow[]>([]);
   const [mins, setMins] = useState<Min[]>([]);
@@ -72,7 +76,7 @@ export default function AgendaPrint() {
     const from = parseISO(inicio);
     const to = parseISO(fim);
     const internos = expandirOcorrencias(eventos, from, to).map((o) => ({ ...o, categoria: "igreja" as const }));
-    const externos = eventosExternos(from, to);
+    const externos = eventosExternos(from, to, calendario);
     const aniversarios = aniversariosNoIntervalo(pessoasAniv, from, to);
     const all = [...internos, ...externos, ...aniversarios].filter((o) => {
       const cat = o.categoria ?? "igreja";
@@ -100,7 +104,7 @@ export default function AgendaPrint() {
       if (a.data !== b.data) return a.data < b.data ? -1 : 1;
       return (a.evento.hora_inicio ?? "") < (b.evento.hora_inicio ?? "") ? -1 : 1;
     });
-  }, [eventos, inicio, fim, evMin, fCats, fTipos, fStatus, fLocs, fMins, pessoasAniv]);
+  }, [eventos, inicio, fim, evMin, fCats, fTipos, fStatus, fLocs, fMins, pessoasAniv, calendario]);
 
   const grupos = useMemo(() => {
     const map = new Map<string, EventoOcorrencia[]>();
@@ -182,8 +186,7 @@ export default function AgendaPrint() {
                           <div className="flex-1">
                             <div className="font-semibold">
                               {o.evento.titulo}
-                              {o.categoria === "feriado" && <span className="ml-2 text-xs uppercase text-neutral-600">[Feriado]</span>}
-                              {o.categoria === "batista" && <span className="ml-2 text-xs uppercase text-neutral-600">[Institucional Batista]</span>}
+                              {o.categoria && o.categoria !== "arrecadacao" && CATEGORIA_CURTA[o.categoria] && <span className="ml-2 text-xs uppercase text-neutral-600">[{CATEGORIA_CURTA[o.categoria]}]</span>}
                               {o.categoria === "aniversario" && <span className="ml-2 text-xs uppercase text-neutral-600">[Aniversário]</span>}
                               {o.categoria === "casamento" && <span className="ml-2 text-xs uppercase text-neutral-600">[Casamento]</span>}
                               {o.evento.status === "cancelado" && <span className="ml-2 text-xs uppercase" style={{ color: "#991b1b" }}>[Cancelado]</span>}

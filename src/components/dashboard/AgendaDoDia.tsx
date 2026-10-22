@@ -32,6 +32,8 @@ import { useReportarVazio } from "@/components/hoje/vazio";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
 import { iconeDaOcorrencia, rotuloDaOcorrencia } from "@/lib/agenda/aparenciaDoEvento";
 import { eventosExternos } from "@/lib/agenda/externalEvents";
+import { CATEGORIAS_PADRAO } from "@/lib/agenda/types";
+import { calendarioDaIgreja } from "@/services/calendarioDaIgreja";
 import {
   fetchReservasAgenda, reservasComoOcorrencias, mapEspacoCodigoParaLocalId,
 } from "@/lib/agenda/arrecadacao";
@@ -243,10 +245,11 @@ export function AgendaDoDia({
         // A janela vai ate AMANHA, nao so ate hoje. Ver o comentario de
         // `sobrouHoje` mais abaixo: sem o dia seguinte carregado, o bloco vira
         // uma lista de riscados a partir das 22h.
-        const [{ data: eventos }, reservas, mapa] = await Promise.all([
+        const [{ data: eventos }, reservas, mapa, calendario] = await Promise.all([
           supabase.from("eventos").select("*"),
           fetchReservasAgenda(hoje, amanha).catch(() => []),
           mapEspacoCodigoParaLocalId().catch(() => ({})),
+          calendarioDaIgreja(),
         ]);
         if (cancelado) return;
 
@@ -255,7 +258,8 @@ export function AgendaDoDia({
         // linha equivalente — não invento aqui um contrato diferente do dela.
         const internos = expandirOcorrencias((eventos ?? []) as unknown as EventoRow[], hoje, amanha)
           .map(o => ({ ...o, categoria: "igreja" as const }));
-        const externos = eventosExternos(hoje, amanha);
+        // Só as categorias de fábrica: as profissionais ficam para quem as liga na Agenda.
+        const externos = eventosExternos(hoje, amanha, calendario).filter(o => CATEGORIAS_PADRAO.includes(o.categoria!));
         const espacos  = reservasComoOcorrencias(reservas, mapa);
 
         const tudo = [...internos, ...externos, ...espacos]

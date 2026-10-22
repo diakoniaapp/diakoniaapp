@@ -28,7 +28,7 @@ import {
   AgendaFiltros,
   AgendaView,
   AreaOpt,
-  DEFAULT_FILTROS, migrarFiltros, TODAS_AS_CATEGORIAS, algumFiltroRestringe, filtrosTodosMarcados, incluirNovos,
+  DEFAULT_FILTROS, migrarFiltros, CATEGORIAS_PADRAO, algumFiltroRestringe, filtrosTodosMarcados, incluirNovos,
   EventoOcorrencia,
   EventoRow,
   LocalOpt,
@@ -50,6 +50,7 @@ import { MonthView, WeekView, DayView, ListView, VIEW_LABELS } from "@/component
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { PrintAgendaDialog } from "@/components/agenda/PrintAgendaDialog";
 import { carregarAniversarios } from "@/services/agendaAniversariosService";
+import { useCalendarioDaIgreja } from "@/services/calendarioDaIgreja";
 
 const FILTROS_KEY = "agenda:filtros:v1";
 const VIEW_KEY = "agenda:view:v1";
@@ -107,6 +108,8 @@ export default function Eventos() {
     const saved = localStorage.getItem(VIEW_KEY);
     return (saved as AgendaView) || "mes";
   });
+  // Quais calendários denominacionais entram e o aniversário da igreja — vem da Identidade.
+  const calendario = useCalendarioDaIgreja();
   const [filtros, setFiltros] = useState<AgendaFiltros>(() => {
     try {
       const raw = localStorage.getItem(FILTROS_KEY);
@@ -264,10 +267,10 @@ export default function Eventos() {
       ...o,
       categoria: "igreja" as const,
     }));
-    const externos = eventosExternos(from, to);
+    const externos = eventosExternos(from, to, calendario);
     const aniversarios = aniversariosNoIntervalo(pessoasAniv, from, to);
-    // Categoria vazia NÃO esconde a agenda inteira (16/10/2026): sem nenhuma categoria marcada vale todas. Era o único filtro em que "nada marcado" = "nada na tela".
-    const cats = filtros.categorias && filtros.categorias.length > 0 ? filtros.categorias : TODAS_AS_CATEGORIAS;
+    // Categoria vazia NÃO esconde a agenda inteira (16/10/2026): sem nenhuma categoria marcada vale o padrão. Era o único filtro em que "nada marcado" = "nada na tela".
+    const cats = filtros.categorias && filtros.categorias.length > 0 ? filtros.categorias : CATEGORIAS_PADRAO;
     // O universo do período, ANTES de qualquer filtro. É o denominador que
     // permite dizer "61 de 102" em vez de só "61" — ver o cabeçalho.
     const universo = [...internos, ...externos, ...aniversarios, ...reservasOcc];
@@ -343,7 +346,7 @@ export default function Eventos() {
       }
     }
     return { lista: filtrado, universo: universo.length };
-  }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv, reservasOcc, ministerios, areas, locais]);
+  }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv, reservasOcc, ministerios, areas, locais, calendario]);
 
   // ── O cabeçalho passa a dizer o que está ESCONDIDO ───────────────────────
   //

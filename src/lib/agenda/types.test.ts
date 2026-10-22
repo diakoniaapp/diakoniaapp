@@ -112,6 +112,7 @@ describe("migrarFiltros — o que não pode quebrar", () => {
 // ─── A agenda nunca abre vazia por filtro desmarcado (16/10/2026) ────────────────────────────────────────────────────────────────────────────
 import {
   TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, algumFiltroRestringe, filtrosTodosMarcados, incluirNovos,
+  CATEGORIAS_PADRAO, categoriasRestringem, type CategoriaEvento,
 } from "./types";
 
 describe("migrarFiltros — nenhuma lista fica vazia", () => {
@@ -119,18 +120,44 @@ describe("migrarFiltros — nenhuma lista fica vazia", () => {
     expect(migrarFiltros({ status: [] }).status).toEqual(TODOS_OS_STATUS);
     expect(migrarFiltros({}).status).toEqual(TODOS_OS_STATUS);
   });
-  it("categorias vazias (que escondiam a agenda inteira) voltam todas marcadas", () => {
-    expect(migrarFiltros({ categorias: [] }).categorias).toEqual(TODAS_AS_CATEGORIAS);
+  it("categorias vazias (que escondiam a agenda inteira) voltam ao padrão", () => {
+    expect(migrarFiltros({ categorias: [] }).categorias).toEqual(CATEGORIAS_PADRAO);
   });
   it("a escolha que a pessoa fez de verdade é preservada", () => {
-    const f = migrarFiltros({ status: ["agendado"], categorias: ["igreja", "feriado"] });
+    const f = migrarFiltros({ status: ["agendado"], categorias: ["igreja", "feriado"], categoriasConhecidas: TODAS_AS_CATEGORIAS });
     expect(f.status).toEqual(["agendado"]);
     expect(f.categorias).toEqual(["igreja", "feriado", "arrecadacao"]);   // a camada de arrecadação entra, como sempre
   });
-  it("o padrão de quem nunca abriu a agenda é tudo marcado", () => {
+  it("o padrão de quem nunca abriu a agenda: tudo marcado, menos as profissionais", () => {
     expect(DEFAULT_FILTROS.status).toEqual(TODOS_OS_STATUS);
-    expect(DEFAULT_FILTROS.categorias).toEqual(TODAS_AS_CATEGORIAS);
+    expect(DEFAULT_FILTROS.categorias).toEqual(CATEGORIAS_PADRAO);
+    expect(DEFAULT_FILTROS.categorias).not.toContain("profissional");
     expect(DEFAULT_FILTROS.tipos).toEqual(TODOS_OS_TIPOS);
+  });
+});
+
+// ─── As Datas Especiais chegam a quem já tinha filtro (22/10/2026) ────────────
+describe("migrarFiltros — categorias novas", () => {
+  it("filtro gravado antes delas ganha cristãs, familiares e institucionais — não as profissionais", () => {
+    const f = migrarFiltros({ categorias: ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"] });
+    expect(f.categorias).toEqual(expect.arrayContaining(["crista", "familiar", "institucional"]));
+    expect(f.categorias).not.toContain("profissional");
+  });
+  it("o que a pessoa desmarcou de propósito continua desmarcado", () => {
+    const f = migrarFiltros({ categorias: ["igreja", "arrecadacao"], categoriasConhecidas: TODAS_AS_CATEGORIAS });
+    expect(f.categorias).toEqual(["igreja", "arrecadacao"]);
+  });
+  it("quem ligou as profissionais continua com elas", () => {
+    const f = migrarFiltros({ categorias: [...CATEGORIAS_PADRAO, "profissional"], categoriasConhecidas: TODAS_AS_CATEGORIAS });
+    expect(f.categorias).toContain("profissional");
+  });
+  it("categoria que não existe mais é descartada", () => {
+    const f = migrarFiltros({ categorias: ["igreja", "nao_existe"], categoriasConhecidas: TODAS_AS_CATEGORIAS });
+    expect(f.categorias).not.toContain("nao_existe");
+  });
+  it("profissionais desligadas não contam como filtro ativo", () => {
+    expect(categoriasRestringem(CATEGORIAS_PADRAO)).toBe(false);
+    expect(categoriasRestringem(CATEGORIAS_PADRAO.filter((c) => c !== "familiar"))).toBe(true);
   });
 });
 

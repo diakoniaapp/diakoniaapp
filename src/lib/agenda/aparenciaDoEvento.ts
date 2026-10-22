@@ -27,7 +27,7 @@
 
 import {
   Church, Users, Music, HandHeart, GraduationCap, Radio, Presentation,
-  Coffee, CalendarDays, Landmark, Flag, Store, type LucideIcon,
+  Coffee, CalendarDays, Landmark, Flag, Store, Cross, Heart, Briefcase, Star, type LucideIcon,
 } from "lucide-react";
 import type { EventoTipo, EventoOcorrencia } from "./types";
 
@@ -53,9 +53,13 @@ export const ICONE_DO_TIPO: Record<EventoTipo, LucideIcon> = {
 
 /** O ícone do que NÃO é evento da igreja. Ver a nota do cabeçalho. */
 export const ICONE_DA_CATEGORIA: Record<string, LucideIcon> = {
-  batista:     Landmark,   // calendário da denominação
-  feriado:     Flag,
-  arrecadacao: Store,      // reserva de espaço — Bazar, Cantina
+  crista:        Cross,
+  batista:       Landmark,   // calendário da denominação
+  familiar:      Heart,
+  profissional:  Briefcase,
+  feriado:       Flag,
+  institucional: Star,       // da própria igreja — o aniversário dela
+  arrecadacao:   Store,      // reserva de espaço — Bazar, Cantina
 };
 
 /**
@@ -85,9 +89,13 @@ export const TIPO_CURTO: Record<string, string> = {
 };
 
 export const CATEGORIA_CURTA: Record<string, string> = {
-  batista:     "Calendário batista",
-  feriado:     "Feriado",
-  arrecadacao: "Reserva de espaço",
+  crista:        "Data cristã",
+  batista:       "Calendário batista",
+  familiar:      "Data familiar",
+  profissional:  "Data profissional",
+  feriado:       "Feriado",
+  institucional: "Data da igreja",
+  arrecadacao:   "Reserva de espaço",
 };
 
 /** O ícone desta ocorrência: categoria primeiro, tipo depois. */

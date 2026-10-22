@@ -39,6 +39,8 @@ import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { montarConvite, atalhoDoCanal } from "@/lib/agenda/convite";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
 import { eventosExternos } from "@/lib/agenda/externalEvents";
+import { CATEGORIAS_PADRAO } from "@/lib/agenda/types";
+import { calendarioDaIgreja } from "@/services/calendarioDaIgreja";
 import {
   fetchReservasAgenda, reservasComoOcorrencias, mapEspacoCodigoParaLocalId,
 } from "@/lib/agenda/arrecadacao";
@@ -84,12 +86,13 @@ export function AgendaDaSemana({ eu }: { eu: MinhaFicha | null }) {
       // `AgendaDoDia.onJanela` conta que quem contou por fora replicou uma
       // fonte e esqueceu as outras — o indicador marcava 21 e a soma da tela
       // dava 22. Faltando duas aqui, esta tira discordaria daquela.
-      const [{ data: eventos }, ident, efem, reservas, mapaLocal] = await Promise.all([
+      const [{ data: eventos }, ident, efem, reservas, mapaLocal, calendario] = await Promise.all([
         supabase.from("eventos").select("*"),
         identidadeParaConvite().catch(() => ({ igreja: null, canalYoutube: null })),
         proximosDias(DIAS_A_FRENTE).catch(() => [] as EventoPastoral[]),
         fetchReservasAgenda(inicio, fim).catch(() => []),
         mapEspacoCodigoParaLocalId().catch(() => ({})),
+        calendarioDaIgreja(),
       ]);
       setIdentidade(ident);
       setEfemerides(efem);
@@ -98,7 +101,12 @@ export function AgendaDaSemana({ eu }: { eu: MinhaFicha | null }) {
       // widget do painel fazem — não invento aqui um contrato diferente deles.
       const internos = expandirOcorrencias((eventos ?? []) as unknown as EventoRow[], inicio, fim);
       setOcorrencias(
-        [...internos, ...eventosExternos(inicio, fim), ...reservasComoOcorrencias(reservas, mapaLocal)]
+        [
+          ...internos,
+          // As profissionais ficam de fora, como na Mesa: só quem as liga na Agenda as vê.
+          ...eventosExternos(inicio, fim, calendario).filter(o => CATEGORIAS_PADRAO.includes(o.categoria!)),
+          ...reservasComoOcorrencias(reservas, mapaLocal),
+        ]
           .filter(o => o.evento?.status !== "cancelado")
           .sort((a, b) =>
             (a.data ?? "").localeCompare(b.data ?? "") ||

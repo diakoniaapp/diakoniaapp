@@ -20,6 +20,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DATAS_BATISTAS, resolverRegra, eventosBatistas, eventosExternos,
+  feriadosBrasil, datasEspeciais, aniversarioDaIgreja, datasPorInstituicao,
 } from "./externalEvents";
 
 function ymd(d: Date): string {
@@ -100,5 +101,112 @@ describe("o que chega às telas", () => {
     // Elas não existem na tabela `eventos`: editar uma na tela salvaria um id
     // que o banco não conhece.
     expect(eventosBatistas(2026).every(o => o.externalReadOnly)).toBe(true);
+  });
+});
+
+// ─── Datas Especiais (22/10/2026) ──────────────────────────────────────────
+
+const titulosEm = (ocs: { data: string; evento: { titulo: string } }[], data: string) =>
+  ocs.filter(o => o.data === data).map(o => o.evento.titulo);
+
+describe("feriados", () => {
+  it("Consciência Negra é feriado nacional a partir de 2024 (Lei 14.759/2023)", () => {
+    expect(titulosEm(feriadosBrasil(2026), "2026-11-20")).toContain("Dia Nacional de Zumbi e da Consciência Negra");
+    expect(titulosEm(feriadosBrasil(2023), "2023-11-20")).toEqual([]);
+  });
+  it("os do Rio de Janeiro: São Sebastião (municipal) e São Jorge (estadual)", () => {
+    expect(titulosEm(feriadosBrasil(2026), "2026-01-20")).toContain("Dia de São Sebastião");
+    expect(titulosEm(feriadosBrasil(2026), "2026-04-23")).toContain("Dia de São Jorge");
+  });
+  it("Páscoa não é feriado — saiu daqui para o calendário cristão", () => {
+    expect(feriadosBrasil(2026).map(o => o.evento.titulo)).not.toContain("Páscoa");
+    expect(titulosEm(datasEspeciais(2026), "2026-04-05")).toContain("Páscoa");
+  });
+});
+
+describe("calendário cristão", () => {
+  // Páscoa de 2026: 5 de abril.
+  it("datas relativas à Páscoa em 2026", () => {
+    const ds = datasEspeciais(2026);
+    expect(titulosEm(ds, "2026-03-29")).toContain("Domingo de Ramos");
+    expect(titulosEm(ds, "2026-05-14")).toContain("Ascensão de Cristo");
+    expect(titulosEm(ds, "2026-05-24")).toContain("Pentecostes");
+  });
+  it("o Advento começa no quarto domingo antes do Natal — inclusive quando o Natal cai num domingo", () => {
+    const advento = { tipo: "advento" } as const;
+    const esperado: Record<number, string> = {
+      2022: "2022-11-27", // Natal num domingo
+      2023: "2023-12-03", // Natal numa segunda: a véspera é o 4º domingo
+      2026: "2026-11-29",
+      2027: "2027-11-28",
+    };
+    for (const [ano, data] of Object.entries(esperado)) {
+      const d = resolverRegra(advento, Number(ano));
+      expect(ymd(d)).toBe(data);
+      expect(d.getDay()).toBe(0);
+    }
+  });
+  it("Dia das Mães e Dia dos Pais são o 2º domingo de maio e de agosto", () => {
+    const ds = datasEspeciais(2026);
+    expect(titulosEm(ds, "2026-05-10")).toContain("Dia das Mães");
+    expect(titulosEm(ds, "2026-08-09")).toContain("Dia dos Pais");
+  });
+  it("Reforma Protestante é cristã, não só da CBB", () => {
+    expect(DATAS_BATISTAS.map(d => d.nome)).not.toContain("Dia da Reforma Protestante");
+    const r = datasEspeciais(2026).find(o => o.evento.titulo === "Dia da Reforma Protestante");
+    expect(r?.categoria).toBe("crista");
+    expect(r?.data).toBe("2026-10-31");
+  });
+});
+
+describe("a Identidade decide o calendário denominacional", () => {
+  it("vinculada à CBB: aparecem todas as datas batistas", () => {
+    const n = eventosBatistas(2026, new Set(["CBB"])).length;
+    expect(n).toBe(eventosBatistas(2026).length);
+  });
+  it("sem vínculo nenhum: nenhuma data denominacional", () => {
+    expect(eventosBatistas(2026, new Set())).toEqual([]);
+  });
+  it("só a JMM: aparece o Dia de Missões Mundiais, e só ele", () => {
+    expect(eventosBatistas(2026, new Set(["JMM"])).map(o => o.evento.titulo)).toEqual(["Dia de Missões Mundiais"]);
+  });
+  it("não se sabe (consulta falhou): todas aparecem", () => {
+    expect(eventosBatistas(2026, null).length).toBe(eventosBatistas(2026).length);
+  });
+  it("as datas por instituição batem com o catálogo", () => {
+    const conta = datasPorInstituicao();
+    expect(conta.CBB).toBe(DATAS_BATISTAS.length);
+    expect(conta.JMM).toBe(1);
+    expect(conta.JMN).toBe(3);
+  });
+  it("o vínculo não mexe nas datas que não são denominacionais", () => {
+    const de = new Date(2026, 0, 1), ate = new Date(2026, 11, 31);
+    const sem = eventosExternos(de, ate, { vinculadas: new Set(), fundacao: null });
+    expect(sem.some(o => o.categoria === "batista")).toBe(false);
+    expect(sem.some(o => o.categoria === "feriado")).toBe(true);
+    expect(sem.some(o => o.categoria === "crista")).toBe(true);
+  });
+});
+
+describe("aniversário da igreja", () => {
+  const fundacao = { data: "1948-10-03", nomeIgreja: "Igreja de Teste" };
+  it("conta os anos a partir da fundação", () => {
+    const [a] = aniversarioDaIgreja(2026, fundacao);
+    expect(a.data).toBe("2026-10-03");
+    expect(a.evento.titulo).toBe("Aniversário da igreja — 78 anos");
+    expect(a.categoria).toBe("institucional");
+  });
+  it("sem data de fundação, nada", () => {
+    expect(aniversarioDaIgreja(2026, null)).toEqual([]);
+  });
+});
+
+describe("o ano inteiro", () => {
+  it("não há duas ocorrências com a mesma chave em todas as categorias", () => {
+    const tudo = eventosExternos(new Date(2026, 0, 1), new Date(2026, 11, 31), {
+      vinculadas: null, fundacao: { data: "1948-10-03", nomeIgreja: "Igreja de Teste" },
+    });
+    const chaves = tudo.map(o => o.key);
+    expect(new Set(chaves).size).toBe(chaves.length);
   });
 });
