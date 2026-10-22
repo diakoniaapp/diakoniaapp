@@ -69,8 +69,8 @@ export const TELAS: Tela[] = [
   // ── Pessoas ──────────────────────────────────────────────────────────────
   T("/painel-pessoas", "Painel de Pessoas", "pessoas"),
   T("/membros", "Catálogo", "pessoas", { pai: "/painel-pessoas" }),
-  T("/visitantes", "Visitantes", "pessoas", { pai: "/painel-pessoas" }),
-  T("/visitantes/:id", "Acolhimento", "pessoas", { pai: "/visitantes" }),
+  T("/visitantes", "Central de Acolhimento", "pessoas", { pai: "/painel-pessoas" }),
+  T("/visitantes/:id", "Ficha de acolhimento", "pessoas", { pai: "/visitantes" }),
   T("/familias", "Famílias", "pessoas", { pai: "/painel-pessoas" }),
   T("/ministerios", "Ministérios", "pessoas", { pai: "/painel-pessoas" }),
   T("/ministerios/:ministerioId/painel", "Painel do ministério", "pessoas", { pai: "/ministerios" }),

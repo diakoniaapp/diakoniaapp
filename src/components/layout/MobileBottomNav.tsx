@@ -21,7 +21,7 @@ const items: {
 }[] = [
   { to: "/",           label: "Painel",     icon: LayoutDashboard, end: true },
   { to: "/membros",    label: "Pessoas",    icon: Users, allowedRoles: ROLES_LIDERES },
-  { to: "/visitantes", label: "Visitantes", icon: UserCheck, allowedRoles: ROLES_LIDERES },
+  { to: "/visitantes", label: "Acolhimento", icon: UserCheck, allowedRoles: ROLES_LIDERES },
   { to: "/eventos",    label: "Agenda",     icon: Calendar },
 ];
 

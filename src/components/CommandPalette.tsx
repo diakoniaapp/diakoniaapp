@@ -59,7 +59,7 @@ const ROUTES: CommandRoute[] = [
   // ── Navegação ─────────────────────────────────────────────────────
   { to: "/",           label: "Painel inicial",  icon: LayoutDashboard, group: "Navegação", keywords: ["home","dashboard","inicio"] },
   { to: "/membros",    label: "Pessoas (catálogo)", icon: Users,        group: "Navegação", keywords: ["membros","congregados"] },
-  { to: "/visitantes", label: "Visitantes",       icon: UserCheck,      group: "Navegação", keywords: ["visita"] },
+  { to: "/visitantes", label: "Acolhimento",       icon: UserCheck,      group: "Navegação", keywords: ["visita","visitante","visitantes","central","cuidado","funil"] },
   { to: "/familias",   label: "Famílias",         icon: Home,           group: "Navegação", keywords: ["lar","familia"] },
   { to: "/ministerios",label: "Ministérios",      icon: HeartHandshake, group: "Navegação", keywords: ["ministerio","servico"] },
   { to: "/areas",      label: "Equipes",          icon: Layers,         group: "Navegação", keywords: ["areas","grupo"] },
