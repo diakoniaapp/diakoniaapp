@@ -9,6 +9,7 @@
 import { AVISO_DE_CONFERENCIA, bancoDaLinha, formatarLinha, ICONE_SEM_MEIO, periodoDoDia, rotuloDoCodigo, tipoDaLinha } from "./envioDePagamentos.ts";
 import { assinaturaEmHtml, assinaturaEmTexto } from "./assinaturaDoSistema.ts";
 import { secaoDoItem, type ItemDoDia } from "./itensDoDia.ts";
+import { avisoDeExtratoDefasado, ehContaDeBanco, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 
 export const LIMITE_POR_SECAO = 40;
 const LINK_DO_SISTEMA = "https://portal.diakoniaapp.com.br";
@@ -29,6 +30,8 @@ export interface OpcoesDoDiario {
   incluirSigilosos?: boolean;
   /** linhas no topo do e-mail (prévia e teste) */
   aviso?: string;
+  /** saldo das contas com a data do último extrato do banco (resumo_ultimo_extrato_das_contas); sem isso o e-mail não traz o bloco de saldo */
+  contas?: readonly ExtratoDaConta[];
 }
 
 export interface EmailDoDiario {
@@ -80,6 +83,11 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     ? `${plural(total.quantidade, "pagamento", "pagamentos")} · ${brl(total.valor)}` + (total.atrasados.quantidade > 0 ? ` — ${total.atrasados.quantidade} em atraso (${brl(total.atrasados.valor)})` : "") + (total.hoje.quantidade > 0 ? ` — ${total.hoje.quantidade} vencem hoje (${brl(total.hoje.valor)})` : "")
     : "";
 
+  // saldo das contas de banco com até quando o extrato foi atualizado: o saldo do app só acompanha o banco até a última importação conciliada (pedido dela, 22/10/2026)
+  const contasDeBanco = (o.contas ?? []).filter(c => ehContaDeBanco(c));
+  const saldos = contasDeBanco.map(c => ({ nome: c.nome, saldo: c.saldo, ...situacaoDoExtrato(c, o.hojeYmd) }));
+  const avisoDeExtrato = avisoDeExtratoDefasado(contasDeBanco, o.hojeYmd);
+
   // ── HTML ──
   const mono = `font-family:Consolas,'Courier New',monospace;font-size:12px`;
   const corDe = (i: ItemDoDia) => (dias(i) < 0 ? "#b4472b" : "#8a6d3b");
@@ -89,6 +97,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   html += `<p>${esc(saudacao).replace(/\n/g, "<br>")}</p><p>${esc(intro)}</p>`;
   if (resumo) html += `<p style="margin:12px 0;padding:8px 10px;background:#faf9f5;border-left:3px solid #a5741f"><b>${esc(resumo)}</b></p>`;
   if (avisoSigiloso) html += `<p style="margin:0 0 8px;font-size:12px;color:#b4472b">${esc(avisoSigiloso)}</p>`;
+  if (avisoDeExtrato) html += `<p style="margin:0 0 8px;padding:8px 10px;border-radius:6px;background:#f6dcd3;font-size:12px;font-weight:bold;color:#8a2f15">${esc(avisoDeExtrato)}</p>`;
 
   const blocoPagar = (i: ItemDoDia) => {
     const repetido = jaEnviado(i, o.hojeYmd);
@@ -119,6 +128,11 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     }
   }
   if (porSecao.sigiloso.length > 0) html += `<p style="margin-top:18px;font-size:12px;color:#777">🔒 ${esc(plural(porSecao.sigiloso.length, "pagamento sigiloso (remuneração) não aparece", "pagamentos sigilosos (remuneração) não aparecem"))} neste e-mail.</p>`;
+  if (saldos.length > 0) {
+    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#6b4b10">Saldo das contas</h3>`
+      + saldos.map(s => `<p style="margin:6px 0 0">${esc(s.nome)}: <b>${esc(brl(s.saldo))}</b><br><span style="font-size:12px;color:${s.defasado ? "#b4472b" : "#777"}">${s.defasado ? "⚠ " : ""}${esc(s.texto)}</span></p>`).join("")
+      + `<p style="margin:8px 0 0;font-size:12px;color:#777">${esc(NOTA_DO_SALDO)}</p>`;
+  }
   html += `<p style="margin-top:20px;font-size:12px;color:#555">${esc(AVISO_DE_CONFERENCIA)}</p>`;
   html += `<p style="font-size:13px"><a href="${LINK_DO_SISTEMA}" style="color:#a5741f;font-weight:bold;text-decoration:none">Abrir o DiakoniaApp →</a></p>`;
   html += assinaturaEmHtml("mensagem") + `</div>`;
@@ -129,6 +143,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   t.push(saudacao, "", intro);
   if (resumo) t.push("", resumo);
   if (avisoSigiloso) t.push(avisoSigiloso);
+  if (avisoDeExtrato) t.push(avisoDeExtrato);
   if (porSecao.pagar.length > 0) {
     t.push("", "PARA PAGAR");
     for (const i of limitar(porSecao.pagar).vistos) {
@@ -144,6 +159,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     for (const i of limitar(porSecao.sem_meio).vistos) t.push(`${beneficiario(i)} · ${brl(i.valor)} · vence ${dataBr(i.vencimento)} · ${situacao(i)}`);
   }
   if (porSecao.sigiloso.length > 0) t.push("", `🔒 ${plural(porSecao.sigiloso.length, "pagamento sigiloso não aparece", "pagamentos sigilosos não aparecem")} neste e-mail.`);
+  if (saldos.length > 0) t.push("", "SALDO DAS CONTAS", ...saldos.map(s => `${s.nome}: ${brl(s.saldo)} — ${s.defasado ? "⚠ " : ""}${s.texto}`), NOTA_DO_SALDO);
   t.push("", AVISO_DE_CONFERENCIA, "", `Abrir o DiakoniaApp: ${LINK_DO_SISTEMA}`, "", assinaturaEmTexto("mensagem"));
 
   return { assunto, html, texto: t.join("\n"), contagem: { pagar: porSecao.pagar.length, conferir: porSecao.conferir.length, semMeio: porSecao.sem_meio.length, sigilosos: porSecao.sigiloso.length, sigilososIncluidos: incluidosSigilosos.length }, total, listados };

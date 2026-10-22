@@ -135,7 +135,8 @@ describe("os blocos como texto", () => {
     const b = montarBloco("saldo_contas", digest())!;
     expect(b.frase).toBe("Saldo nas contas: -R$ 8.403,19 — negativo.");
     expect(b.tom).toBe("atencao");
-    expect(b.itens).toEqual(["Bradesco: -R$ 8.000,00", "Caixinha: -R$ 403,19"]);
+    // sem a data do extrato (não veio no digest), só as contas e a nota geral de que o saldo pode não refletir o banco
+    expect(b.itens).toEqual(["Bradesco: -R$ 8.000,00", "Caixinha: -R$ 403,19", "Saldo do DiakoniaApp: acompanha o banco só até a data do último extrato importado e conciliado — pode não ser o saldo real da conta."]);
   });
   it("Reembolsos e Vencimentos usam singular e plural", () => {
     expect(montarBloco("reembolsos", digest())!.frase).toBe("1 reembolso a pagar, somando R$ 1.500,00.");

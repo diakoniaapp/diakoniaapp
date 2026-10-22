@@ -20,6 +20,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
+import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const CORS = {
@@ -42,6 +43,7 @@ Deno.serve(async (req) => {
   const { data, error } = await supabase.rpc("resumo_diario_dados");
   if (error) return resposta({ erro: error.message }, 500);   // sem a migration: erro claro, nunca um e-mail
   const dados = data as DadosDoDiario;
+  dados.contas_extrato = await lerExtratoDasContas(supabase);   // sem a migration 20261022220000 vem vazio: o e-mail sai sem o bloco de saldo
 
   const preparo = prepararDiario(dados);
   const motivo = motivoDeNaoEnviar(dados, preparo);

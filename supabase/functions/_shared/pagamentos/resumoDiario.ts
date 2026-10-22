@@ -4,6 +4,7 @@
 // prévia é o que o e-mail das 7h leva.
 import { montarEmailDiario, type EmailDoDiario } from "./emailDiario.ts";
 import { montarItensDoDia, type CandidataDoDia, type ItemDoDia } from "./itensDoDia.ts";
+import type { ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 
 export interface ConfigDoDiario { ativo: boolean; dias_semana: number[]; hora: number; minuto: number; janela_dias: number; enviar_sem_pagamentos: boolean; incluir_sigilosos?: boolean }
 /** O que `resumo_diario_dados()` devolve. */
@@ -18,6 +19,8 @@ export interface DadosDoDiario {
   itens: CandidataDoDia[];
   /** o último momento em que um resumo diário foi enviado (para não repetir o envio se o agendamento disparar duas vezes) */
   ultimo_envio_geral: string | null;
+  /** saldo das contas com a data do último extrato do banco; a Edge Function o acrescenta (função `resumo_ultimo_extrato_das_contas`) — ausente/vazio = o e-mail sai sem o bloco de saldo */
+  contas_extrato?: ExtratoDaConta[];
 }
 
 /** Quanto tempo depois de um envio um novo disparo é tratado como repetição do mesmo (agendamento duplicado, chamada repetida na URL pública). */
@@ -33,7 +36,7 @@ export interface PreparoDoDiario { itens: ItemDoDia[]; email: EmailDoDiario }
  */
 export function prepararDiario(d: DadosDoDiario, aviso?: string, incluirSigilosos?: boolean): PreparoDoDiario {
   const itens = montarItensDoDia(d.itens);
-  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
+  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.contas_extrato, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
 }
 
 /**

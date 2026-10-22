@@ -26,6 +26,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ASSUNTO, montarBlocos, montarHtml, type Digest } from "../_shared/resumoSemanal/blocos.ts";
+import { juntarExtrato, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { blocosDaPessoa, mesclarConfig, type PerfilConfigurado } from "../_shared/resumoSemanal/catalogo.ts";
 
 const EMAIL_PADRAO = "telma@diakoniaapp.com.br";
@@ -81,6 +82,8 @@ Deno.serve(async (req) => {
     const d = await supabase.rpc("resumo_semanal_digest");
     if (d.error) throw new Error(d.error.message);
     digest = d.data as Digest;
+    // até quando cada saldo de banco reflete o extrato (sem a migration 20261022220000 vem vazio e o e-mail sai só com a nota geral)
+    if (digest.tesouraria?.saldo_contas) digest.tesouraria.saldo_contas.contas = juntarExtrato(digest.tesouraria.saldo_contas.contas, await lerExtratoDasContas(supabase));
   } catch (e) {
     return resposta({ erro: e instanceof Error ? e.message : "Erro ao ler a configuração" }, 500);
   }

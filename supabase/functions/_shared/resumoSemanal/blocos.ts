@@ -3,6 +3,8 @@
 // `resumo_semanal_digest()` (SQL) devolve os NÚMEROS; aqui cada bloco do catálogo vira um título, uma frase e, quando ajuda, uma lista curta. Sem lógica de negócio nova: nada é somado aqui.
 // Um bloco sempre diz alguma coisa — "Nenhuma conta atrasada." — nunca uma linha muda. Se o banco ainda não foi atualizado e o número do bloco não veio, o bloco diz isso em vez de sumir.
 
+import { avisoDeExtratoDefasado, ehContaDeBanco, hojeEmBrasilia, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
+
 export interface ItemDeLista { quem: string; vencimento: string; valor: number }
 export interface DigestTesouraria {
   fiscal_atrasados: number; fiscal_urgentes: number; caixas_abertos: number; aprovacoes_pendentes: number; centros_criticos: number;
@@ -11,7 +13,8 @@ export interface DigestTesouraria {
   vencimentos_semana?: { ate: string; n: number; total: number; itens: ItemDeLista[] };
   debitos_automaticos?: { ate: string; previstos_n: number; previstos_total: number; aguardando_n: number; possivel_falha_n: number; possivel_falha_total: number; itens: ItemDeLista[] };
   reembolsos?: { n: number; total: number };
-  saldo_contas?: { total: number; contas: { nome: string; saldo: number }[] };
+  // `ultimo_movimento` e `ultima_conciliacao` são juntados pela Edge Function (resumo_ultimo_extrato_das_contas); ausentes se a migration 20261022220000 ainda não foi aplicada
+  saldo_contas?: { total: number; contas: { nome: string; saldo: number; ultimo_movimento?: string | null; ultima_conciliacao?: string | null }[] };
 }
 export interface Digest {
   pastoral: { aniversarios_semana: number; bodas_semana: number; visitantes_sem_contato: number; candidatos_batismo: number };
@@ -105,7 +108,17 @@ export function montarBloco(id: string, d: Digest): BlocoPronto | null {
     }
     case "saldo_contas": {
       const sc = t.saldo_contas; if (!sc) return semDado(id, "Saldo das contas");
-      return bloco(id, "Saldo das contas", `Saldo nas contas: ${brl(sc.total)}${sc.total < 0 ? " — negativo" : ""}.`, sc.total < 0 ? "atencao" : "info", sc.contas.map(c => `${c.nome}: ${brl(c.saldo)}`));
+      // até quando cada saldo de banco reflete o extrato: o saldo do app só acompanha o banco até a última importação conciliada (pedido dela, 22/10/2026)
+      const hoje = hojeEmBrasilia(d.gerado_em);
+      // `undefined` = a data não veio (migration 20261022220000 ainda não aplicada): não se afirma "sem extrato", só vai a nota geral; `null` = a conta nunca recebeu extrato
+      const conhecidas = sc.contas.filter(c => c.ultimo_movimento !== undefined);
+      const aviso = avisoDeExtratoDefasado(conhecidas.map(c => ({ nome: c.nome, saldo: c.saldo, ultimo_movimento: c.ultimo_movimento ?? null, ultima_conciliacao: c.ultima_conciliacao ?? null })) as ExtratoDaConta[], hoje);
+      const linhas = sc.contas.map(c => {
+        const ext = c.ultimo_movimento !== undefined && ehContaDeBanco({ nome: c.nome, ultimo_movimento: c.ultimo_movimento })
+          ? situacaoDoExtrato({ ultimo_movimento: c.ultimo_movimento ?? null, ultima_conciliacao: c.ultima_conciliacao ?? null }, hoje) : null;
+        return `${c.nome}: ${brl(c.saldo)}${ext ? ` — ${ext.texto}${ext.defasado ? " ⚠" : ""}` : ""}`;
+      });
+      return bloco(id, "Saldo das contas", `Saldo nas contas: ${brl(sc.total)}${sc.total < 0 ? " — negativo" : ""}.${aviso ? ` ${aviso}` : ""}`, sc.total < 0 || aviso ? "atencao" : "info", [...linhas, NOTA_DO_SALDO]);
     }
     case "centros_orcamento":
       return t.centros_criticos > 0

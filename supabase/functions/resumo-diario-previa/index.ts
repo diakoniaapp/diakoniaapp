@@ -10,6 +10,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
+import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const CORS = {
@@ -42,6 +43,7 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase.rpc("resumo_diario_dados");
     if (error) throw new Error(error.message);
     const dados = data as DadosDoDiario;
+    dados.contas_extrato = await lerExtratoDasContas(supabase);
     const preparo = prepararDiario(dados, corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo diário" : "PRÉVIA — nada foi enviado", typeof corpo.incluir_sigilosos === "boolean" ? corpo.incluir_sigilosos : undefined);
     const { email } = preparo;
 
