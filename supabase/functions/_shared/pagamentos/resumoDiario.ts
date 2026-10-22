@@ -5,7 +5,7 @@
 import { montarEmailDiario, type EmailDoDiario } from "./emailDiario.ts";
 import { montarItensDoDia, type CandidataDoDia, type ItemDoDia } from "./itensDoDia.ts";
 
-export interface ConfigDoDiario { ativo: boolean; dias_semana: number[]; hora: number; minuto: number; janela_dias: number; enviar_sem_pagamentos: boolean }
+export interface ConfigDoDiario { ativo: boolean; dias_semana: number[]; hora: number; minuto: number; janela_dias: number; enviar_sem_pagamentos: boolean; incluir_sigilosos?: boolean }
 /** O que `resumo_diario_dados()` devolve. */
 export interface DadosDoDiario {
   /** AAAA-MM-DD de Brasília */
@@ -27,10 +27,13 @@ export type MotivoDeNaoEnviar = "desligado" | "fora_dos_dias" | "sem_destinatari
 
 export interface PreparoDoDiario { itens: ItemDoDia[]; email: EmailDoDiario }
 
-/** Monta os itens e o e-mail do dia. A `hora` do cumprimento é a do agendamento. */
-export function prepararDiario(d: DadosDoDiario, aviso?: string): PreparoDoDiario {
+/**
+ * Monta os itens e o e-mail do dia. A `hora` do cumprimento é a do agendamento. Remuneração (prebenda, folha, Sustento, RPA) entra, marcada 🔒, a menos que a configuração diga o contrário
+ * (decisão dela, 22/10/2026: também precisam ser pagos); `incluirSigilosos` sobrepõe a configuração — é o que a tela usa para pré-visualizar uma escolha ainda não salva.
+ */
+export function prepararDiario(d: DadosDoDiario, aviso?: string, incluirSigilosos?: boolean): PreparoDoDiario {
   const itens = montarItensDoDia(d.itens);
-  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso }) };
+  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
 }
 
 /**

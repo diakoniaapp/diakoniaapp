@@ -25,7 +25,7 @@ export interface CandidataDoDia {
   anexos: AnexoDoDia[];
 }
 
-export interface ItemDoDia extends ItemDeEnvio { diasParaVencer: number; ultimoEnvio: string | null }
+export interface ItemDoDia extends ItemDeEnvio { diasParaVencer: number; ultimoEnvio: string | null; /** remuneração (prebenda, folha, Sustento, RPA): vem marcado 🔒 no e-mail */ sigiloso: boolean }
 export type SecaoDoDia = "pagar" | "conferir" | "sem_meio" | "sigiloso";
 
 interface DocumentoLido { linhaDigitavel: string | null; pix: string | null; valor: number | null; vencimento: string | null; codigoValido: boolean | null }
@@ -63,7 +63,7 @@ export function itemDoDia(c: CandidataDoDia): ItemDoDia {
       valorDoDocumento: doc?.valor ?? null, vencimentoDoDocumento: doc?.vencimento ? String(doc.vencimento).slice(0, 10) : null, codigoValido: comLinha?.codigoValido ?? null,
     },
   );
-  return { ...item, diasParaVencer: c.dias_para_vencer, ultimoEnvio: c.ultimo_envio };
+  return { ...item, diasParaVencer: c.dias_para_vencer, ultimoEnvio: c.ultimo_envio, sigiloso: item.grupo === "sigiloso" };
 }
 
 /** Atrasadas primeiro (a mais antiga antes), depois as de hoje e as dos próximos dias; no mesmo dia, o maior valor primeiro. */
@@ -75,13 +75,17 @@ export function montarItensDoDia(candidatas: readonly CandidataDoDia[]): ItemDoD
 
 /**
  * Para onde o item vai no e-mail:
- *  · sigiloso (prebenda, folha, Sustento, RPA) — fora do corpo;
+ *  · sigiloso (prebenda, folha, Sustento, RPA): por padrão do código fica FORA do corpo; com `incluirSigilosos` (o padrão da configuração — decisão dela, 22/10/2026: também precisam ser pagos)
+ *    segue as MESMAS regras dos demais, pelo meio de pagamento que tiver;
  *  · sem meio automático — "pague pelo documento";
  *  · com meio, mas valor ou código do documento diferem da obrigação (o que decide o dinheiro) — "conferir antes": o código NÃO vai, para ninguém pagar errado por pressa;
  *  · com meio e sem divergência — "pagar". Só a data do boleto diferente da da obrigação apenas informa (como no envio manual).
  */
-export function secaoDoItem(i: ItemDeEnvio): SecaoDoDia {
-  if (i.grupo === "sigiloso") return "sigiloso";
+export function secaoDoItem(i: ItemDeEnvio, incluirSigilosos = false): SecaoDoDia {
+  if (i.grupo === "sigiloso") {
+    if (!incluirSigilosos) return "sigiloso";
+    if (!i.linha && !i.pix) return "sem_meio";   // o grupo "sigiloso" esconde o meio: aqui ele volta a decidir
+  }
   if (i.grupo === "sem_dado") return "sem_meio";
   return i.avisos.some(a => !a.startsWith("o boleto vence")) ? "conferir" : "pagar";
 }

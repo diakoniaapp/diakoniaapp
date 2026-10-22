@@ -142,6 +142,8 @@ export interface ResumoDiarioConfig {
   /** quantos dias à frente de hoje também entram (0 = só o que vence hoje e o atrasado) */
   janela_dias: number;
   enviar_sem_pagamentos: boolean;
+  /** remuneração (prebenda, folha, Sustento, RPA) também vai no e-mail, marcada 🔒 */
+  incluir_sigilosos: boolean;
 }
 export interface ResumoDiarioDestinatario { nome: string; email: string; membro_id?: string | null }
 export interface ResumoDiarioStatus {
@@ -154,7 +156,7 @@ export interface ResumoDiarioStatus {
 }
 export interface PreviaDoDiario {
   assunto: string; html: string; hoje: string;
-  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number };
+  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number; sigilososIncluidos: number };
   total: { quantidade: number; valor: number; atrasados: { quantidade: number; valor: number }; hoje: { quantidade: number; valor: number } };
 }
 
@@ -172,8 +174,8 @@ export async function salvarResumoDiario(config: ResumoDiarioConfig, destinatari
   if (error) throw error;
 }
 
-async function chamarPreviaDoDiario(acao: "previa" | "teste") {
-  const { data, error } = await supabase.functions.invoke("resumo-diario-previa", { body: { acao } });
+async function chamarPreviaDoDiario(acao: "previa" | "teste", incluirSigilosos?: boolean) {
+  const { data, error } = await supabase.functions.invoke("resumo-diario-previa", { body: { acao, ...(incluirSigilosos === undefined ? {} : { incluir_sigilosos: incluirSigilosos }) } });
   if (error) {
     let msg = error.message;
     try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }
@@ -186,13 +188,13 @@ async function chamarPreviaDoDiario(acao: "previa" | "teste") {
 }
 
 /** O e-mail diário como sairia AGORA (dados de hoje). Nada é enviado nem registrado. */
-export async function previaDoResumoDiario(): Promise<PreviaDoDiario> {
-  const r = await chamarPreviaDoDiario("previa");
+export async function previaDoResumoDiario(incluirSigilosos?: boolean): Promise<PreviaDoDiario> {
+  const r = await chamarPreviaDoDiario("previa", incluirSigilosos);
   return { assunto: r.assunto ?? "", html: r.html ?? "", hoje: r.hoje ?? "", contagem: r.contagem, total: r.total };
 }
 
 /** Manda o e-mail diário de agora, marcado como teste, SÓ para o e-mail cadastrado de quem está logado. */
-export async function enviarTesteDoResumoDiario(): Promise<{ enviadoPara: string; itens: number }> {
-  const r = await chamarPreviaDoDiario("teste");
+export async function enviarTesteDoResumoDiario(incluirSigilosos?: boolean): Promise<{ enviadoPara: string; itens: number }> {
+  const r = await chamarPreviaDoDiario("teste", incluirSigilosos);
   return { enviadoPara: r.enviadoPara ?? "", itens: r.itens ?? 0 };
 }

@@ -50,6 +50,7 @@ confere('a migration aplica', true);
 const job = (await q(`select * from cron.job where jobname = 'resumo-diario'`))[0];
 confere('o job nasce DESLIGADO, seg–sex 10h UTC (7h em Brasília)', job && job.active === false && job.schedule === '0 10 * * 1-5', JSON.stringify(job));
 const cfg0 = (await q(`select * from resumo_diario_config`))[0];
+confere('os sigilosos (prebenda, folha…) ENTRAM por padrão — decisão dela', cfg0.incluir_sigilosos === true);
 confere('a configuração nasce desligada, 7h, seg–sex, só o dia, sem enviar vazio', cfg0.ativo === false && cfg0.hora === 7 && cfg0.minuto === 0 && cfg0.janela_dias === 0 && cfg0.enviar_sem_pagamentos === false && cfg0.dias_semana.join() === '1,2,3,4,5');
 confere('rodar a migration de novo é inofensivo (idempotente)', await (async () => { await c.query(fs.readFileSync(raiz + 'supabase/migrations/20261022210000_resumo_diario_tesouraria.sql', 'utf8')); return (await q(`select count(*)::int n from cron.job where jobname='resumo-diario'`))[0].n === 1; })());
 
@@ -76,8 +77,9 @@ confere('salvar LIGA o job e mantém seg–sex às 10h UTC', j.active === true &
 confere('os dois destinatários gravados', (await q(`select count(*)::int n from resumo_diario_destinatarios`))[0].n === 2);
 
 await c.query(`set role authenticated`); await como(ADMIN);
-await q(`select sistema_resumo_diario_salvar($1::jsonb, $2::jsonb)`, [cfg({ dias_semana: [5], hora: 22, minuto: 30 }), dest(['Bruno', 'BRUNO@x.org'])]);
+await q(`select sistema_resumo_diario_salvar($1::jsonb, $2::jsonb)`, [cfg({ dias_semana: [5], hora: 22, minuto: 30, incluir_sigilosos: false }), dest(['Bruno', 'BRUNO@x.org'])]);
 await c.query(`reset role`);
+confere('salvar guarda a escolha de incluir (ou não) os sigilosos', (await q(`select incluir_sigilosos from resumo_diario_config`))[0].incluir_sigilosos === false);
 j = (await q(`select * from cron.job where jobname = 'resumo-diario'`))[0];
 confere('22h30 de sexta em Brasília = 01h30 de SÁBADO em UTC (o dia vira junto)', j.schedule === '30 1 * * 6', j.schedule);
 const dd = await q(`select nome, email from resumo_diario_destinatarios`);

@@ -14,7 +14,8 @@
 -- QUEM ENTRA NO E-MAIL (as regras do "Preparar envio", mantidas)
 --   · saída PREVISTA, fora transferência, vencida ou vencendo hoje (mais `janela_dias` dias à frente, se configurado);
 --   · FORA: pagamento automático (débito automático, Pix recorrente, transferência programada) e reembolso a pagar — não se paga à mão;
---   · prebenda, folha, Sustento e RPA são sigilosos: a Edge Function os deixa fora do corpo (a regra é `ehSigiloso`, a mesma do envio manual).
+--   · prebenda, folha, Sustento e RPA (remuneração) também entram — decisão dela (22/10/2026): também precisam ser pagos. Vêm marcados 🔒 e a tela tem a opção `incluir_sigilosos` (padrão: ligada) para
+--     tirá-los do e-mail se um dia a lista de destinatários mudar. A regra que os reconhece é `ehSigiloso`, a mesma do envio manual.
 --
 -- ORDEM DE APLICAÇÃO: 1º esta migration, 2º implantar as funções (`resumo-diario` e `resumo-diario-previa`), 3º publicar o app. Aplicada sozinha NÃO envia nada: nasce desligada.
 -- Reverter: docs/RESUMO_DIARIO_ROLLBACK.sql. Ensaio: docs/RESUMO_DIARIO_ENSAIO.mjs.
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.resumo_diario_config (
   minuto                integer NOT NULL DEFAULT 0 CHECK (minuto BETWEEN 0 AND 59),
   janela_dias           integer NOT NULL DEFAULT 0 CHECK (janela_dias BETWEEN 0 AND 14),
   enviar_sem_pagamentos boolean NOT NULL DEFAULT false,
+  incluir_sigilosos     boolean NOT NULL DEFAULT true,
   atualizado_em         timestamptz NOT NULL DEFAULT now(),
   atualizado_por        uuid
 );
@@ -117,7 +119,7 @@ BEGIN
 END;
 $$;
 
--- p_config = {"ativo":true,"dias_semana":[1,2,3,4,5],"hora":7,"minuto":0,"janela_dias":0,"enviar_sem_pagamentos":false}
+-- p_config = {"ativo":true,"dias_semana":[1,2,3,4,5],"hora":7,"minuto":0,"janela_dias":0,"enviar_sem_pagamentos":false,"incluir_sigilosos":true}
 -- p_destinatarios = [{"nome":"Bruno","email":"bruno@x.org","membro_id":"…"}]   (a lista INTEIRA: o que não está nela sai)
 CREATE OR REPLACE FUNCTION public.sistema_resumo_diario_salvar(p_config jsonb, p_destinatarios jsonb)
 RETURNS void
@@ -129,6 +131,7 @@ DECLARE
   v_ativo boolean := COALESCE((p_config->>'ativo')::boolean, false);
   v_dias int[]; v_hora int := COALESCE((p_config->>'hora')::int, 7); v_minuto int := COALESCE((p_config->>'minuto')::int, 0);
   v_janela int := COALESCE((p_config->>'janela_dias')::int, 0); v_vazio boolean := COALESCE((p_config->>'enviar_sem_pagamentos')::boolean, false);
+  v_sig boolean := COALESCE((p_config->>'incluir_sigilosos')::boolean, true);
   v_jobid bigint; v_cron text; d jsonb; v_email text; v_nome text; v_n int := 0;
   v_dow int[]; v_ts_utc timestamp;
 BEGIN
@@ -155,7 +158,7 @@ BEGIN
   END LOOP;
   IF v_ativo AND v_n = 0 THEN RAISE EXCEPTION 'Cadastre ao menos um destinatário antes de ligar o resumo diário.'; END IF;
 
-  UPDATE resumo_diario_config SET ativo = v_ativo, dias_semana = v_dias, hora = v_hora, minuto = v_minuto, janela_dias = v_janela, enviar_sem_pagamentos = v_vazio,
+  UPDATE resumo_diario_config SET ativo = v_ativo, dias_semana = v_dias, hora = v_hora, minuto = v_minuto, janela_dias = v_janela, enviar_sem_pagamentos = v_vazio, incluir_sigilosos = v_sig,
          atualizado_em = now(), atualizado_por = auth.uid() WHERE id = 1;
 
   -- o agendamento acompanha: cron em UTC. A conta de fuso é do Postgres (o Brasil não tem horário de verão): cada dia vira o seu dia/hora em UTC, que pode cair no dia seguinte.

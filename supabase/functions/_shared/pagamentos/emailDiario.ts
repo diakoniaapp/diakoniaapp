@@ -25,6 +25,8 @@ export interface OpcoesDoDiario {
   hojeYmd: string;
   /** a hora do envio (escolhe "bom dia"/"boa tarde") */
   hora: number;
+  /** remuneração (prebenda, folha, Sustento, RPA) entra no e-mail, marcada 🔒; padrão do código: fora (a configuração do resumo diário nasce com "incluir") */
+  incluirSigilosos?: boolean;
   /** linhas no topo do e-mail (prévia e teste) */
   aviso?: string;
 }
@@ -32,7 +34,7 @@ export interface OpcoesDoDiario {
 export interface EmailDoDiario {
   assunto: string; html: string; texto: string;
   /** quantos itens foram para cada seção */
-  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number };
+  contagem: { pagar: number; conferir: number; semMeio: number; sigilosos: number; sigilososIncluidos: number };
   /** o que entrou no total em dinheiro: só a seção "pagar" */
   total: { quantidade: number; valor: number; atrasados: { quantidade: number; valor: number }; hoje: { quantidade: number; valor: number } };
   /** os itens LISTADOS (entram no registro de "já enviado") — sem os sigilosos */
@@ -50,14 +52,15 @@ const cabecalho = (i: ItemDoDia): string => {
   const partes = i.linha
     ? [tipoDaLinha(i.linha), bancoDaLinha(i.linha), brl(i.valor), `vence ${dataBr(i.vencimento)}`]
     : ["Pix", brl(i.valor), `vence ${dataBr(i.vencimento)}`];
-  return partes.filter(Boolean).join(" · ");
+  return partes.filter(Boolean).join(" · ") + (i.sigiloso ? " · 🔒 sigiloso" : "");
 };
 const codigoDo = (i: ItemDoDia) => (i.linha ? formatarLinha(i.linha) : i.pix ?? "");
 const beneficiario = (i: ItemDoDia) => i.fornecedor.toLocaleUpperCase("pt-BR");
 
 export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario): EmailDoDiario {
   const porSecao = { pagar: [] as ItemDoDia[], conferir: [] as ItemDoDia[], sem_meio: [] as ItemDoDia[], sigiloso: [] as ItemDoDia[] };
-  for (const i of itens) porSecao[secaoDoItem(i)].push(i);
+  for (const i of itens) porSecao[secaoDoItem(i, o.incluirSigilosos)].push(i);
+  const incluidosSigilosos = itens.filter(i => i.sigiloso && secaoDoItem(i, o.incluirSigilosos) !== "sigiloso");
   const soma = (xs: ItemDoDia[]) => xs.reduce((t, i) => t + i.valor, 0);
   const dias = (i: ItemDoDia) => i.diasParaVencer;
   const situacao = (i: ItemDoDia) => situacaoPorDias(dias(i));
@@ -71,6 +74,8 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   const intro = listados.length === 0
     ? "Não há pagamentos em aberto para hoje."
     : `Segue o que há para pagar: o que vence hoje e o que está em atraso. A origem de cada código está indicada (🧾 documento · 💳 Pix do documento · 👤 Pix do cadastro). Os documentos ainda não vão anexados a este e-mail — para os itens abaixo sem linha ou Pix, consulte o documento no DiakoniaApp.`;
+  const avisoSigiloso = incluidosSigilosos.length > 0
+    ? `🔒 ${plural(incluidosSigilosos.length, "item marcado é pagamento", "itens marcados são pagamentos")} de remuneração (sigilosos): não encaminhe este e-mail.` : "";
   const resumo = total.quantidade > 0
     ? `${plural(total.quantidade, "pagamento", "pagamentos")} · ${brl(total.valor)}` + (total.atrasados.quantidade > 0 ? ` — ${total.atrasados.quantidade} em atraso (${brl(total.atrasados.valor)})` : "") + (total.hoje.quantidade > 0 ? ` — ${total.hoje.quantidade} vencem hoje (${brl(total.hoje.valor)})` : "")
     : "";
@@ -83,6 +88,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   if (o.aviso) html += `<p style="margin:0 0 12px;padding:8px 10px;border-radius:6px;background:#f3e6c8;font-size:12px;font-weight:bold;color:#6b4b10">${esc(o.aviso)}</p>`;
   html += `<p>${esc(saudacao).replace(/\n/g, "<br>")}</p><p>${esc(intro)}</p>`;
   if (resumo) html += `<p style="margin:12px 0;padding:8px 10px;background:#faf9f5;border-left:3px solid #a5741f"><b>${esc(resumo)}</b></p>`;
+  if (avisoSigiloso) html += `<p style="margin:0 0 8px;font-size:12px;color:#b4472b">${esc(avisoSigiloso)}</p>`;
 
   const blocoPagar = (i: ItemDoDia) => {
     const repetido = jaEnviado(i, o.hojeYmd);
@@ -122,6 +128,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   if (o.aviso) t.push(o.aviso, "");
   t.push(saudacao, "", intro);
   if (resumo) t.push("", resumo);
+  if (avisoSigiloso) t.push(avisoSigiloso);
   if (porSecao.pagar.length > 0) {
     t.push("", "PARA PAGAR");
     for (const i of limitar(porSecao.pagar).vistos) {
@@ -139,5 +146,5 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   if (porSecao.sigiloso.length > 0) t.push("", `🔒 ${plural(porSecao.sigiloso.length, "pagamento sigiloso não aparece", "pagamentos sigilosos não aparecem")} neste e-mail.`);
   t.push("", AVISO_DE_CONFERENCIA, "", `Abrir o DiakoniaApp: ${LINK_DO_SISTEMA}`, "", assinaturaEmTexto("mensagem"));
 
-  return { assunto, html, texto: t.join("\n"), contagem: { pagar: porSecao.pagar.length, conferir: porSecao.conferir.length, semMeio: porSecao.sem_meio.length, sigilosos: porSecao.sigiloso.length }, total, listados };
+  return { assunto, html, texto: t.join("\n"), contagem: { pagar: porSecao.pagar.length, conferir: porSecao.conferir.length, semMeio: porSecao.sem_meio.length, sigilosos: porSecao.sigiloso.length, sigilososIncluidos: incluidosSigilosos.length }, total, listados };
 }

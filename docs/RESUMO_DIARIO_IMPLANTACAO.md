@@ -17,9 +17,9 @@ Seções do e-mail:
 1. **Para pagar** — com meio de pagamento e documento coerente. Atrasadas primeiro. Mostra "ATRASADO há Nd" ou "vence hoje".
 2. **⚠ Conferir antes de pagar** — o valor ou o código do documento **não bate** com a obrigação. O código **não vem** no e-mail.
 3. **❓ Sem linha digitável nem Pix** — pagar pelo documento (no DiakoniaApp). Nesta fase os documentos ainda **não** vão anexados.
-4. Nota de **🔒 pagamentos sigilosos** (prebenda, folha, Sustento, RPA): nunca aparecem, só a contagem.
+4. **🔒 Pagamentos sigilosos** (prebenda, folha, Sustento, RPA) **também vão**: seguem as mesmas regras dos demais (pagar, conferir, sem meio), vêm marcados "🔒 sigiloso" e o e-mail avisa "não encaminhe este e-mail". A tela tem a opção **"Incluir os pagamentos sigilosos"** (ligada por padrão) para tirá-los se um destinatário não deve ver remuneração; desligada, eles ficam de fora e o e-mail traz só a contagem.
 
-Regras de quem entra: saída **prevista**, vencida ou vencendo hoje (mais os dias à frente que você escolher); **fora**: pagamento automático (débito, Pix recorrente, transferência programada) e reembolso. O palpite de favorecido **pelo nome não existe** no envio automático (no manual a tesoureira confirma na tela; aqui não há quem confirme).
+Regras de quem entra: saída **prevista**, vencida ou vencendo hoje (mais os dias à frente que você escolher); **fora**: pagamento automático (débito, Pix recorrente, transferência programada) e reembolso. Quem **recebe** remuneração por esse e-mail é a lista de destinatários: confira se todos devem ver prebenda, folha e Sustento. O palpite de favorecido **pelo nome não existe** no envio automático (no manual a tesoureira confirma na tela; aqui não há quem confirme).
 
 **Contra o pagamento em duplicidade:** cada obrigação listada é registrada; o e-mail seguinte marca **"↻ já enviado em dd/mm — confira se já foi pago"**. Um novo disparo em menos de 20 minutos é recusado (agendamento duplicado ou a URL chamada de novo).
 

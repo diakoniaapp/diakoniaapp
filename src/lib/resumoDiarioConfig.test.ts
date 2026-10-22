@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { alternarDia, descreverAgenda, houveMudancaNoDiario, problemasDoDiario, rotuloDaJanela } from "./resumoDiarioConfig";
 import type { ResumoDiarioConfig } from "@/services/sistemaService";
 
-const base: ResumoDiarioConfig = { ativo: false, dias_semana: [1, 2, 3, 4, 5], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: false };
+const base: ResumoDiarioConfig = { ativo: false, dias_semana: [1, 2, 3, 4, 5], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: false, incluir_sigilosos: true };
 
 describe("configuração do resumo diário", () => {
   it("alterna dias e devolve ordenado, sem repetir", () => {

@@ -1,5 +1,6 @@
 // ─── resumo-diario-previa — VISUALIZAR o e-mail diário da Tesouraria e mandar um e-mail de TESTE (22/10/2026) ───────────────────────────────────────────
 //
+//   (opcional nos dois: `incluir_sigilosos` — a escolha ainda não salva que a tela está mostrando; sem ela vale a configuração salva)
 //   { acao: "previa" } → devolve { assunto, html, texto, contagem, total } com os dados de AGORA, como o e-mail das 7h sairia. NADA é enviado e nada é registrado.
 //   { acao: "teste"  } → manda esse e-mail, marcado "[TESTE]", SÓ para o e-mail cadastrado de quem pediu (nunca um endereço vindo da chamada). NÃO registra "já enviado" (não conta como envio).
 //
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceRoleKey) return resposta({ erro: "Configuração do Supabase ausente" }, 500);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const corpo = await req.json().catch(() => ({})) as { acao?: string };
+  const corpo = await req.json().catch(() => ({})) as { acao?: string; incluir_sigilosos?: boolean };
   if (corpo.acao !== "previa" && corpo.acao !== "teste") return resposta({ erro: "Ação desconhecida." }, 400);
 
   // quem chama: sessão válida E papel de admin ou diakonia
@@ -41,7 +42,7 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase.rpc("resumo_diario_dados");
     if (error) throw new Error(error.message);
     const dados = data as DadosDoDiario;
-    const preparo = prepararDiario(dados, corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo diário" : "PRÉVIA — nada foi enviado");
+    const preparo = prepararDiario(dados, corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo diário" : "PRÉVIA — nada foi enviado", typeof corpo.incluir_sigilosos === "boolean" ? corpo.incluir_sigilosos : undefined);
     const { email } = preparo;
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, contagem: email.contagem, total: email.total, hoje: dados.hoje });

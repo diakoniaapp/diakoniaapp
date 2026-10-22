@@ -94,12 +94,12 @@ export function ResumoDiarioDaTesouraria({ servico = SERVICO_REAL }: { servico?:
   }
   async function visualizar() {
     setPrevia({ carregando: true });
-    try { setPrevia({ carregando: false, dados: await servico.previaDoResumoDiario() }); }
+    try { setPrevia({ carregando: false, dados: await servico.previaDoResumoDiario(config!.incluir_sigilosos) }); }
     catch (e: any) { setPrevia({ carregando: false, erro: e?.message ?? "Não foi possível montar a prévia" }); }
   }
   async function testar() {
     setTestando(true);
-    try { const r = await servico.enviarTesteDoResumoDiario(); toast.success(`Teste enviado para ${r.enviadoPara}`); }
+    try { const r = await servico.enviarTesteDoResumoDiario(config!.incluir_sigilosos); toast.success(`Teste enviado para ${r.enviadoPara}`); }
     catch (e: any) { toast.error(e?.message ?? "Não foi possível enviar o teste"); } finally { setTestando(false); }
   }
 
@@ -144,11 +144,16 @@ export function ResumoDiarioDaTesouraria({ servico = SERVICO_REAL }: { servico?:
             </select>
           </div>
         </div>
-        <p className="text-[11px] text-muted-foreground">Horário de Brasília. Fora do e-mail, sempre: pagamento automático (débito, Pix recorrente, transferência programada), reembolso e remuneração (prebenda, folha, Sustento).</p>
+        <p className="text-[11px] text-muted-foreground">Horário de Brasília. Fora do e-mail, sempre: pagamento automático (débito, Pix recorrente, transferência programada) e reembolso.</p>
 
         <label className="flex items-center gap-2 text-sm cursor-pointer">
           <input type="checkbox" checked={config.enviar_sem_pagamentos} onChange={e => mudar({ enviar_sem_pagamentos: e.target.checked })} />
           Enviar mesmo quando não há nada a pagar <span className="text-xs text-muted-foreground">(“Não há pagamentos em aberto para hoje.”)</span>
+        </label>
+
+        <label className="flex items-start gap-2 text-sm cursor-pointer">
+          <input type="checkbox" className="mt-1" checked={config.incluir_sigilosos} onChange={e => mudar({ incluir_sigilosos: e.target.checked })} aria-label="Incluir pagamentos sigilosos" />
+          <span>Incluir os pagamentos sigilosos <span className="text-xs text-muted-foreground">(prebenda, folha, Sustento, RPA — vêm marcados 🔒 e com o aviso de não encaminhar). Desligue se algum destinatário não deve ver remuneração.</span></span>
         </label>
 
         {/* destinatários */}

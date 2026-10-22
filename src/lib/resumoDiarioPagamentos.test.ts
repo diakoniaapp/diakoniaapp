@@ -88,7 +88,7 @@ describe("montarEmailDiario", () => {
   });
   it("os totais são só da seção 'pagar', com atrasados e hoje à parte", () => {
     expect(e.total).toEqual({ quantidade: 3, valor: 430, atrasados: { quantidade: 1, valor: 300 }, hoje: { quantidade: 2, valor: 130 } });
-    expect(e.contagem).toEqual({ pagar: 3, conferir: 1, semMeio: 1, sigilosos: 1 });
+    expect(e.contagem).toEqual({ pagar: 3, conferir: 1, semMeio: 1, sigilosos: 1, sigilososIncluidos: 0 });
   });
   it("atrasada primeiro; mostra o banco, a linha em grupos de 5 e a ORIGEM do código", () => {
     expect(e.html.indexOf("LIGHT SERVIÇOS")).toBeLessThan(e.html.indexOf("CEDAE"));
@@ -186,7 +186,7 @@ describe("motivoDeNaoEnviar — o envio agendado sai hoje?", () => {
     expect(motivo(dados({ itens: [], config: { enviar_sem_pagamentos: true } }))).toBeNull();
   });
   it("só sigilosos (nada listado): não envia", () => {
-    expect(motivo(dados({ itens: [cand({ categoria: "Prebenda", anexos: [boleto()] })] }))).toBe("nada_a_pagar");
+    expect(motivo(dados({ itens: [cand({ categoria: "Prebenda", anexos: [boleto()] })], config: { incluir_sigilosos: false } }))).toBe("nada_a_pagar");
   });
   it("já enviado há menos de 20 minutos: não repete (agendamento duplicado, URL pública chamada de novo); depois disso, envia", () => {
     const agora = Date.parse("2026-10-22T10:05:00Z");
