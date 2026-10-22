@@ -106,6 +106,10 @@ export function LancamentoForm({
   // A DATA DO PAGAMENTO (22/10/2026): num lançamento já pago o extrato mostra o dia em que o banco movimentou (`data_pagamento`) e, ao lado, "venc. dd/mm" (o `data`, vencimento). O campo "Data"
   // deste formulário sempre editou só o VENCIMENTO — então "alterar a data" não mexia no que o extrato mostra, e parecia que a edição não pegava. Agora o lançamento pago tem os dois campos.
   const [dataPagamento, setDataPagamento] = useState("");
+  // A EMISSÃO do documento (22/10/2026): quando a nota/boleto/fatura foi emitido. Opcional; preenchida pela LEITURA do documento (nota ou boleto) e sempre corrigível. Vencimento = `data`;
+  // pagamento = `data_pagamento`. A competência (`data_competencia`) segue como era: não é editada aqui.
+  const [dataEmissao, setDataEmissao] = useState("");
+  const [emissaoOriginal, setEmissaoOriginal] = useState("");
   const [valor, setValor] = useState<number>(0);
   // Campo em si é texto livre (não `type="number"`) — achado numa revisão
   // em 13/09/2026: o mesmo bug já corrigido em `ContaForm.tsx` (número
@@ -374,6 +378,8 @@ export function LancamentoForm({
       setTipo(lancamento.tipo);
       setData(lancamento.data);
       setDataPagamento(lancamento.data_pagamento ? String(lancamento.data_pagamento).slice(0, 10) : "");
+      const em = lancamento.data_emissao ? String(lancamento.data_emissao).slice(0, 10) : "";
+      setDataEmissao(em); setEmissaoOriginal(em);
       atualizarValor(Number(lancamento.valor));
       setContaId(lancamento.conta_id);
       setCategoriaId(lancamento.categoria_id ?? "");
@@ -426,6 +432,7 @@ export function LancamentoForm({
     } else {
       setTipo(tipoPadrao);
       setData(rascunho?.data ?? hojeLocal());
+      setDataEmissao(""); setEmissaoOriginal(""); setDataPagamento("");
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
       setCategoriaId(rascunho?.categoriaId ?? categoriaIdPadrao ?? ""); setCentroCustoId(rascunho?.centroId ?? ""); setProjetoId(rascunho?.projetoId ?? ""); setUsarProjeto(!!rascunho?.projetoId);
@@ -510,7 +517,7 @@ export function LancamentoForm({
   async function aplicarSugestoesOcr() {
     if (!ocr) return;
     if (ocr.valor && ocr.valor > 0) atualizarValor(ocr.valor);
-    if (ocr.data) setData(ocr.data);
+    if (ocr.data) { setData(ocr.data); setDataEmissao(ocr.data); }   // a data da nota é a EMISSÃO; segue valendo também como a data do lançamento, como antes
     if (ocr.numeroDoc) setDocumentoNumero(ocr.numeroDoc);
 
     if (fornecedorOcrSugerido) {
@@ -559,6 +566,7 @@ export function LancamentoForm({
     const s = sugestaoDoc;
     if (d.valor && d.valor > 0) atualizarValor(d.valor);
     if (d.vencimento) setData(d.vencimento);
+    if (d.emissao) setDataEmissao(d.emissao);
     if (d.numeroDocumento) setDocumentoNumero(d.numeroDocumento);
     if (s?.fornecedorId) {
       const f = await buscarFornecedor(s.fornecedorId).catch(() => null);
@@ -686,6 +694,8 @@ export function LancamentoForm({
         comprovante_url: comprovantePath,
         nf_dados_extraidos: nfDadosExtraidos,
       };
+      // emissão: só vai quando há valor novo (ou foi apagada) — sem a migration 20261022100000 a coluna nem existe, e editar outra coisa não pode quebrar por isso
+      if (dataEmissao !== emissaoOriginal) payload.data_emissao = dataEmissao || null;
       // só vai quando MUDOU (a coluna existe há muito, mas editar outra coisa não deve reescrever a data de pagamento): pago → o dia do pagamento escolhido; deixou de ser pago → sem data de pagamento
       if (isEdit && lancamento) {
         const eraPago = lancamento.status === "realizado" || lancamento.status === "conciliado";
@@ -747,7 +757,10 @@ export function LancamentoForm({
       onOpenChange(false);
       onSaved();
     } catch (e: any) {
-      toast.error(erroDaLiquidacao(e ?? {}));
+      // a coluna da emissão só existe depois da migration 20261022100000: diz o que fazer, em vez do texto técnico do PostgREST
+      if (/data_emissao/.test(e?.message ?? "")) {
+        toast.error("A data de emissão ainda não está ativa no banco (falta aplicar a migration 20261022100000). Apague o campo \"Emissão do documento\" para salvar agora, ou aplique a migration e tente de novo.");
+      } else toast.error(erroDaLiquidacao(e ?? {}));
     } finally { setBusy(false); }
   }
 
@@ -822,7 +835,14 @@ export function LancamentoForm({
                 limite ao corrigir (ex.: "26666"), estourando a caixa por
                 dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
-              <Label>{isEdit && (status === "realizado" || status === "conciliado") ? "Vencimento *" : "Data *"}</Label>
+              <Label>Emissão do documento</Label>
+              <CampoData value={dataEmissao} onChange={(v) => setDataEmissao(v)} permitirVazio placeholder="Opcional" className="w-full" />
+              {dataEmissao && data && dataEmissao > data && (
+                <p className="mt-1 text-xs text-warning-text">A emissão é depois do vencimento — confira as datas.</p>
+              )}
+            </div>
+            <div className="min-w-0">
+              <Label>{(isEdit && (status === "realizado" || status === "conciliado")) || (tipo === "saida" && status === "previsto") ? "Vencimento *" : "Data *"}</Label>
               <CampoData value={data} onChange={(v) => setData(v)} className="w-full" />
             </div>
             {isEdit && (status === "realizado" || status === "conciliado") && (

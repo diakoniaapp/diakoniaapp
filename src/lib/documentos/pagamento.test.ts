@@ -46,6 +46,16 @@ Pagador: QUARTA IGREJA BATISTA DO RIO DE JANEIRO CNPJ 27.639.285/0001-61`;
     expect(d.avisos).toEqual([]);
   });
 
+  it("emissão (22/10/2026): lê a data do documento; sem rótulo de emissão fica nula", () => {
+    expect(lerDocumentoDePagamento(texto).emissao).toBeNull();
+    expect(lerDocumentoDePagamento(texto.replace("Vencimento 12/10/2026", "Data do documento 28/09/2026\nVencimento 12/10/2026")).emissao).toBe("2026-09-28");
+    expect(lerDocumentoDePagamento(texto.replace("Vencimento 12/10/2026", "Data de emissão 01/10/2026\nVencimento 12/10/2026")).emissao).toBe("2026-10-01");
+  });
+
+  it("emissão POSTERIOR ao vencimento é leitura trocada: descarta (não grava errado)", () => {
+    expect(lerDocumentoDePagamento(texto.replace("Vencimento 12/10/2026", "Data do documento 20/10/2026\nVencimento 12/10/2026")).emissao).toBeNull();
+  });
+
   it("nunca devolve o CNPJ da própria igreja como beneficiário", () => {
     const d = lerDocumentoDePagamento(`Pagador CNPJ 27.639.285/0001-61\n${linha}`);
     expect(d.cnpjBeneficiario).toBeNull();

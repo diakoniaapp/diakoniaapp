@@ -128,6 +128,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                 <QuitacaoCard lancamento={l} recarga={recarga} onMudou={() => setRecarga(n => n + 1)} />
 
                 <section aria-label="Datas e valores" className="grid grid-cols-2 gap-2 text-sm">
+                  {l.data_emissao && <div className="rounded-md border px-3 py-2"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Emissão do documento</p><p className="tabular-nums">{dataBr(l.data_emissao)}</p></div>}
                   <div className="rounded-md border px-3 py-2"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vencimento</p><p className="tabular-nums">{dataBr(l.data)}</p></div>
                   <div className="rounded-md border px-3 py-2"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Pagamento (banco)</p><p className="tabular-nums">{dataBr(l.data_pagamento ?? (l.status === "previsto" ? null : l.data))}</p></div>
                   {o && (

@@ -5486,6 +5486,8 @@ export type Database = {
           conta_id: string
           created_at: string
           data: string
+          // migration 20261022100000_fin_lancamentos_data_emissao.sql
+          data_emissao: string | null
           data_competencia: string | null
           data_pagamento: string | null
           descricao: string | null
@@ -5523,6 +5525,7 @@ export type Database = {
           conta_id: string
           created_at?: string
           data: string
+          data_emissao?: string | null
           data_competencia?: string | null
           data_pagamento?: string | null
           descricao?: string | null
@@ -5560,6 +5563,7 @@ export type Database = {
           conta_id?: string
           created_at?: string
           data?: string
+          data_emissao?: string | null
           data_competencia?: string | null
           data_pagamento?: string | null
           descricao?: string | null

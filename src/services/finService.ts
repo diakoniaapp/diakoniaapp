@@ -251,6 +251,8 @@ export interface FinLancamento {
   id: string;
   data: string;
   data_competencia: string | null;
+  /** Quando o documento (nota, boleto, fatura) foi EMITIDO — migration 20261022100000. Opcional. */
+  data_emissao?: string | null;
   tipo: FinMovimentoTipo;
   status: FinStatus;
   conta_id: string;

@@ -33,6 +33,8 @@ export interface DocumentoDePagamento {
   valor: number | null;
   /** `AAAA-MM-DD`. */
   vencimento: string | null;
+  /** `AAAA-MM-DD`: quando o documento foi EMITIDO ("data do documento", "data de emissão", "data de processamento" do boleto). Nulo se não achar — ou se vier depois do vencimento (leitura suspeita). */
+  emissao: string | null;
   beneficiario: string | null;
   /** Só dígitos; nunca o da igreja. */
   cnpjBeneficiario: string | null;
@@ -379,6 +381,9 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
   const vencDoCodigo = codigo?.cobranca?.vencimento ?? null;
   const vencDoTexto = dataAposRotulo(p, [/pagar este documento ate/, /data de vencimento/, /vencimento/, /pagar ate/, /pagavel ate/, /vence em/]);
   const vencimento = vencDoCodigo ?? vencDoTexto;
+  // emissão (22/10/2026): vira o campo "Emissão" do lançamento. Uma emissão POSTERIOR ao vencimento é leitura trocada (a data de processamento do banco, p.ex.): descarta em vez de gravar errado.
+  const emissaoLida = dataAposRotulo(p, [/data de emissao/, /data do documento/, /emitido em/, /data de processamento/, /data de emissao do documento/]);
+  const emissao = emissaoLida && (!vencimento || emissaoLida <= vencimento) ? emissaoLida : null;
   if (vencDoCodigo) motivos.push("vencimento lido da linha digitável");
   else if (vencDoTexto) motivos.push("vencimento lido do texto");
   if (vencDoCodigo && vencDoTexto && vencDoCodigo !== vencDoTexto) avisos.push("O vencimento impresso difere do da linha digitável — vale o da linha.");
@@ -424,7 +429,7 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
   const convenio = arrec ? `${arrec.codigoBarras[1]}-${arrec.empresa}` : null;
 
   return {
-    tipo, subtipoGuia: sub, subtipoFatura: tipo === "fatura" ? subFatura ?? "outra" : null, rotulo, valor, vencimento,
+    tipo, subtipoGuia: sub, subtipoFatura: tipo === "fatura" ? subFatura ?? "outra" : null, rotulo, valor, vencimento, emissao,
     beneficiario, cnpjBeneficiario: cnpj, banco,
     numeroDocumento: numeroDoDocumento(p, texto) ?? (sub === "iss" || sub === "iptu" ? numeroDaGuiaDoDarm(p) : null),
     // competência só existe em guia e fatura; em boleto/Pix a regex pegava datas soltas (medido: "07/2026" de uma data de emissão)
@@ -439,7 +444,7 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
 export function dadosParaGuardar(d: DocumentoDePagamento) {
   return {
     versao: 1, tipo: d.tipo, subtipoGuia: d.subtipoGuia, subtipoFatura: d.subtipoFatura, rotulo: d.rotulo,
-    valor: d.valor, vencimento: d.vencimento, beneficiario: d.beneficiario, cnpj: d.cnpjBeneficiario,
+    valor: d.valor, vencimento: d.vencimento, emissao: d.emissao, beneficiario: d.beneficiario, cnpj: d.cnpjBeneficiario,
     banco: d.banco?.codigo ?? null, numero: d.numeroDocumento, competencia: d.competencia,
     linhaDigitavel: d.linhaDigitavel, codigoBarras: d.codigoBarras, codigoValido: d.codigoValido,
     pix: d.pix ? { payload: d.pix.payload, chave: d.pix.chave, valor: d.pix.valor, nome: d.pix.nomeRecebedor, crcValido: d.pix.crcValido } : null,
