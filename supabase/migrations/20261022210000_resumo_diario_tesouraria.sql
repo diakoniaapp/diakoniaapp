@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS public.resumo_diario_config (
   atualizado_em         timestamptz NOT NULL DEFAULT now(),
   atualizado_por        uuid
 );
+-- Quem aplicou a versão anterior desta migration (sem `incluir_sigilosos`) já tem a tabela: o CREATE acima a pula, e a coluna só chega por aqui.
+ALTER TABLE public.resumo_diario_config ADD COLUMN IF NOT EXISTS incluir_sigilosos boolean NOT NULL DEFAULT true;
 INSERT INTO public.resumo_diario_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 COMMENT ON TABLE public.resumo_diario_config IS 'Configuração do resumo diário da Tesouraria (linha única). Nasce DESLIGADO. dias_semana: 0=domingo…6=sábado; hora/minuto em Brasília; janela_dias = quantos dias à frente de hoje também entram.';
 
