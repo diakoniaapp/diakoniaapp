@@ -16,6 +16,7 @@
 // alguém (isso já existe, é a Prestação de Contas por centro de custo).
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useEstadoNaUrl, numeroDe } from "@/hooks/useEstadoNaUrl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,8 +59,11 @@ function dataBr(s: string) {
 export default function FinancasDoacoes() {
   const { hasRole } = useAuth();
   const hoje = new Date();
-  const [ano, setAno] = useState(hoje.getFullYear());
-  const [mes, setMes] = useState(hoje.getMonth() + 1); // 1-12
+  // O que se estava vendo mora na URL: abrir um item e voltar devolve a lista como estava (22/10/2026) — ver `useEstadoNaUrl`.
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ ano: String(hoje.getFullYear()), mes: String(hoje.getMonth() + 1) });
+  const ano = numeroDe(naUrl.ano, hoje.getFullYear(), 1900);
+  const mes = Math.min(12, numeroDe(naUrl.mes, hoje.getMonth() + 1, 1)); // 1-12
+  const irParaMes = (m: number, a: number) => mudarNaUrl({ mes: String(m), ano: String(a) });
 
   const [lancs, setLancs] = useState<FinLancamentoExtenso[]>([]);
   const [recorrencias, setRecorrencias] = useState<FinRecorrencia[]>([]);
@@ -102,7 +106,7 @@ export default function FinancasDoacoes() {
     let m = mes + delta, a = ano;
     if (m < 1) { m = 12; a -= 1; }
     if (m > 12) { m = 1; a += 1; }
-    setMes(m); setAno(a);
+    irParaMes(m, a);
   }
 
   const total = useMemo(() => lancs.reduce((s, l) => s + Number(l.valor), 0), [lancs]);

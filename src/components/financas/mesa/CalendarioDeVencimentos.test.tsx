@@ -1,5 +1,6 @@
 // Calendário de vencimentos da Mesa (Fase A — substitui a Agenda Financeira): o mês numa grade, tom por dia, e as obrigações do dia com as MESMAS linhas e ações do Livro.
 import { act } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { LinhaDoExtrato } from "@/lib/extratoDeObrigacoes";
@@ -39,7 +40,7 @@ afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHT
 
 async function abrir(podeOperar = true) {
   const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
-  await act(async () => { raiz!.render(<CalendarioDeVencimentos hoje="2026-10-20" podeOperar={podeOperar} chaveDeAtualizacao={0} onMudou={() => { mudou++; }} />); });
+  await act(async () => { raiz!.render(<MemoryRouter><CalendarioDeVencimentos hoje="2026-10-20" podeOperar={podeOperar} chaveDeAtualizacao={0} onMudou={() => { mudou++; }} /></MemoryRouter>); });
   await act(async () => { await new Promise(r => setTimeout(r, 30)); });
   return alvo;
 }

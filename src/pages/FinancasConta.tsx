@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { centroESubcentro } from "@/lib/centroSubcentro";
@@ -18,6 +18,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { paraNumero } from "@/lib/dinheiro";
 import { daquiADias, hojeLocal } from "@/lib/data";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIrAoTopoDaLista } from "@/hooks/useIrAoTopoDaLista";
+import { useRolagemRestaurada } from "@/hooks/useRolagemRestaurada";
+import { numeroDe } from "@/hooks/useEstadoNaUrl";
 import {
   DollarSign, Loader2, Plus, Search,
   Pencil, Trash2, Paperclip, Files, Info,
@@ -168,7 +171,11 @@ export default function FinancasConta() {
   // somando a lista INTEIRA (não só a página visível) — paginar é só
   // quanto aparece na tela, não muda a conta.
   const POR_PAGINA = 50;
-  const [pagina, setPagina] = useState(1);
+  // A página vive na URL (`?pagina=3`): abrir um lançamento e voltar devolve a página 3, não a 1 (22/10/2026). Mudar de página sobe ao topo DA LISTA — ela tem rolagem própria
+  // (`extrato-scroll`) e a sentinela rola os dois contêineres (ver `useIrAoTopoDaLista`).
+  const [pagina, setPagina] = useState(() => numeroDe(searchParams.get("pagina") ?? undefined, 1));
+  const { topoRef, irAoTopo } = useIrAoTopoDaLista();
+  const irParaPagina = (fn: (p: number) => number) => { setPagina(fn); irAoTopo(); };
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
   // Editar uma perna de transferência abre um diálogo à parte (só Data/
@@ -226,10 +233,17 @@ export default function FinancasConta() {
   // período que agora só tem 1 página deixaria a tabela vazia. Valor
   // entra aqui também mesmo sendo filtro em memória (não refaz a busca no
   // servidor, mas muda quantas linhas sobram pra paginar).
-  useEffect(() => { setPagina(1); }, [
+  // (Não na PRIMEIRA vez: ao voltar de um lançamento a página 3 da URL é a que vale — só uma mudança de verdade nos filtros reinicia.)
+  const chaveDosFiltros = [
     contaId, filtroTipo, situacao, inicioEfetivo, fimEfetivo, buscaDebounced,
     filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica,
-  ]);
+  ].join("|");
+  const chaveAnteriorDosFiltros = useRef(chaveDosFiltros);
+  useEffect(() => {
+    if (chaveAnteriorDosFiltros.current === chaveDosFiltros) return;
+    chaveAnteriorDosFiltros.current = chaveDosFiltros;
+    setPagina(1);
+  }, [chaveDosFiltros]);
 
   // Espelha os filtros na URL (`replace`, não empilha histórico a cada
   // tecla digitada) — é isso que sobrevive a F5 e a sair/voltar pra tela.
@@ -241,9 +255,10 @@ export default function FinancasConta() {
     params.set("periodo", periodoParaLembrar(dataInicio, dataFim));
     params.set("de", dataInicio);
     params.set("ate", dataFim);
+    if (pagina > 1) params.set("pagina", String(pagina));
     setSearchParams(params, { replace: true, state: location.state });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtros, busca, dataInicio, dataFim]);
+  }, [filtros, busca, dataInicio, dataFim, pagina]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
   // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
@@ -266,7 +281,8 @@ export default function FinancasConta() {
   function trocarConta(novoContaId: string) {
     if (novoContaId === contaId) return;
     setSelecionados(new Set());
-    navigate(`/financas/conta/${novoContaId}${window.location.search}`);
+    // `replace`: trocar de conta pelo seletor não empilha uma entrada por clique — "Voltar" sai da tela em vez de percorrer as contas já vistas (decisão dela, 22/10/2026)
+    navigate(`/financas/conta/${novoContaId}${window.location.search}`, { replace: true });
   }
 
   async function carregar() {
@@ -441,6 +457,9 @@ export default function FinancasConta() {
     window.addEventListener("resize", medir);
     return () => { ro.disconnect(); window.removeEventListener("resize", medir); };
   }, [listaEl, topoEl, isMobile]);
+
+  // Voltar de um lançamento devolve a lista rolada até onde estava (a PÁGINA, no celular, é restaurada pelo AppLayout; aqui, a rolagem própria da lista no computador)
+  useRolagemRestaurada(listaEl, "extrato", lancamentos.length > 0 || !loading);
 
   if (loading && !conta && !isTodasContas) {
     return <PaginaSkeleton />;
@@ -936,6 +955,7 @@ export default function FinancasConta() {
       <Card className="overflow-hidden">
         <div ref={setListaEl} className="extrato-scroll overflow-auto"
           style={{ maxHeight: !isMobile && alturaDaLista ? `${alturaDaLista}px` : undefined }}>
+          <div ref={topoRef} aria-hidden className="h-0" />
           {/* A causa de verdade do popover "fechando sozinho" (achado ao
               vivo pela Telma, 22/09/2026): não era só falta de debounce —
               era ISTO. `loading` virava `true` a cada novo `carregar()`
@@ -1050,14 +1070,14 @@ export default function FinancasConta() {
         {totalPaginas > 1 && (
           <nav className="flex items-center gap-2" aria-label="Paginação do extrato">
             <Button type="button" variant="outline" size="sm" className="h-8 text-xs"
-              disabled={paginaAtual === 1} onClick={() => setPagina(p => Math.max(1, p - 1))}>
+              disabled={paginaAtual === 1} onClick={() => irParaPagina(() => Math.max(1, paginaAtual - 1))}>
               Anterior
             </Button>
             <span className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
               {inicioPagina + 1}–{Math.min(inicioPagina + POR_PAGINA, lancamentosOrdenados.length)} de {lancamentosOrdenados.length}
             </span>
             <Button type="button" variant="outline" size="sm" className="h-8 text-xs"
-              disabled={paginaAtual === totalPaginas} onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}>
+              disabled={paginaAtual === totalPaginas} onClick={() => irParaPagina(() => Math.min(totalPaginas, paginaAtual + 1))}>
               Próxima
             </Button>
           </nav>

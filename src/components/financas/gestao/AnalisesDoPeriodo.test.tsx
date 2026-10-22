@@ -1,6 +1,7 @@
 // Fase F: "Insights" virou a seção "Análises do período" do Painel de gestão — recolhida (não consulta nada até abrir) e aberta pelo link antigo.
 import { readFileSync } from "node:fs";
 import { act } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -23,7 +24,7 @@ afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHT
 
 async function montar(abertaInicial?: boolean) {
   const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
-  await act(async () => { raiz!.render(<AnalisesDoPeriodo abertaInicial={abertaInicial} />); });
+  await act(async () => { raiz!.render(<MemoryRouter><AnalisesDoPeriodo abertaInicial={abertaInicial} /></MemoryRouter>); });
   await act(async () => { await new Promise(r => setTimeout(r, 10)); });
   return alvo;
 }
@@ -61,7 +62,7 @@ describe("endereço antigo dos Insights e abertura da Mesa", () => {
 
   it("a Mesa abre sempre no Calendário; o botão do Calendário vem primeiro e a Fila só por troca ou ?mesa=fila", () => {
     const mesa = readFileSync("src/components/financas/MesaDoTesoureiro.tsx", "utf8");
-    expect(mesa).toContain(`get("mesa") === "fila" ? "fila" : "calendario"`);
+    expect(mesa).toContain(`naUrl.mesa === "fila" ? "fila" : "calendario"`);
     expect(mesa).toContain(`(["calendario", "fila"] as const).map(v => (`);
   });
 });

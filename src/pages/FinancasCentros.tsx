@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useEstadoNaUrl, numeroDe } from "@/hooks/useEstadoNaUrl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +28,10 @@ export default function FinancasCentros() {
   const [centros, setCentros] = useState<FinCentroResumo[]>([]);
   const [alertas, setAlertas] = useState<FinAlertaCentro[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState<FinCentroVinculo | "__all__">("__all__");
+  // O que se estava vendo mora na URL: abrir um item e voltar devolve a lista como estava (22/10/2026) — ver `useEstadoNaUrl`.
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ q: "", tipo: "__all__" });
+  const busca = naUrl.q; const setBusca = (v: string) => mudarNaUrl({ q: v });
+  const filtroTipo = naUrl.tipo as FinCentroVinculo | "__all__"; const setFiltroTipo = (v: FinCentroVinculo | "__all__") => mudarNaUrl({ tipo: v });
   const [seedBusy, setSeedBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);

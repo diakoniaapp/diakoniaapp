@@ -60,7 +60,7 @@ afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHT
 
 async function abrir() {
   const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
-  await act(async () => { raiz!.render(<MemoryRouter><FechamentoMensal onConciliar={() => {}} /></MemoryRouter>); });
+  await act(async () => { raiz!.render(<MemoryRouter initialEntries={[window.location.pathname + window.location.search]}><FechamentoMensal onConciliar={() => {}} /></MemoryRouter>); });
   await act(async () => { await new Promise(r => setTimeout(r, 60)); });
   return alvo;
 }

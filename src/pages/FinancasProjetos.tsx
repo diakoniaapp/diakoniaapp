@@ -10,6 +10,7 @@
 // tela própria (`FinancasProjetoDetalhe.tsx`).
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useEstadoNaUrl, numeroDe } from "@/hooks/useEstadoNaUrl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +41,10 @@ function normalizar(s: string): string {
 export default function FinancasProjetos() {
   const [projetos, setProjetos] = useState<FinProjeto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState("");
-  const [mostrarEncerrados, setMostrarEncerrados] = useState(false);
+  // O que se estava vendo mora na URL: abrir um item e voltar devolve a lista como estava (22/10/2026) — ver `useEstadoNaUrl`.
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ q: "", encerrados: "" });
+  const busca = naUrl.q; const setBusca = (v: string) => mudarNaUrl({ q: v });
+  const mostrarEncerrados = naUrl.encerrados === "1"; const setMostrarEncerrados = (v: boolean) => mudarNaUrl({ encerrados: v ? "1" : "" });
   const [formOpen, setFormOpen] = useState(false);
   const [editando, setEditando] = useState<FinProjeto | null>(null);
   // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)

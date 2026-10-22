@@ -81,11 +81,11 @@ export default function FinancasDRE() {
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1">
-            <Button size="sm" variant="outline" onClick={() => navigate(`/financas/dre/${ano - 1}`)}>
+            <Button size="sm" variant="outline" onClick={() => navigate(`/financas/dre/${ano - 1}`, { replace: true })}>
               <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
             <span className="text-sm font-medium px-2">{ano}</span>
-            <Button size="sm" variant="outline" onClick={() => navigate(`/financas/dre/${ano + 1}`)}>
+            <Button size="sm" variant="outline" onClick={() => navigate(`/financas/dre/${ano + 1}`, { replace: true })}>
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </div>

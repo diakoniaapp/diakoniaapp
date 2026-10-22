@@ -129,3 +129,13 @@ export function useVoltarPersonalizado(v: { rotulo: string; acao: () => void } |
     return () => definir(null);
   }, [definir, location.pathname, rotulo]);
 }
+
+/**
+ * O "Voltar" de uma tela: pelo histórico quando há tela anterior no app, senão para `destinoSemHistorico`. Diferente de `useNavegacao`, não exige o provider — fora do AppLayout
+ * (testes, telas soltas) cai direto no destino.
+ */
+export function useVoltar(): (destinoSemHistorico: string) => void {
+  const ctx = useContext(Ctx);
+  const navigate = useNavigate();
+  return useCallback((destino: string) => { if (ctx) ctx.voltar(destino); else navigate(destino); }, [ctx, navigate]);
+}

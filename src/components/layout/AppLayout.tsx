@@ -19,6 +19,7 @@ import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { PullToRefresh } from "@/components/layout/PullToRefresh";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import { BarraDeContexto } from "@/components/layout/BarraDeContexto";
+import { RestauraRolagemDaPagina } from "@/components/layout/RestauraRolagemDaPagina";
 import { NavegacaoProvider } from "@/hooks/useNavegacao";
 import { tituloDaTela } from "@/lib/navegacao";
 import {
@@ -567,6 +568,7 @@ export default function AppLayout() {
           className="flex-1 overflow-x-hidden overflow-y-auto pb-20 md:pb-0 animate-fade-in"
         >
           <FaixaVerComo />
+          <RestauraRolagemDaPagina />
           <BarraDeContexto />
           <Outlet />
         </main>

@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ReabrirEnviadaDialog, type AlvoDaReabertura } from "@/components/financas/ReabrirEnviadaDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import { LancamentosACorrigirDialog } from "@/components/financas/LancamentosACorrigirDialog";
 import { hojeLocal } from "@/lib/data";
 import { ROTULO_FILA } from "@/lib/quitacao";
@@ -76,11 +77,16 @@ export function FechamentoMensal({ onConciliar }: Props) {
   const hoje = hojeLocal();
   const meses = useMemo(() => ultimosMeses(hoje, 13), [hoje]);
   // `?mes=AAAA-MM` abre o mês pedido (a Auditoria de documentos e os links antigos do Malote levam para cá); sem ele (ou fora dos 13 meses), o mês em fechamento de sempre
-  const [alvo, setAlvo] = useState(() => {
-    const m = /^(\d{4})-(\d{2})$/.exec(typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("mes") ?? "" : "");
+  // Trocar o mês também escreve `?mes=` (22/10/2026): abrir uma pendência e voltar devolve o MESMO mês, não o mês em fechamento.
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ mes: "" });
+  const padraoDoMes = useMemo(() => mesEmFechamento(hoje), [hoje]);
+  const alvo = useMemo(() => {
+    const m = /^(\d{4})-(\d{2})$/.exec(naUrl.mes);
     const pedido = m ? { ano: Number(m[1]), mes: Number(m[2]) } : null;
-    return pedido && ultimosMeses(hoje, 13).some(x => x.ano === pedido.ano && x.mes === pedido.mes) ? pedido : mesEmFechamento(hoje);
-  });
+    return pedido && meses.some(x => x.ano === pedido.ano && x.mes === pedido.mes) ? pedido : padraoDoMes;
+  }, [naUrl.mes, meses, padraoDoMes]);
+  const setAlvo = (x: { ano: number; mes: number }) =>
+    mudarNaUrl({ mes: x.ano === padraoDoMes.ano && x.mes === padraoDoMes.mes ? "" : `${x.ano}-${String(x.mes).padStart(2, "0")}` });
 
   const [av, setAv] = useState<Parte<Avaliacao>>(carregando());
   // a Prontidão lê o mês UMA vez: as linhas alimentam a fila e o resumo alimenta os números da etapa

@@ -3,6 +3,7 @@
 // quitada por terceiro, tudo pago). Clicar num dia abre as obrigações dele COM as mesmas linhas e ações do Livro de Obrigações (`DiaDoExtratoBloco` + `useAcoesDeObrigacao`): pagar, editar,
 // documentação, corrigir quitação — nada de uma segunda lista com outras ações. A fonte é a do Livro (`carregarExtratoDeObrigacoes`), por isso entram também os débitos automáticos (com o chip).
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DiaDoExtratoBloco } from "@/components/financas/extrato/DiasDoExtrato";
@@ -37,11 +38,17 @@ const plural = (n: number, um: string, varios: string) => (n === 1 ? um : varios
 export function CalendarioDeVencimentos({ hoje, podeOperar, chaveDeAtualizacao, onMudou }: {
   hoje: string; podeOperar: boolean; chaveDeAtualizacao: number; onMudou?: () => void;
 }) {
-  const [mes, setMes] = useState<MesDoCalendario>(() => mesDe(hoje));
+  // O mês e o dia escolhidos moram na URL (`?cal=2026-09&dia=2026-09-15`): abrir uma obrigação e voltar devolve o calendário onde estava (decisão dela, 22/10/2026). Sem parâmetros =
+  // o mês de hoje com hoje escolhido — é o que o menu abre. `dia=-` é "nenhum dia escolhido".
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ cal: "", dia: "" });
+  // memoizado: `carregar` depende do mês, e um objeto novo a cada renderização o refaria em laço
+  const mes: MesDoCalendario = useMemo(() => (/^\d{4}-(0[1-9]|1[0-2])$/.test(naUrl.cal) ? mesDe(`${naUrl.cal}-01`) : mesDe(hoje)), [naUrl.cal, hoje]);
+  const textoDoMes = (m: MesDoCalendario) => { const t = `${m.ano}-${String(m.mes).padStart(2, "0")}`; return t === hoje.slice(0, 7) ? "" : t; };
+  const escolhido: string | null = naUrl.dia === "-" ? null : /^\d{4}-\d{2}-\d{2}$/.test(naUrl.dia) ? naUrl.dia : hoje;
+  const setEscolhido = (d: string | null) => mudarNaUrl({ dia: d === null ? "-" : d === hoje ? "" : d });
   const [linhas, setLinhas] = useState<LinhaDoExtrato[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [escolhido, setEscolhido] = useState<string | null>(hoje);
 
   const carregar = useCallback(async () => {
     setCarregando(true); setErro(null);
@@ -60,8 +67,8 @@ export function CalendarioDeVencimentos({ hoje, podeOperar, chaveDeAtualizacao, 
   const quantidade = resumo.quantidade - resumo.canceladas.quantidade;   // o calendário não conta as canceladas (não são vencimento)
   const semanas = useMemo(() => gradeDoMes(mes.ano, mes.mes), [mes]);
   const diaEscolhido = escolhido ? porData.get(escolhido) ?? null : null;
-  const navegar = (n: number) => { setMes(m => somarMeses(m, n)); setEscolhido(null); };
-  const irParaHoje = () => { setMes(mesDe(hoje)); setEscolhido(hoje); };
+  const navegar = (n: number) => mudarNaUrl({ cal: textoDoMes(somarMeses(mes, n)), dia: "-" });
+  const irParaHoje = () => mudarNaUrl({ cal: "", dia: "" });
 
   return (
     <div data-calendario>

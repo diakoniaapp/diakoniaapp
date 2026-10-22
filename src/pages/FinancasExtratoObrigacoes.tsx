@@ -11,6 +11,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useSearchParams } from "react-router-dom";
+import { useVoltar } from "@/hooks/useNavegacao";
 import { saveAs } from "file-saver";
 import { ArrowLeft, Download, FileSpreadsheet, Loader2, Printer, RefreshCw, SlidersHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
@@ -71,6 +72,7 @@ export default function FinancasExtratoObrigacoes() {
   // quem opera o dinheiro; os demais só visualizam (a RLS do banco é a barreira de verdade — isto só poupa o botão que daria "permissão negada")
   const podeOperar = hasRole(ROLES_FINANCEIRO);
   const [params, setParams] = useSearchParams();
+  const voltar = useVoltar();
   const padrao = useMemo(mesAtual, []);
   const de = params.get("inicio") || padrao.de;
   const ate = params.get("fim") || padrao.ate;
@@ -159,8 +161,22 @@ export default function FinancasExtratoObrigacoes() {
   const dias = useMemo(() => agruparPorDia(visiveis), [visiveis]);
   // NA TELA a lista vem por etapas (dias inteiros, ~150 obrigações de cada vez): um ano inteiro são mais de mil linhas, e cada nó a mais deixa abrir e fechar diálogos mais lento no celular. O resumo, o PDF,
   // o CSV e o Excel usam SEMPRE tudo — só o que se rola na tela é fatiado.
-  const [limiteNaTela, setLimiteNaTela] = useState(LOTE_NA_TELA);
-  useEffect(() => { setLimiteNaTela(LOTE_NA_TELA); }, [visiveis]);
+  // Quantas linhas já foram mostradas (`?n=450`) vai para a URL: abrir uma obrigação do 3º lote e voltar não devolve só o 1º (22/10/2026). Volta ao 1º lote quando os FILTROS mudam — não
+  // ao recarregar depois de pagar, que mantém o que já estava aberto.
+  const [limiteNaTela, setLimiteNaTela] = useState(() => Math.max(LOTE_NA_TELA, Number.parseInt(params.get("n") ?? "", 10) || LOTE_NA_TELA));
+  const filtrosDaUrl = (() => { const p = new URLSearchParams(params); p.delete("n"); return p.toString(); })();
+  const filtrosAnteriores = useRef(filtrosDaUrl);
+  useEffect(() => {
+    if (filtrosAnteriores.current === filtrosDaUrl) return;
+    filtrosAnteriores.current = filtrosDaUrl;
+    setLimiteNaTela(LOTE_NA_TELA);
+  }, [filtrosDaUrl]);
+  useEffect(() => {
+    const escrito = limiteNaTela > LOTE_NA_TELA ? String(limiteNaTela) : "";
+    if ((params.get("n") ?? "") !== escrito) mudar({ n: escrito });
+    // só quando o limite muda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limiteNaTela]);
   const diasNaTela = useMemo(() => {
     const out: typeof dias = []; let n = 0;
     for (const d of dias) { if (n >= limiteNaTela) break; out.push(d); n += d.linhas.length; }
@@ -267,7 +283,8 @@ export default function FinancasExtratoObrigacoes() {
       <div ref={barraRef} className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 py-2 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button asChild variant="ghost" size="sm" className="gap-1.5 -ml-2"><Link to="/painel-tesouraria"><ArrowLeft className="w-3.5 h-3.5" /> Tesouraria</Link></Button>
+            {/* "Voltar" de verdade (22/10/2026): o Link fixo para /painel-tesouraria levava à aba padrão, não à de onde se veio (Mesa, Fechamento, Prontidão) */}
+            <Button type="button" variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => voltar("/painel-tesouraria")}><ArrowLeft className="w-3.5 h-3.5" /> Voltar</Button>
             <h1 className="font-serif text-lg">Extrato de Obrigações</h1>
             <div className="flex items-center gap-1.5 ml-auto flex-wrap">
               <Button onClick={() => void carregar()} size="sm" variant="outline" disabled={carregando} className="gap-1.5">

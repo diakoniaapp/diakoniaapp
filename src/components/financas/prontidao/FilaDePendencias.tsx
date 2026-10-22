@@ -1,7 +1,8 @@
 // ─── FilaDePendencias — a fila operacional do malote: o que falta, obrigação a obrigação ─────────────────────────────────────────────────────────────
 // Da mais grave à mais leve (🔴 crítica, 🟠 parcial, 🔵 administrativa), do maior valor ao menor. Cada linha traz o que falta, o fornecedor, o valor, projeto, centro e data, e resolve sem sair da tela:
 // Anexar (documento), Editar (o que é operacional) e Visualizar. Peça única: a etapa "Prontidão" do Fechamento do mês e a página de Auditoria de documentos usam a mesma.
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { numeroDe, useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import { CheckCircle2, Eye, MoreHorizontal, Paperclip, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,12 +31,15 @@ export function FilaDePendencias({ linhas, resumo, podeOperar, onMudou, porPagin
   onMudou: () => void;
   porPagina?: number;
 }) {
-  const [vista, setVista] = useState<Vista>("pendencias");
-  const [visiveis, setVisiveis] = useState(porPagina);
+  // A vista e quantas linhas já foram mostradas moram na URL (`?vista=critica&ate=300`): abrir uma pendência e voltar devolve a fila onde estava (22/10/2026). Mudar a vista volta ao 1º lote.
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ vista: "pendencias", ate: String(porPagina) }, { ate: String(porPagina) });
+  const vista = naUrl.vista as Vista;
+  const setVista = (v: Vista) => mudarNaUrl({ vista: v });
+  const visiveis = numeroDe(naUrl.ate, porPagina, porPagina);
+  const setVisiveis = (f: number | ((n: number) => number)) => mudarNaUrl({ ate: String(typeof f === "function" ? f(visiveis) : f) });
   const [anexando, setAnexando] = useState<LinhaAuditoria | null>(null);
   const [detalhe, setDetalhe] = useState<LinhaAuditoria["lancamento"] | null>(null);
   const [editando, setEditando] = useState<LinhaDaFilaLancamento | null>(null);
-  useEffect(() => { setVisiveis(porPagina); }, [vista, linhas, porPagina]);
 
   const porGravidade = useMemo(() => ({
     critica: linhas.filter(x => x.documentacao.gravidade === "critica").length,

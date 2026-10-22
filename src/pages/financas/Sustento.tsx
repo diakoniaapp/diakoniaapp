@@ -16,6 +16,7 @@
 // Remuneração de pastor é dado sensível: só `admin` e `tesouraria` (ROUTE_ROLES, o menu e a RLS das quatro tabelas dizem o mesmo).
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useVoltar } from "@/hooks/useNavegacao";
 import { ArrowLeft, ChevronDown, ChevronRight, HeartHandshake, RefreshCw, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,7 @@ const COR_DA_SITUACAO: Record<SituacaoDaCompetencia, string> = {
 };
 
 export default function Sustento() {
+  const voltar = useVoltar();
   const [res, setRes] = useState<ResultadoDoSustento | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [selecionado, setSelecionado] = useState<string | null>(null);
@@ -82,8 +84,9 @@ export default function Sustento() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon" className="shrink-0 -ml-2">
-          <Link to="/painel-tesouraria" aria-label="Voltar à Tesouraria"><ArrowLeft className="w-4 h-4" /></Link>
+        {/* "Voltar" de verdade (22/10/2026): volta à tela de onde se veio; sem histórico, à Tesouraria */}
+        <Button type="button" variant="ghost" size="icon" className="shrink-0 -ml-2" aria-label="Voltar" onClick={() => voltar("/painel-tesouraria")}>
+          <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">

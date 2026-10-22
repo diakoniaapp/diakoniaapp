@@ -43,6 +43,7 @@ import { DebitoChip } from "@/components/financas/DebitoChip";
 import { CalendarioDeVencimentos } from "@/components/financas/mesa/CalendarioDeVencimentos";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 import { useAuth } from "@/hooks/useAuth";
+import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import {
   agruparVencimentos, coberturaDoCaixa, diasEntreDatas, montarChecklist, pendenciasDoChecklist,
   resumoDoCaixa, soma, totalAPagar, type ItemDoChecklist,
@@ -160,7 +161,10 @@ export function MesaDoTesoureiro({
   const [carregando, setCarregando] = useState(true);
   // LISTA (as janelas de sempre) ou CALENDÁRIO (o mês numa grade). O calendário substitui a Agenda Financeira (Fase A, 20/10/2026); `/financas/agenda` redireciona para cá com `?mesa=calendario`.
   // Pedido dela (20/10/2026): a Mesa abre SEMPRE no Calendário (formato agenda); trocar de aba leva à Fila. `?mesa=fila` abre a Fila direto (link compartilhável); nada é lembrado entre visitas.
-  const [visao, setVisao] = useState<"fila" | "calendario">(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesa") === "fila" ? "fila" : "calendario"));
+  // A visão vai para a URL (`?mesa=fila`): abrir uma obrigação da Fila e voltar devolve a Fila; abrir pelo menu (sem parâmetro) continua no Calendário (decisão dela, 22/10/2026).
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ mesa: "" });
+  const visao: "fila" | "calendario" = naUrl.mesa === "fila" ? "fila" : "calendario";
+  const setVisao = (v: "fila" | "calendario") => mudarNaUrl({ mesa: v === "fila" ? "fila" : "" });
   // a fila relê as quitações quando algo muda aqui (reembolso pago, detalhe fechado…)
   const [recargaDaFila, setRecargaDaFila] = useState(0);
   const { hasRole } = useAuth();

@@ -12,6 +12,7 @@
 // doadores". Quem quiser ver por valor pode trocar a ordenação.
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useEstadoNaUrl, numeroDe } from "@/hooks/useEstadoNaUrl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,14 +47,19 @@ const MESES = [
 ];
 
 export default function FinancasDoadores() {
-  const [ano, setAno] = useState(new Date().getFullYear());
+  // O que se estava vendo mora na URL: abrir um item e voltar devolve a lista como estava (22/10/2026) — ver `useEstadoNaUrl`.
+  const anoAtual = new Date().getFullYear();
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ ano: String(anoAtual), mes: "", q: "", ordem: "nome" });
+  const ano = numeroDe(naUrl.ano, anoAtual, 1900);
+  const setAno = (f: number | ((a: number) => number)) => mudarNaUrl({ ano: String(typeof f === "function" ? f(ano) : f) });
   // `null` = ano inteiro (comportamento de sempre). Pedido da Telma
   // (15/09/2026): poder estreitar pra um mês só.
-  const [mes, setMes] = useState<number | null>(null);
+  const mes: number | null = naUrl.mes ? numeroDe(naUrl.mes, 0, 1) || null : null;
+  const setMes = (v: number | null) => mudarNaUrl({ mes: v ? String(v) : "" });
   const [doadores, setDoadores] = useState<DoadorResumo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState("");
-  const [ordenacao, setOrdenacao] = useState<Ordenacao>("nome");
+  const busca = naUrl.q; const setBusca = (v: string) => mudarNaUrl({ q: v });
+  const ordenacao = (naUrl.ordem === "valor" ? "valor" : "nome") as Ordenacao; const setOrdenacao = (v: Ordenacao) => mudarNaUrl({ ordem: v });
 
   useEffect(() => { carregar(); }, [ano, mes]);
 

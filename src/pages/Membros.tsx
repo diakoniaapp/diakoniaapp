@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { numeroDe } from "@/hooks/useEstadoNaUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { pendenciaPorChave } from "@/lib/pendenciasCadastro";
@@ -554,11 +555,12 @@ export default function Membros() {
     const naoSabemos = permsCarregando || permsCarregadas.size === 0;
     const canEdit = naoSabemos ? podeEditarPessoas : podeFazer("editar_pessoa");
     const [membros, setMembros] = useState<Membro[]>([]);
-    const [search, setSearch] = useState("");
+    // O que se estava vendo (busca, recortes, ordem, página) mora na URL: abrir uma pessoa e voltar devolve a lista como estava (22/10/2026). Ver `useEstadoNaUrl`.
+    const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Membro | null>(null);
-    const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
+    const [tipoFiltro, setTipoFiltro] = useState<string>(() => new URLSearchParams(window.location.search).get("vinc") ?? "todos");
 
     /**
      * A situação do cadastro: ativo, afastado ou fora do rol.
@@ -578,7 +580,7 @@ export default function Membros() {
      * O padrão continua sendo "todos": mudar para "ativos" esconderia gente
      * de quem já procura por aqui hoje.
      */
-    const [situacaoFiltro, setSituacaoFiltro] = useState<string>("todos");
+    const [situacaoFiltro, setSituacaoFiltro] = useState<string>(() => new URLSearchParams(window.location.search).get("sit") ?? "todos");
 
     /** Os três status que tiram do rol. `inativo` ("Ausente") não é saída. */
     const FORA_DO_ROL = ["transferido", "desligado", "falecido"];
@@ -586,7 +588,7 @@ export default function Membros() {
     // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
     // lista nao respondia — "de quem ninguem cuida ha tempo?".
     /** Recorte de quem se está olhando: todas, elas, eles, as crianças. */
-    const [grupoFiltro, setGrupoFiltro] = useState<string>("todos");
+    const [grupoFiltro, setGrupoFiltro] = useState<string>(() => new URLSearchParams(window.location.search).get("grupo") ?? "todos");
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
@@ -639,7 +641,7 @@ export default function Membros() {
   // rolagem e 848 botões numa página só. Quem procura alguém usa a busca;
   // quem varre a lista não deveria percorrer 47 telas.
   const POR_PAGINA = 20;
-  const [pagina, setPagina] = useState(1);
+  const [pagina, setPagina] = useState(() => numeroDe(new URLSearchParams(window.location.search).get("pagina") ?? undefined, 1));
   const buscaRef = useRef<HTMLInputElement>(null);
   const topoRef = useRef<HTMLDivElement>(null);
 
@@ -649,14 +651,15 @@ export default function Membros() {
    * "quantos congregados temos" ou "quem é do Maracanã" exigia virar página
    * por página. Cabeçalho de tabela que não ordena é rótulo, não controle.
    */
-  const [ordem, setOrdem] = useState<{ campo: CampoOrdem; desc: boolean }>({
-    campo: "nome",
-    desc: false,
+  const [ordem, setOrdem] = useState<{ campo: CampoOrdem; desc: boolean }>(() => {
+    const [campo, sentido] = (new URLSearchParams(window.location.search).get("ord") ?? "").split(":");
+    return { campo: (["nome", "tipo", "bairro"].includes(campo) ? campo : "nome") as CampoOrdem, desc: sentido === "desc" };
   });
 
   const ordenarPor = (campo: CampoOrdem) =>
     setOrdem((o) => (o.campo === campo ? { campo, desc: !o.desc } : { campo, desc: false }));
     const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
 
   /**
    * O recorte pedido pelo painel: `/membros?pendencia=sem-telefone`.
@@ -1024,7 +1027,29 @@ export default function Membros() {
   // A ordem entra na lista pelo mesmo motivo: ordenar por bairro estando na
   // página 7 mostraria a fatia 121–140 de uma lista que acabou de ser
   // reembaralhada — quem pediu "por bairro" quer ver o começo, não o meio.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, grupoFiltro, ordem, situacaoFiltro]);
+  // (Não na PRIMEIRA vez: ao voltar de uma pessoa, a página da URL é a que vale.)
+  const chaveDoResultado = [search, tipoFiltro, grupoFiltro, ordem.campo, ordem.desc, situacaoFiltro].join("|");
+  const chaveAnteriorDoResultado = useRef(chaveDoResultado);
+  useEffect(() => {
+    if (chaveAnteriorDoResultado.current === chaveDoResultado) return;
+    chaveAnteriorDoResultado.current = chaveDoResultado;
+    setPagina(1);
+  }, [chaveDoResultado]);
+
+  // Espelha na URL (`replace`: não empilha uma entrada por tecla). Nomes próprios — `tipo` é o que o Painel Pastoral usa para ABRIR a tela já filtrada e é consumido e apagado logo ao chegar.
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams);
+    const poe = (k: string, v: string, padrao: string) => { if (v && v !== padrao) p.set(k, v); else p.delete(k); };
+    poe("q", search, "");
+    poe("vinc", tipoFiltro, "todos");
+    poe("sit", situacaoFiltro, "todos");
+    poe("grupo", grupoFiltro, "todos");
+    poe("ord", ordem.campo === "nome" && !ordem.desc ? "" : `${ordem.campo}:${ordem.desc ? "desc" : "asc"}`, "");
+    poe("pagina", String(pagina), "1");
+    if (p.toString() !== searchParams.toString()) setSearchParams(p, { replace: true, state: location.state });
+    // só quando o que a pessoa vê muda; os parâmetros que OUTRO código escreve/consome não devem disparar escrita
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, tipoFiltro, situacaoFiltro, grupoFiltro, ordem, pagina]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.

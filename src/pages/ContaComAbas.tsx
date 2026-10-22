@@ -50,7 +50,7 @@ export default function ContaComAbas() {
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b">
        <div className="flex min-w-0 flex-wrap items-end gap-x-5">
         <div className="min-w-0 pb-1">
-          <Select value={conta.id} onValueChange={id => navigate(enderecoDaAba(id, atual))}>
+          <Select value={conta.id} onValueChange={id => navigate(enderecoDaAba(id, atual), { replace: true })}>
             <SelectTrigger aria-label="Conta" className="-mx-1 h-auto w-fit max-w-full gap-1.5 rounded-md border-0 p-0 px-1 font-serif text-lg shadow-none hover:bg-muted/40 [&>svg]:opacity-50">
               <DollarSign className="h-5 w-5 shrink-0 text-gold" />
               <SelectValue>

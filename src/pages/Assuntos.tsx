@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useEstadoNaUrl, numeroDe } from "@/hooks/useEstadoNaUrl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,9 +31,11 @@ import { PaginaSkeleton } from "@/components/ListState";
 export default function Assuntos() {
   const [lista, setLista] = useState<AssuntoDashboard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState("");
-  const [filtroStatus, setFiltroStatus] = useState<AssuntoStatus | "abertos" | "todos">("abertos");
-  const [filtroPrioridade, setFiltroPrioridade] = useState<AssuntoPrioridade | "todas">("todas");
+  // O que se estava vendo mora na URL: abrir um item e voltar devolve a lista como estava (22/10/2026) — ver `useEstadoNaUrl`.
+  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ q: "", status: "abertos", prioridade: "todas" });
+  const busca = naUrl.q; const setBusca = (v: string) => mudarNaUrl({ q: v });
+  const filtroStatus = naUrl.status as AssuntoStatus | "abertos" | "todos"; const setFiltroStatus = (v: AssuntoStatus | "abertos" | "todos") => mudarNaUrl({ status: v });
+  const filtroPrioridade = naUrl.prioridade as AssuntoPrioridade | "todas"; const setFiltroPrioridade = (v: AssuntoPrioridade | "todas") => mudarNaUrl({ prioridade: v });
   const [novoOpen, setNovoOpen] = useState(false);
   // `confirm()` nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
   // achado numa auditoria em 29/09/2026: esta função não tem botão nenhum
