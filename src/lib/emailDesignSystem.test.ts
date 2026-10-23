@@ -8,6 +8,8 @@ import path from "node:path";
 import * as D from "../../supabase/functions/_shared/email/desenho";
 import { htmlDasAtas, htmlDosVisitantes } from "../../supabase/functions/_shared/email/alertas";
 import { lerNomeDaIgreja } from "../../supabase/functions/_shared/email/identidade";
+import { ENCERRAMENTO_INSTITUCIONAL, INTRODUCAO_DO_DIARIO, INTRODUCAO_DO_SEMANAL, SAUDACAO_INSTITUCIONAL } from "../../supabase/functions/_shared/email/textos";
+import { SAUDACAO_PADRAO } from "../../supabase/functions/_shared/pagamentos/envioDePagamentos";
 import { montarEmailDiario } from "../../supabase/functions/_shared/pagamentos/emailDiario";
 import { montarItensDoDia, type CandidataDoDia } from "../../supabase/functions/_shared/pagamentos/itensDoDia";
 import { montarBlocos, montarHtml as htmlSemanal, type Digest } from "../../supabase/functions/_shared/resumoSemanal/blocos";
@@ -71,6 +73,42 @@ describe("todo e-mail do sistema sai da mesma moldura", () => {
     expect(D.RODAPE.slogan).toBe("Conectando pessoas, organizando o propósito.");
     expect(D.RODAPE.descricao).toBe("Sistema desenvolvido para apoiar a gestão administrativa, financeira e ministerial das igrejas.");
     expect(D.RODAPE.direitos).toBe("© 2026 DiakoniaApp");
+  });
+});
+
+describe("o texto de abertura dos resumos é institucional e único (23/10/2026)", () => {
+  const texto = { diario: [SAUDACAO_INSTITUCIONAL, INTRODUCAO_DO_DIARIO, ENCERRAMENTO_INSTITUCIONAL], semanal: [SAUDACAO_INSTITUCIONAL, INTRODUCAO_DO_SEMANAL, ENCERRAMENTO_INSTITUCIONAL] };
+  it("o texto do diário é exatamente o aprovado por ela", () => {
+    expect(SAUDACAO_INSTITUCIONAL).toBe("Prezados, graça e paz!");
+    expect(INTRODUCAO_DO_DIARIO).toBe("Segue o resumo diário da Tesouraria, com os compromissos financeiros que requerem atenção nesta data, incluindo pagamentos em atraso, vencimentos do dia e reembolsos pendentes.");
+    expect(ENCERRAMENTO_INSTITUCIONAL).toBe("Havendo necessidade de esclarecimentos ou documentação complementar, favor contatar a equipe administrativa da igreja.");
+  });
+  it("sem a marca do sistema e sem cargo no texto de abertura (nem no semanal)", () => {
+    for (const p of [...texto.diario, ...texto.semanal]) expect(p).not.toMatch(/diakonia|tesoureir|auxiliar|pastor|secret[aá]ri[oa]|irm[ãa]os/i);
+  });
+  it("o diário (visualização, teste e envio: é a mesma função) abre com os três parágrafos, na ordem", () => {
+    const e = montarEmailDiario(montarItensDoDia([cand()]), { hojeYmd: "2026-10-22", hora: 7, igreja: IGREJA });
+    const ordem = texto.diario.map(p => e.html.indexOf(p));
+    expect(ordem.every(i => i > 0)).toBe(true);
+    expect([...ordem].sort((a, b) => a - b)).toEqual(ordem);
+    for (const p of texto.diario) expect(e.texto).toContain(p);
+  });
+  it("o diário não repete o texto antigo (saudação por hora, 'irmãos', referência ao sistema na introdução)", () => {
+    const e = montarEmailDiario(montarItensDoDia([cand()]), { hojeYmd: "2026-10-22", hora: 7, igreja: IGREJA });
+    for (const antigo of ["Olá irmãos", "bom dia", "Segue o que há para pagar", "consulte o documento no DiakoniaApp"]) { expect(e.html).not.toContain(antigo); expect(e.texto).not.toContain(antigo); }
+  });
+  it("o semanal abre com a mesma saudação e o mesmo encerramento", () => {
+    for (const p of texto.semanal) expect(todos["resumo semanal"]).toContain(p);
+  });
+  it("o envio manual de pagamentos usa a mesma saudação como padrão", () => {
+    expect(SAUDACAO_PADRAO).toBe(SAUDACAO_INSTITUCIONAL);
+  });
+  it("a prévia, o teste e o envio automático do diário e do semanal passam pela MESMA função de montagem", () => {
+    const ler = (f: string) => fs.readFileSync(f, "utf8");
+    for (const f of ["supabase/functions/resumo-diario/index.ts", "supabase/functions/resumo-diario-previa/index.ts"]) expect(ler(f)).toContain("prepararDiario(");
+    for (const f of ["supabase/functions/resumo-semanal/index.ts", "supabase/functions/resumo-semanal-previa/index.ts"]) expect(ler(f)).toContain("montarHtml(");
+    // nenhuma das quatro escreve a própria abertura
+    for (const f of ["resumo-diario", "resumo-diario-previa", "resumo-semanal", "resumo-semanal-previa"]) expect(ler(`supabase/functions/${f}/index.ts`)).not.toMatch(/Prezados|Olá irm/);
   });
 });
 

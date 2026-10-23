@@ -130,14 +130,15 @@ describe("montarEmailDiario", () => {
   it("o registro de 'já enviado' recebe tudo o que foi listado, menos os sigilosos", () => {
     expect(e.listados.map(i => i.id).sort()).toEqual(["atras", "conf", "hoje", "pix", "sem"]);
   });
-  it("saudação pela hora e aviso de prévia no topo", () => {
-    expect(montarEmailDiario(itens, { hojeYmd: hoje, hora: 7 }).html).toContain("bom dia");
-    expect(montarEmailDiario(itens, { hojeYmd: hoje, hora: 14, aviso: "PRÉVIA — nada foi enviado" }).html).toMatch(/PRÉVIA.*boa tarde/s);
+  it("a abertura institucional é a mesma em qualquer hora, e o aviso de prévia vem no topo", () => {
+    expect(montarEmailDiario(itens, { hojeYmd: hoje, hora: 7 }).html).toContain("Prezados, graça e paz!");
+    expect(montarEmailDiario(itens, { hojeYmd: hoje, hora: 14, aviso: "PRÉVIA — nada foi enviado" }).html).toMatch(/PRÉVIA.*Prezados, graça e paz!/s);
+    expect(montarEmailDiario(itens, { hojeYmd: hoje, hora: 7 }).html).toContain("favor contatar a equipe administrativa da igreja.");
   });
   it("sem nada a pagar, o e-mail diz isso (a Edge Function decide se envia)", () => {
     const v = montarEmailDiario([], { hojeYmd: hoje, hora: 7 });
     expect(v.assunto).toBe("Resumo diário da Tesouraria | 22.10.2026");
-    expect(v.html).toContain("Não há pagamentos em aberto para hoje.");
+    expect(v.html).toContain("Não há pagamentos em aberto nesta data.");
     expect(v.listados).toEqual([]);
   });
   it("texto do favorecido é escapado (nada de HTML injetado por um nome)", () => {
@@ -199,8 +200,8 @@ describe("motivoDeNaoEnviar — o envio agendado sai hoje?", () => {
     expect(motivo(dados({ ultimo_envio_geral: "2026-10-22T10:00:00Z" }), agora + INTERVALO_MINIMO_ENTRE_ENVIOS_MS)).toBeNull();
     expect(motivo(dados({ ultimo_envio_geral: "2026-10-21T10:00:00Z" }), agora)).toBeNull();   // ontem
   });
-  it("a hora do cumprimento é a do agendamento", () => {
-    expect(prepararDiario(dados({ config: { hora: 15 } })).email.html).toContain("boa tarde");
+  it("a saudação não depende da hora do agendamento: é a institucional (a mesma na visualização, no teste e no envio)", () => {
+    for (const hora of [7, 15, 21]) expect(prepararDiario(dados({ config: { hora } })).email.html).toContain("Prezados, graça e paz!");
   });
 });
 

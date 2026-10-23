@@ -7,6 +7,7 @@ import { avisoDeExtratoDefasado, ehContaDeBanco, hojeEmBrasilia, NOTA_DO_SALDO, 
 
 import { textoCurtoDoReembolso, type ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
 import * as D from "../email/desenho.ts";
+import { ABERTURA_DO_SEMANAL } from "../email/textos.ts";
 
 /** Quantos reembolsos o bloco semanal lista (o resto vira "+ N outros"). */
 const LIMITE_DE_REEMBOLSOS = 10;
@@ -159,6 +160,7 @@ export function montarHtml(dataGerado: string, blocos: readonly BlocoPronto[], a
   const dataFmt = new Date(dataGerado).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
   const pedemAtencao = blocos.filter(b => b.tom === "atencao").length;
   const corpo = D.saudacao("Resumo da semana")
+    + ABERTURA_DO_SEMANAL.map(D.paragrafo).join("")
     + D.paragrafo(`${dataFmt.charAt(0).toLocaleUpperCase("pt-BR")}${dataFmt.slice(1)}. ${pedemAtencao > 0 ? `${plural(pedemAtencao, "ponto pede", "pontos pedem")} a sua atenção.` : "Nada pede a sua atenção agora."}`)
     + blocos.map(b => D.cartaoDeLista({ titulo: b.titulo, frase: b.frase, itens: b.itens, tom: b.tom })).join("")
     + D.botao("https://portal.diakoniaapp.com.br", "Abrir o DiakoniaApp");

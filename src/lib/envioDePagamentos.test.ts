@@ -124,9 +124,12 @@ describe("o e-mail", () => {
   });
 
   it("a saudação troca {periodo} pela hora; a abertura leva a linha digitável em negrito", () => {
-    expect(montarEnvio([junta], opcoes({ hora: 9 })).texto).toMatch(/^Olá irmãos, bom dia!\nGraça e paz!/);
-    expect(montarEnvio([junta], opcoes({ hora: 15 })).texto).toContain("boa tarde");
-    expect(montarEnvio([junta], opcoes({ hora: 20 })).texto).toContain("boa noite");
+    // o PADRÃO agora é a saudação institucional dos resumos (sem período); o marcador {periodo} segue valendo para quem personalizou o texto
+    expect(montarEnvio([junta], opcoes({ hora: 9 })).texto).toMatch(/^Prezados, graça e paz!/);
+    const personalizada = { saudacao: "Olá, {periodo}!" };
+    expect(montarEnvio([junta], opcoes({ hora: 9, ...personalizada })).texto).toMatch(/^Olá, bom dia!/);
+    expect(montarEnvio([junta], opcoes({ hora: 15, ...personalizada })).texto).toContain("boa tarde");
+    expect(montarEnvio([junta], opcoes({ hora: 20, ...personalizada })).texto).toContain("boa noite");
     const e = montarEnvio([junta], opcoes());
     expect(e.html).toContain("<b>linha digitável disponível</b>");
     expect(e.whatsapp).toContain("*linha digitável disponível*");

@@ -48,6 +48,9 @@ import { LiquidacaoPainel } from "@/components/financas/LiquidacaoPainel";
 import { liquidacaoDisponivel, liquidar } from "@/services/liquidacaoService";
 import type { PlanoDeLiquidacao } from "@/lib/liquidacao";
 import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
+import { RecalcularGuiaDialog, type AlvoDoRecalculo } from "@/components/financas/RecalcularGuiaDialog";
+import { listarRecalculos, type RecalculoRegistrado } from "@/services/recalculoDeObrigacaoService";
+import { resumoDoRecalculo } from "@/lib/recalculoDeGuia";
 import { CONTA_NAO_APLICAVEL_ID, ROTULO_FILA, ROTULO_RESPONSAVEL, ehTerceiro } from "@/lib/quitacao";
 import { quitacaoDaObrigacao, quitacaoDisponivel, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { DataDoPagamento, type EstadoDaDataDoPagamento } from "@/components/financas/DataDoPagamento";
@@ -145,6 +148,17 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
   const [quitacaoDoAlvo, setQuitacaoDoAlvo] = useState<QuitacaoDaObrigacao | null>(null);
   const [quitacaoPossivel, setQuitacaoPossivel] = useState(false);
   const [quitando, setQuitando] = useState<AlvoDaQuitacao | null>(null);
+  // "Recalcular guia" (23/10/2026): a guia atrasou e foi reemitida — a obrigação muda de valor sem perder o original, o encargo e o motivo (fin_recalcular_obrigacao).
+  const [recalculando, setRecalculando] = useState<AlvoDoRecalculo | null>(null);
+  const [recalculosDaDespesa, setRecalculosDaDespesa] = useState<RecalculoRegistrado[]>([]);
+  const [recarregarRecalculos, setRecarregarRecalculos] = useState(0);
+  useEffect(() => {
+    setRecalculosDaDespesa([]);
+    if (!confirmando || confirmando.tipo !== "saida") return;
+    let cancelado = false;
+    listarRecalculos(confirmando.id).then(r => { if (!cancelado) setRecalculosDaDespesa(r); }).catch(() => { /* melhoria: sem o histórico o Pagar segue igual */ });
+    return () => { cancelado = true; };
+  }, [confirmando?.id, recarregarRecalculos]);
   useEffect(() => {
     setQuitacaoDoAlvo(null); setQuitacaoPossivel(false);
     if (!confirmando || confirmando.tipo !== "saida") return;
@@ -327,6 +341,24 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
             <button type="button" className="text-xs text-primary hover:underline text-left"
               onClick={() => { setQuitando({ id: confirmando.id, descricao: confirmando.descricao ?? "", valor: Number(confirmando.valor) }); setConfirmando(null); setAnexoArquivo(null); }}>
               Foi outra pessoa, empresa ou entidade que pagou o fornecedor? Registrar quem pagou
+            </button>
+          )}
+
+          {confirmando?.tipo === "saida" && recalculosDaDespesa.length > 0 && (
+            <div className="rounded-md border border-warning-line bg-warning-soft/50 px-3 py-2 text-xs text-warning-text space-y-0.5">
+              <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Guia recalculada (custo extra por atraso)</p>
+              {recalculosDaDespesa.map(r => (
+                <p key={r.id}>
+                  {resumoDoRecalculo(r.valor_antes, r.valor_depois)} · {r.motivo}
+                  <span className="text-muted-foreground"> — {[r.juros > 0 ? `juros ${brl(r.juros)}` : "", r.multa > 0 ? `multa ${brl(r.multa)}` : "", r.correcao > 0 ? `correção ${brl(r.correcao)}` : ""].filter(Boolean).join(" · ")}{r.por_nome ? `, por ${r.por_nome}` : ""}</span>
+                </p>
+              ))}
+            </div>
+          )}
+          {confirmando?.tipo === "saida" && !terceiroJaPagou && (
+            <button type="button" className="text-xs text-primary hover:underline text-left"
+              onClick={() => { setRecalculando({ id: confirmando.id, descricao: confirmando.descricao ?? "", valor: Number(confirmando.valor) }); setConfirmando(null); setAnexoArquivo(null); }}>
+              A guia atrasou e foi recalculada? Recalcular guia (guarda o valor original e o encargo)
             </button>
           )}
 
@@ -577,6 +609,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
         </AlertDialogContent>
       </AlertDialog>
       <QuitacaoDialog alvo={quitando} onFechar={() => setQuitando(null)} onFeito={() => { void onChanged(); }} />
+      <RecalcularGuiaDialog alvo={recalculando} onFechar={() => setRecalculando(null)} onFeito={() => { setRecarregarRecalculos(n => n + 1); void onChanged(); }} />
     </>
   );
 

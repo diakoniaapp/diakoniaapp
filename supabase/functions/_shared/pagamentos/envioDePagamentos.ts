@@ -7,6 +7,7 @@
 // pagamento aparece como "sem dado automático" (nunca some em silêncio) e pode ser citado numa linha final ("na pasta, sem linha digitável").
 
 import { assinaturaEmHtml, assinaturaEmTexto, assinaturaEmWhatsapp } from "./assinaturaDoSistema.ts";
+import { SAUDACAO_INSTITUCIONAL } from "../email/textos.ts";
 
 /** A camada de controle do e-mail: quem paga confere antes. */
 export const AVISO_DE_CONFERENCIA = "Confira sempre os valores e vencimentos antes de efetuar os pagamentos.";
@@ -148,7 +149,7 @@ export const nomeDaPasta = (ymd: string): string => `${ymd.slice(8, 10)}.${MESES
 
 export const assuntoDoEmail = (hojeYmd: string): string => `Arquivos de pagamento | Vencimento ${dataComPontos(hojeYmd)}`;
 
-export const SAUDACAO_PADRAO = "Olá irmãos, {periodo}!\nGraça e paz!";
+export const SAUDACAO_PADRAO = SAUDACAO_INSTITUCIONAL;   // a mesma dos resumos (23/10/2026); o marcador {periodo} continua valendo para quem personalizou o texto
 export const INTRODUCAO_PADRAO = "Estamos enviando abaixo, os arquivos de pagamento com vencimento na data de hoje, listados abaixo com **linha digitável disponível** e os documentos disponíveis na pasta anexa do drive.";
 
 /** "bom dia" / "boa tarde" / "boa noite" pela hora de quem envia. */

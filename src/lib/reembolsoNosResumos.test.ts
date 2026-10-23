@@ -54,9 +54,10 @@ describe("e-mail diário — Reembolsos a pagar", () => {
     expect(e.contagem.reembolsos).toBe(2);
     expect(e.reembolsosListados).toHaveLength(2);
   });
-  it("a frase de abertura reconhece que só há reembolso a pagar", () => {
-    expect(email([lucio()]).texto).toContain("Não há contas a pagar para hoje, mas há reembolsos aprovados a pagar.");
-    expect(email([]).texto).toContain("Não há pagamentos em aberto para hoje.");
+  it("a abertura é a institucional (cita os reembolsos pendentes); só o dia sem nada acrescenta a frase de 'sem pagamentos'", () => {
+    expect(email([lucio()]).texto).toContain("incluindo pagamentos em atraso, vencimentos do dia e reembolsos pendentes");
+    expect(email([lucio()]).texto).not.toContain("Não há pagamentos em aberto");
+    expect(email([]).texto).toContain("Não há pagamentos em aberto nesta data.");
   });
   it("conta a definir é dito com clareza; já enviado antes de hoje vem com o alerta contra duplicidade", () => {
     const e = email([lucio({ conta_prevista: null, ultimo_envio: "2026-10-21T10:00:00Z" })]);

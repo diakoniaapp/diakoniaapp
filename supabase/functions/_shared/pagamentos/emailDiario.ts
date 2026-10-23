@@ -6,9 +6,10 @@
 //   · quanto está ATRASADO e o que vence hoje;
 //   · "já enviado em dd/mm — confira se já foi pago": o e-mail se repete enquanto a obrigação estiver em aberto, e quem pagou ontem pode ainda não ter dado baixa no sistema;
 //   · quatro seções (ver `secaoDoItem`): Para pagar · Conferir antes de pagar (sem o código) · Sem linha nem Pix · e a nota dos sigilosos, que não aparecem.
-import { AVISO_DE_CONFERENCIA, bancoDaLinha, formatarLinha, ICONE_SEM_MEIO, periodoDoDia, rotuloDoCodigo, tipoDaLinha } from "./envioDePagamentos.ts";
+import { AVISO_DE_CONFERENCIA, bancoDaLinha, formatarLinha, ICONE_SEM_MEIO, rotuloDoCodigo, tipoDaLinha } from "./envioDePagamentos.ts";
 import { assinaturaEmTexto } from "./assinaturaDoSistema.ts";
 import * as D from "../email/desenho.ts";
+import { ABERTURA_DO_DIARIO, INTRODUCAO_DO_DIARIO, SEM_PAGAMENTOS_NO_DIA } from "../email/textos.ts";
 import type { LinhaDeFato, Tom } from "../email/desenho.ts";
 import { secaoDoItem, type ItemDoDia } from "./itensDoDia.ts";
 import { avisoDeExtratoDefasado, ehContaDeBanco, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
@@ -83,7 +84,6 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   const listados = [...porSecao.pagar, ...porSecao.conferir, ...porSecao.sem_meio];
 
   const assunto = `Resumo diário da Tesouraria | ${dataComPontos(o.hojeYmd)}${total.quantidade > 0 ? ` · ${plural(total.quantidade, "pagamento", "pagamentos")}` : ""}`;
-  const saudacao = `Olá irmãos, ${periodoDoDia(o.hora)}!\nGraça e paz!`;
   // reembolsos aprovados: a dívida da igreja é com QUEM PAGOU, então o nome dele vem em destaque (pedido dela, 22/10/2026)
   const reembolsos = [...(o.reembolsos ?? [])];
   const totalReembolsos = reembolsos.reduce((t, r) => t + r.valor, 0);
@@ -103,11 +103,8 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   };
   const jaEnviadoReembolso = (r: ReembolsoParaExibir): string | null =>
     r.ultimo_envio && r.ultimo_envio.slice(0, 10) < o.hojeYmd ? `já enviado em ${dataCurta(r.ultimo_envio)} — confira se já foi pago` : null;
-  const intro = listados.length === 0 && reembolsos.length > 0
-    ? "Não há contas a pagar para hoje, mas há reembolsos aprovados a pagar."
-    : listados.length === 0
-    ? "Não há pagamentos em aberto para hoje."
-    : `Segue o que há para pagar: o que vence hoje e o que está em atraso. A origem de cada código está indicada (🧾 documento · 💳 Pix do documento · 👤 Pix do cadastro). Os documentos ainda não vão anexados a este e-mail — para os itens abaixo sem linha ou Pix, consulte o documento no DiakoniaApp.`;
+  // a abertura é a institucional (a MESMA na visualização, no teste e no envio); só o dia sem nenhum pagamento nem reembolso ganha uma frase a mais
+  const semNada = listados.length === 0 && reembolsos.length === 0;
   const avisoSigiloso = incluidosSigilosos.length > 0
     ? `🔒 ${plural(incluidosSigilosos.length, "item marcado é pagamento", "itens marcados são pagamentos")} de remuneração (sigilosos): não encaminhe este e-mail.` : "";
   const resumo = total.quantidade > 0
@@ -135,7 +132,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   // o mesmo título e a mesma linha de data do resumo semanal ("Resumo da semana" / "Sexta-feira, 23 de outubro"), antes da saudação
   const dataPorExtenso = new Date(`${o.hojeYmd}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
   let corpo = D.saudacao("Resumo diário da Tesouraria") + D.paragrafo(`${dataPorExtenso.charAt(0).toLocaleUpperCase("pt-BR")}${dataPorExtenso.slice(1)}.`)
-    + D.paragrafo(`${saudacao}\n\n${intro}`);
+    + ABERTURA_DO_DIARIO.map(D.paragrafo).join("") + (semNada ? D.paragrafo(SEM_PAGAMENTOS_NO_DIA) : "");
   const inds: { icone: string; rotulo: string; valor: string; tom?: Tom }[] = [];
   if (total.quantidade > 0) {
     inds.push({ icone: "🧾", rotulo: "Pagamentos", valor: brl(total.valor) });
@@ -187,12 +184,13 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     corpo += D.secao("Saldo das contas") + saldos.map(s => D.cartaoDeSaldo({ nome: s.nome, saldo: brl(s.saldo), situacao: s.texto, defasado: s.defasado })).join("") + D.blocoDeObservacao(NOTA_DO_SALDO);
   }
   corpo += D.blocoDeObservacao(AVISO_DE_CONFERENCIA) + D.botao(LINK_DO_SISTEMA, "Abrir o DiakoniaApp");
-  const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader: resumo || intro, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
+  const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader: resumo || INTRODUCAO_DO_DIARIO, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
   // ── texto simples ──
   const t: string[] = [];
   if (o.aviso) t.push(o.aviso, "");
-  t.push(saudacao, "", intro);
+  t.push(...ABERTURA_DO_DIARIO.flatMap((p, k) => (k === 0 ? [p] : ["", p])));
+  if (semNada) t.push("", SEM_PAGAMENTOS_NO_DIA);
   if (resumo) t.push("", resumo);
   if (avisoSigiloso) t.push(avisoSigiloso);
   if (avisoDeExtrato) t.push(avisoDeExtrato);
