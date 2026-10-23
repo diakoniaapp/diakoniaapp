@@ -73,7 +73,7 @@ import {
   HeartHandshake, Users, ScrollText, Layers, Handshake,
   TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2, FolderKanban,
   Globe2, Archive, BookOpenCheck, ClipboardCheck, FileStack, Star, Plus, ArrowUpCircle, ArrowDownCircle,
-  ArrowLeftRight, Download, CheckCircle2, X, FileText, ListChecks, type LucideIcon,
+  ArrowLeftRight, Download, CheckCircle2, X, FileText, ListChecks, Zap, BarChart3, Folders, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -536,19 +536,32 @@ export default function PainelTesouraria() {
   );
 
   // As quatro áreas. No computador moram DENTRO do cabeçalho fixo; no celular (23/10/2026) o cabeçalho rola junto da página e SÓ as abas ficam fixas.
-  const abasDoWorkspace = (
+  // Fichário na bancada (23/10/2026, decisão dela): sem numeração — as áreas não são etapas de um fluxo, são áreas de trabalho da Tesouraria. A aba ativa sobe, fica da cor da página e cobre a linha
+  // de base (com um filete terracota no topo); as outras ficam mais baixas e mais escuras. No computador a linha é a do próprio cabeçalho; no celular as abas são iguais, com o ícone sobre o nome.
+  const AREAS_DO_WORKSPACE: { chave: Aba; rotulo: string; Icone: LucideIcon }[] = [
+    { chave: "operacoes", rotulo: "Operações", Icone: Zap },
+    { chave: "gestao", rotulo: "Gestão", Icone: BarChart3 },
+    { chave: "cadastros", rotulo: "Cadastros", Icone: Folders },
+    { chave: "fechamento", rotulo: "Fechamento", Icone: CheckCircle2 },
+  ];
+  const abasDoWorkspace = (compactas: boolean) => (
     <>
-      {([
-        ["operacoes", "1 Operações"], ["gestao", "2 Gestão"],
-        ["cadastros", "3 Cadastros"], ["fechamento", "4 Fechamento"],
-      ] as [Aba, string][]).map(([chave, rotulo]) => (
-        <button key={chave} type="button" onClick={() => setAba(chave)}
-          className={`text-xs font-bold pb-2 border-b-2 whitespace-nowrap ${
-            aba === chave ? "border-gold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}>
-          {rotulo}
-        </button>
-      ))}
+      {AREAS_DO_WORKSPACE.map(({ chave, rotulo, Icone }) => {
+        const ativa = aba === chave;
+        return (
+          <button key={chave} type="button" role="tab" aria-selected={ativa} data-aba={chave} onClick={() => setAba(chave)}
+            className={`relative whitespace-nowrap border border-b-0 border-border rounded-t-lg transition-colors ${
+              compactas ? "flex-1 flex flex-col items-center gap-0.5 px-1 text-xs" : "inline-flex items-center gap-2 px-4 text-sm"
+            } ${
+              ativa
+                ? `z-10 -mb-px border-t-2 border-t-gold bg-background text-foreground font-semibold ${compactas ? "pt-2.5 pb-1.5" : "pt-2.5 pb-2"}`
+                : `bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground ${compactas ? "pt-1.5 pb-1" : "pt-1.5 pb-1.5"}`
+            }`}>
+            <Icone className={compactas ? "w-[18px] h-[18px]" : "w-4 h-4"} aria-hidden />
+            {rotulo}
+          </button>
+        );
+      })}
     </>
   );
 
@@ -582,7 +595,7 @@ export default function PainelTesouraria() {
           da Secretaria — ver os comentários de largura naqueles dois
           arquivos, resolvidos em 27/08/2026. A faixa de indicadores é o
           índice da tela. */}
-      <div className="md:sticky md:top-0 md:z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6 pb-3 space-y-3 md:border-b">
+      <div className="md:sticky md:top-0 md:z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6 pb-3 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-serif text-2xl flex items-center gap-2">
@@ -662,11 +675,11 @@ export default function PainelTesouraria() {
             agora vivem em abas diferentes, e um índice cujo alvo muda de
             aba a cada clique não serve mais pra nada — a própria aba já
             é o índice. */}
-        <nav className="hidden md:flex gap-5 -mb-3 pt-1 overflow-x-auto">{abasDoWorkspace}</nav>
+        <nav role="tablist" aria-label="Áreas do Workspace" className="hidden md:flex items-end gap-0.5 -mx-6 px-6 -mb-3 pt-1 border-b border-border">{abasDoWorkspace(false)}</nav>
       </div>
 
       {/* só no celular: as abas ficam fixas no topo enquanto o resto da página rola */}
-      <nav className="md:hidden sticky top-0 z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 !mt-0 pt-2 border-b flex gap-3 sm:gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Áreas do Workspace">{abasDoWorkspace}</nav>
+      <nav role="tablist" aria-label="Áreas do Workspace" className="md:hidden sticky top-0 z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 !mt-0 pt-2 border-b border-border flex items-end gap-0.5">{abasDoWorkspace(true)}</nav>
 
       {erro && (
         <p className="text-sm text-destructive-text border border-destructive-line rounded-md px-3 py-2">

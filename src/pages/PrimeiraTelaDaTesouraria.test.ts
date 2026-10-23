@@ -33,8 +33,8 @@ describe("Preparar envio → Resumo diário", () => {
 describe("o celular", () => {
   it("só as abas ficam fixas: o cabeçalho é fixo apenas de md para cima, e há uma barra de abas própria do celular", () => {
     expect(painel).toContain('className="md:sticky md:top-0 md:z-20 bg-background');
-    expect(painel).toContain('<nav className="md:hidden sticky top-0 z-20');
-    expect(painel).toContain('<nav className="hidden md:flex');
+    expect(painel).toContain('className="md:hidden sticky top-0 z-20');
+    expect(painel).toContain('className="hidden md:flex');
   });
   it("as ações viram o '+' (Novo lançamento, Registrar recebimento, Transferir, Importar extrato); a faixa de botões é só do computador", () => {
     expect(painel).toContain("data-acoes-do-celular");
@@ -80,5 +80,27 @@ describe("documentação: a primeira tela leva à Auditoria, não à importaçã
     expect(card).toContain("concluído");
     expect(mesa).not.toContain("CoberturaDocumentalCard");
     expect(auditoria).not.toContain("CoberturaDocumentalCard");
+  });
+});
+
+describe("as abas da Mesa: fichário na bancada, sem numeração (23/10/2026)", () => {
+  it("os nomes não levam número: as áreas não são etapas de um fluxo", () => {
+    for (const nome of ["Operações", "Gestão", "Cadastros", "Fechamento"]) expect(painel).toContain(`rotulo: "${nome}"`);
+    for (const velho of ['["operacoes", "1 Operações"]', '["gestao", "2 Gestão"]', '["cadastros", "3 Cadastros"]', '["fechamento", "4 Fechamento"]']) expect(painel).not.toContain(velho);   // o rótulo da aba (comentários antigos ainda citam os nomes)
+  });
+  it("cada área tem seu ícone (raio, barras, pastas, visto) e os endereços (#operacoes…) seguem os mesmos", () => {
+    for (const icone of ["Zap", "BarChart3", "Folders", "CheckCircle2"]) expect(painel).toContain(`Icone: ${icone}`);
+    expect(painel).toContain('h === "operacoes" || h === "gestao" || h === "cadastros" || h === "fechamento"');
+  });
+  it("a aba ativa fica à frente: cobre a linha de base (-mb-px), da cor da página, com filete terracota no topo; as outras são mais baixas e mais escuras", () => {
+    expect(painel).toContain("-mb-px border-t-2 border-t-gold bg-background");
+    expect(painel).toContain("bg-muted text-muted-foreground");
+  });
+  it("é uma lista de abas de verdade para leitor de tela (tablist/tab/aria-selected), nas duas barras", () => {
+    expect(painel.split('role="tablist"').length - 1).toBe(2);
+    expect(painel).toContain('role="tab" aria-selected={ativa}');
+  });
+  it("no celular as quatro abas têm a mesma largura, com o ícone sobre o nome", () => {
+    expect(painel).toContain("flex-1 flex flex-col items-center");
   });
 });
