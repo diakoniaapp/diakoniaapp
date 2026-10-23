@@ -19,9 +19,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, Clock, FileText, Landmark,
-  Loader2, Paperclip, Pencil, RefreshCw, RotateCw, Send, Wallet,
+  Loader2, Mail, Paperclip, Pencil, RefreshCw, RotateCw, Wallet,
 } from "lucide-react";
 import { PrepararEnvioDialog } from "@/components/financas/envio/PrepararEnvioDialog";
+import { ResumoDiarioPainel } from "@/components/financas/envio/ResumoDiarioPainel";
 import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
@@ -45,6 +46,8 @@ import { CalendarioDeVencimentos } from "@/components/financas/mesa/CalendarioDe
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 import { useAuth } from "@/hooks/useAuth";
 import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
+import { useNoCelular } from "@/hooks/use-mobile";
+import { avisoDoFechamento } from "@/lib/avisoDoFechamento";
 import {
   agruparVencimentos, coberturaDoCaixa, diasEntreDatas, montarChecklist, pendenciasDoChecklist,
   resumoDoCaixa, soma, totalAPagar, type ItemDoChecklist,
@@ -59,20 +62,24 @@ interface Props {
   onNovaSaida: () => void;
   onImportarExtrato: () => void;
   onRecorrencias: () => void;
+  /** só no celular: o que vem logo depois da agenda (os favoritos) — a ordem que ela pediu: Seu dia → Agenda → Lista do dia → Favoritos */
+  aposAAgenda?: React.ReactNode;
+  /** o "+" do celular pede "NF já quitada por terceiro": cada incremento abre o diálogo (o botão do cartão da agenda só aparece no computador) */
+  pedidoDeNotaQuitada?: number;
 }
 
 const dataCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 const rolarPara = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-function Cartao({ id, titulo, subtitulo, direita, children, className = "" }: {
-  id?: string; titulo: string; subtitulo?: string; direita?: React.ReactNode; children: React.ReactNode; className?: string;
+function Cartao({ id, titulo, subtitulo, direita, children, className = "", subtituloSoNoComputador }: {
+  id?: string; titulo: string; subtitulo?: string; direita?: React.ReactNode; children: React.ReactNode; className?: string; subtituloSoNoComputador?: boolean;
 }) {
   return (
-    <section id={id} className={`rounded-lg border bg-card scroll-mt-[220px] ${className}`}>
+    <section id={id} className={`rounded-lg border bg-card scroll-mt-14 md:scroll-mt-[220px] ${className}`}>
       <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-3 pb-2">
         <div className="min-w-0 flex-1 basis-56">
           <h2 className="text-sm font-bold">{titulo}</h2>
-          {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
+          {subtitulo && <p className={`text-xs text-muted-foreground ${subtituloSoNoComputador ? "max-md:hidden" : ""}`}>{subtitulo}</p>}
         </div>
         {direita && <div className="min-w-0 max-w-full text-right">{direita}</div>}
       </header>
@@ -81,18 +88,20 @@ function Cartao({ id, titulo, subtitulo, direita, children, className = "" }: {
   );
 }
 
-function Numero({ rotulo, valor, tom, detalhe, onClick }: { rotulo: string; valor: string; tom?: "bom" | "ruim" | "aviso" | "neutro"; detalhe?: string; onClick?: () => void }) {
+function Numero({ rotulo, rotuloCurto, valor, tom, detalhe, onClick, compacto, escondidoNoCelular }: { rotulo: string; /** no celular o número vira uma linha de resumo (ver "Seu dia") */ escondidoNoCelular?: boolean; /** no celular, no lugar do rótulo inteiro */ rotuloCurto?: string; valor: string; tom?: "bom" | "ruim" | "aviso" | "neutro"; detalhe?: string; onClick?: () => void; /** no celular: menor e sem a linha de detalhe — os dois números que pedem ação (atrasadas e hoje) ficam grandes, estes dois acompanham */ compacto?: boolean }) {
   const cor = tom === "bom" ? "text-success-text" : tom === "ruim" ? "text-destructive-text" : tom === "aviso" ? "text-warning-text" : "";
   const miolo = (
     <>
-      <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold leading-tight">{rotulo}</p>
-      <p className={`text-lg font-extrabold tabular-nums truncate ${cor}`}>{valor}</p>
-      {detalhe && <p className="text-[11px] text-muted-foreground truncate">{detalhe}</p>}
+      <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold leading-tight">
+        {rotuloCurto ? <><span className="md:hidden">{rotuloCurto}</span><span className="max-md:hidden">{rotulo}</span></> : rotulo}
+      </p>
+      <p className={`text-lg font-extrabold tabular-nums truncate ${compacto ? "max-md:text-base" : ""} ${cor}`}>{valor}</p>
+      {detalhe && <p className={`text-[11px] text-muted-foreground truncate ${compacto ? "max-md:hidden" : ""}`}>{detalhe}</p>}
     </>
   );
   return onClick
-    ? <button type="button" onClick={onClick} className="rounded-lg border bg-card px-3 py-2.5 min-w-0 text-left hover:border-gold/60 hover:bg-muted/30 transition-colors">{miolo}</button>
-    : <div className="rounded-lg border bg-card px-3 py-2.5 min-w-0">{miolo}</div>;
+    ? <button type="button" onClick={onClick} className={`rounded-lg border bg-card px-3 py-2.5 min-w-0 text-left hover:border-gold/60 hover:bg-muted/30 transition-colors ${compacto ? "max-md:py-1.5" : ""} ${escondidoNoCelular ? "max-md:hidden" : ""}`}>{miolo}</button>
+    : <div className={`rounded-lg border bg-card px-3 py-2.5 min-w-0 ${compacto ? "max-md:py-1.5" : ""} ${escondidoNoCelular ? "max-md:hidden" : ""}`}>{miolo}</div>;
 }
 
 export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarReembolso, onEditar, onAnexo, onAbrir, chip }: {
@@ -158,7 +167,7 @@ export function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onPagarR
 }
 
 export function MesaDoTesoureiro({
-  chaveDeAtualizacao, onPagar, onAnexo, onNovaSaida, onImportarExtrato, onRecorrencias,
+  chaveDeAtualizacao, onPagar, onAnexo, onNovaSaida, onImportarExtrato, onRecorrencias, aposAAgenda, pedidoDeNotaQuitada,
 }: Props) {
   const hoje = hojeLocal();
   const [dados, setDados] = useState<DadosDaMesa | null>(null);
@@ -166,9 +175,14 @@ export function MesaDoTesoureiro({
   // LISTA (as janelas de sempre) ou CALENDÁRIO (o mês numa grade). O calendário substitui a Agenda Financeira (Fase A, 20/10/2026); `/financas/agenda` redireciona para cá com `?mesa=calendario`.
   // Pedido dela (20/10/2026): a Mesa abre SEMPRE no Calendário (formato agenda); trocar de aba leva à Fila. `?mesa=fila` abre a Fila direto (link compartilhável); nada é lembrado entre visitas.
   // A visão vai para a URL (`?mesa=fila`): abrir uma obrigação da Fila e voltar devolve a Fila; abrir pelo menu (sem parâmetro) continua no Calendário (decisão dela, 22/10/2026).
+  // 23/10/2026 (decisão dela): no CELULAR a agenda abre na SEMANA com a lista do dia logo abaixo — a grade de 7 colunas de um mês não cabe num telefone. "Mês" fica a um toque (`?mesa=calendario`,
+  // que também é o que o redirecionamento da antiga Agenda Financeira usa). No computador nada muda.
+  const noCelular = useNoCelular();
   const [naUrl, mudarNaUrl] = useEstadoNaUrl({ mesa: "" });
-  const visao: "fila" | "calendario" = naUrl.mesa === "fila" ? "fila" : "calendario";
-  const setVisao = (v: "fila" | "calendario") => mudarNaUrl({ mesa: v === "fila" ? "fila" : "" });
+  type Visao = "fila" | "calendario" | "semana";
+  const visao: Visao = naUrl.mesa === "fila" ? "fila" : naUrl.mesa === "calendario" ? "calendario" : noCelular ? "semana" : "calendario";
+  const setVisao = (v: Visao) => mudarNaUrl({ mesa: v === "fila" ? "fila" : v === "calendario" && noCelular ? "calendario" : "" });
+  const [diarioAberto, setDiarioAberto] = useState(false);
   // a fila relê as quitações quando algo muda aqui (reembolso pago, detalhe fechado…)
   const [recargaDaFila, setRecargaDaFila] = useState(0);
   const { hasRole } = useAuth();
@@ -185,6 +199,7 @@ export function MesaDoTesoureiro({
   // Fase 1B: registrar uma NOTA que o aplicativo ainda não tinha, já quitada por terceiro (só depois da migration da Quitação)
   const [quitacaoOk, setQuitacaoOk] = useState(false);
   const [notaAberta, setNotaAberta] = useState(false);
+  useEffect(() => { if (pedidoDeNotaQuitada) { if (quitacaoOk) setNotaAberta(true); else toast.info("A quitação por terceiro ainda não está ativa neste banco."); } }, [pedidoDeNotaQuitada]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { let vivo = true; quitacaoDisponivel().then(ok => { if (vivo) setQuitacaoOk(ok); }); return () => { vivo = false; }; }, [chaveDeAtualizacao]);
   useEffect(() => {
     let cancelado = false;
@@ -241,6 +256,7 @@ export function MesaDoTesoureiro({
   const { aPagar, caixa, compromissos7, cobertura, ind, pagosHoje, semComprovante, checklist, porId } = derivados;
   // os itens do checklist que NÃO são um dos quatro números do topo (atrasadas, hoje e débitos já são números)
   const tambemHoje = checklist.filter(i => !i.feito && !["atrasadas", "hoje", "debitos"].includes(i.chave));
+  const aviso = avisoDoFechamento(hoje, dados.documentosAnterior, dados.documentos);
   const irParaAFila = () => { setVisao("fila"); window.setTimeout(() => rolarPara("mesa-contas"), 60); };
 
   /** A linha de uma conta a pagar, com o chip da ação à frente — a MESMA da Mesa, agora dentro da fila única. */
@@ -264,16 +280,26 @@ export function MesaDoTesoureiro({
         <Numero rotulo="Vencem hoje" valor={String(aPagar.hoje.length)} tom={aPagar.hoje.length > 0 ? "aviso" : "bom"}
           detalhe={aPagar.hoje.length > 0 ? `${brl(soma(aPagar.hoje))} · pagar →` : "nada vence hoje"}
           onClick={aPagar.hoje.length > 0 ? irParaAFila : undefined} />
-        <Numero rotulo="Débitos a conferir" valor={String(derivados.debitosAConferir)} tom={derivados.debitosAConferir > 0 ? "ruim" : "bom"}
+        <Numero compacto escondidoNoCelular rotulo="Débitos a conferir" valor={String(derivados.debitosAConferir)} tom={derivados.debitosAConferir > 0 ? "ruim" : "bom"}
           detalhe={dados.debitosIndisponiveis ? "migration pendente" : ind.naoEncontrados > 0 ? `${ind.naoEncontrados} possível falha${ind.naoEncontrados > 1 ? "s" : ""} · conferir →` : "aguardando confirmação do banco"}
           onClick={derivados.debitosAConferir > 0 ? irParaAFila : undefined} />
-        <Numero rotulo={cobertura.cobre ? "Sobra depois de pagar a semana" : "Falta para pagar a semana"} valor={brl(Math.abs(cobertura.saldoDepois))}
+        <Numero compacto escondidoNoCelular rotulo={cobertura.cobre ? "Sobra depois de pagar a semana" : "Falta para pagar a semana"} rotuloCurto={cobertura.cobre ? "Sobra na semana" : "Falta na semana"} valor={brl(Math.abs(cobertura.saldoDepois))}
           tom={cobertura.cobre ? "bom" : "ruim"} detalhe={`caixa ${brl(caixa.disponivel)} · a pagar em 7 dias ${brl(compromissos7)}`} />
+      </div>
+
+      {/* celular: os outros dois números do dia em UMA linha (os grandes são os que pedem ação) */}
+      <div className="md:hidden flex items-center justify-between gap-3 px-1 -mt-1 text-xs text-muted-foreground" data-seu-dia-resumo>
+        <button type="button" className={`text-left text-xs ${derivados.debitosAConferir > 0 ? "text-destructive-text font-semibold" : ""}`} onClick={derivados.debitosAConferir > 0 ? irParaAFila : undefined}>
+          Débitos a conferir: <b>{derivados.debitosAConferir}</b>
+        </button>
+        <span className={cobertura.cobre ? "text-success-text" : "text-destructive-text"}>
+          {cobertura.cobre ? "Sobra na semana" : "Falta na semana"}: <b className="tabular-nums">{brl(Math.abs(cobertura.saldoDepois))}</b>
+        </span>
       </div>
 
       {tambemHoje.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border bg-card px-3 py-2 text-xs" data-tambem-hoje>
-          <span className="font-bold uppercase tracking-wide text-muted-foreground text-2xs">Também hoje</span>
+          <span className="font-bold uppercase tracking-wide text-muted-foreground text-2xs max-md:hidden">Também hoje</span>
           {tambemHoje.map(i => {
             const acao = acaoDoItem(i.chave, { onImportarExtrato });
             const rotulo = <>{i.rotulo}<span className="text-muted-foreground"> · {i.detalhe}</span></>;
@@ -288,6 +314,14 @@ export function MesaDoTesoureiro({
         <p className="text-xs text-success-text px-1" data-tambem-hoje>✓ Comprovantes, extrato e documentos em dia.</p>
       )}
 
+      {aviso && (
+        <Link to="/painel-tesouraria#fechamento" data-aviso-fechamento
+          className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm hover:opacity-90 ${aviso.pronto ? "border-success-line bg-success-soft/50 text-success-text" : "border-warning-line bg-warning-soft/40 text-warning-text"}`}>
+          <span className="min-w-0 font-medium">{aviso.pronto ? "✓" : "⚠"} {aviso.texto}</span>
+          <span className="shrink-0 inline-flex items-center gap-1 text-xs font-bold">Continuar <ArrowRight className="w-3 h-3" /></span>
+        </Link>
+      )}
+
       {dados.erros.length > 0 && (
         <p className="text-xs text-warning-text border border-warning-line bg-warning-soft/40 rounded-md px-3 py-2">
           Parte da mesa não carregou ({dados.erros.map(e => e.split(":")[0]).join(", ")}). O resto está correto.
@@ -296,18 +330,18 @@ export function MesaDoTesoureiro({
 
       <div className="space-y-4">
         {/* 2 · contas a pagar — a lista de obrigações é o ambiente de trabalho: largura inteira */}
-        <Cartao id="mesa-contas" titulo={visao === "calendario" ? "Calendário de vencimentos" : "Fila do dia"}
-          subtitulo={visao === "calendario" ? "O mês de uma vez: contas e débitos automáticos — clique num dia" : "O que pede você agora: contas, débitos e quitações — um vocabulário, uma ordem"}
+        <Cartao id="mesa-contas" subtituloSoNoComputador titulo={visao === "fila" ? "Fila do dia" : visao === "semana" ? "Agenda da semana" : "Calendário de vencimentos"}
+          subtitulo={visao === "fila" ? "O que pede você agora: contas, débitos e quitações — um vocabulário, uma ordem" : visao === "semana" ? "Toque num dia para ver as contas dele" : "O mês de uma vez: contas e débitos automáticos — clique num dia"}
           direita={<div className="flex flex-wrap justify-end gap-1.5">
             <div role="group" aria-label="Visão" className="inline-flex overflow-hidden rounded-md border">
-              {(["calendario", "fila"] as const).map(v => (
+              {(noCelular ? ["semana", "calendario", "fila"] as const : ["calendario", "fila"] as const).map(v => (
                 <button key={v} type="button" aria-pressed={visao === v} onClick={() => setVisao(v)}
-                  className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "fila" ? "Fila" : "Calendário"}</button>
+                  className={`h-7 px-2.5 text-xs font-medium ${visao === v ? "bg-gold text-gold-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>{v === "fila" ? "Fila" : v === "semana" ? "Semana" : noCelular ? "Mês" : "Calendário"}</button>
               ))}
             </div>
-            {podeOperar && <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setEnvioAberto(true)}><Send className="w-3 h-3" /> Preparar envio</Button>}
-            {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
-            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>
+            {podeOperar && <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setDiarioAberto(true)}><Mail className="w-3 h-3" /> Resumo diário</Button>}
+            {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs max-md:hidden" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs max-md:hidden" onClick={onNovaSaida}>+ Nova conta</Button>
           </div>}>
           {visao === "calendario" && derivados.atrasadasDeAntes.n > 0 && (
             <p role="status" data-atrasadas-de-antes className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-destructive-line bg-destructive-soft/40 px-3 py-2 text-xs text-destructive-text">
@@ -315,8 +349,8 @@ export function MesaDoTesoureiro({
               <button type="button" className="font-medium underline underline-offset-2" onClick={() => setVisao("fila")}>Ver na Fila</button>
             </p>
           )}
-          {visao === "calendario" ? (
-            <CalendarioDeVencimentos hoje={hoje} podeOperar={podeOperar} chaveDeAtualizacao={chaveDeAtualizacao} onMudou={carregar} />
+          {visao !== "fila" ? (
+            <CalendarioDeVencimentos modo={visao === "semana" ? "semana" : "mes"} hoje={hoje} podeOperar={podeOperar} chaveDeAtualizacao={chaveDeAtualizacao} onMudou={carregar} />
           ) : <>
           {/* conta aberta que já tem pagamento no extrato (criada depois dele, ou a linha entrou como lançamento comum): um registro só */}
           <ContasJaPagas chave={chaveDeAtualizacao} onMudou={carregar} />
@@ -325,6 +359,8 @@ export function MesaDoTesoureiro({
               onMarcarDebitado: id => { const v = porId.get(id); if (v) onPagar(v); else abrirObrigacao(id); } }} />
           </>}
         </Cartao>
+
+        {aposAAgenda && <div className="md:hidden">{aposAAgenda}</div>}
 
         {/* o que sobra do dia: saneamento de cadastros e pagamentos de hoje — só aparecem quando há o que mostrar */}
         <div className="grid gap-4 empty:hidden md:grid-cols-2">
@@ -431,6 +467,7 @@ export function MesaDoTesoureiro({
         </Button>
       </div>
 
+      <ResumoDiarioPainel aberto={diarioAberto} onFechar={() => setDiarioAberto(false)} onEnvioManual={() => setEnvioAberto(true)} />
       <PrepararEnvioDialog aberto={envioAberto} onFechar={() => setEnvioAberto(false)} hojeYmd={hoje} onAbrirObrigacao={abrirObrigacao}
         candidatas={envioAberto ? dados.vencimentos
           .filter(v => !ehAutomatica(v.forma_liquidacao) && !obrigacoesComQuitacao.has(v.id) && v.dias_para_vencer <= 7)

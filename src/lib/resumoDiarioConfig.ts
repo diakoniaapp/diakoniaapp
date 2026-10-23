@@ -41,3 +41,36 @@ export function problemasDoDiario(c: ResumoDiarioConfig, destinatarios: ResumoDi
   if (c.ativo && destinatarios.length === 0) p.push("Cadastre ao menos um destinatário para ligar o resumo diário.");
   return p;
 }
+
+// ─── O painel "Resumo diário" da Mesa (23/10/2026): quando saiu o último e quando sai o próximo ───────────────────────────────────────────────────────────
+// O horário da configuração é de Brasília (UTC−3, sem horário de verão desde 2019). `agora` é injetável para o teste.
+const dois = (n: number) => String(n).padStart(2, "0");
+
+export interface ProximoEnvio { quando: Date; /** "hoje, 23/10 às 08:00" · "amanhã, 24/10 às 08:00" · "segunda, 27/10 às 07:00" */ rotulo: string }
+
+/** O próximo envio agendado a partir de `agora`; `null` se estiver desligado ou sem dia escolhido. */
+export function proximoEnvio(c: Pick<ResumoDiarioConfig, "ativo" | "dias_semana" | "hora" | "minuto">, agora: Date = new Date()): ProximoEnvio | null {
+  if (!c.ativo || c.dias_semana.length === 0) return null;
+  const br = new Date(agora.getTime() - 3 * 3600_000);   // os campos UTC deste Date são o relógio de Brasília
+  for (let i = 0; i <= 7; i++) {
+    const d = new Date(Date.UTC(br.getUTCFullYear(), br.getUTCMonth(), br.getUTCDate() + i));
+    if (!c.dias_semana.includes(d.getUTCDay())) continue;
+    const alvo = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), c.hora, c.minuto);
+    if (alvo <= br.getTime()) continue;
+    const data = `${dois(d.getUTCDate())}/${dois(d.getUTCMonth() + 1)}`;
+    const hh = `${dois(c.hora)}:${dois(c.minuto)}`;
+    const dia = i === 0 ? "hoje" : i === 1 ? "amanhã" : DIAS_LONGOS[d.getUTCDay()];
+    return { quando: new Date(alvo + 3 * 3600_000), rotulo: `${dia}, ${data} às ${hh}` };
+  }
+  return null;
+}
+
+/** "23/10 às 08:00" (horário de Brasília) para o instante gravado no banco. */
+export function quandoFoi(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
+  const g = (t: string) => p.find(x => x.type === t)?.value ?? "";
+  return `${g("day")}/${g("month")} às ${g("hour") === "24" ? "00" : g("hour")}:${g("minute")}`;
+}

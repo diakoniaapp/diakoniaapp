@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alternarDia, descreverAgenda, houveMudancaNoDiario, problemasDoDiario, rotuloDaJanela } from "./resumoDiarioConfig";
+import { alternarDia, descreverAgenda, houveMudancaNoDiario, problemasDoDiario, proximoEnvio, quandoFoi, rotuloDaJanela } from "./resumoDiarioConfig";
 import type { ResumoDiarioConfig } from "@/services/sistemaService";
 
 const base: ResumoDiarioConfig = { ativo: false, dias_semana: [1, 2, 3, 4, 5], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: false, incluir_sigilosos: true };
@@ -33,5 +33,37 @@ describe("configuração do resumo diário", () => {
     expect(problemasDoDiario({ ...base, ativo: true }, [])).toEqual(["Cadastre ao menos um destinatário para ligar o resumo diário."]);
     expect(problemasDoDiario(base, [])).toEqual([]);
     expect(problemasDoDiario({ ...base, dias_semana: [] }, [{ nome: "B", email: "b@x.org" }])).toEqual(["Escolha ao menos um dia da semana."]);
+  });
+});
+
+describe("o painel Resumo diário: próximo e último envio", () => {
+  const ligado = { ...base, ativo: true };   // segunda a sexta, 07:00 (Brasília)
+  it("antes do horário de hoje: hoje", () => {
+    const p = proximoEnvio(ligado, new Date("2026-10-23T09:00:00Z"));   // sexta 06:00 em Brasília
+    expect(p?.rotulo).toBe("hoje, 23/10 às 07:00");
+    expect(p?.quando.toISOString()).toBe("2026-10-23T10:00:00.000Z");
+  });
+  it("depois do horário: o próximo dia escolhido (sexta → segunda, pulando o fim de semana)", () => {
+    expect(proximoEnvio(ligado, new Date("2026-10-23T10:00:00Z"))?.rotulo).toBe("segunda, 26/10 às 07:00");   // 07:00 em ponto já passou
+    expect(proximoEnvio(ligado, new Date("2026-10-23T22:00:00Z"))?.rotulo).toBe("segunda, 26/10 às 07:00");
+  });
+  it("no dia seguinte: amanhã", () => {
+    expect(proximoEnvio(ligado, new Date("2026-10-22T21:00:00Z"))?.rotulo).toBe("amanhã, 23/10 às 07:00");   // quinta 18:00 em Brasília
+  });
+  it("conta o dia pelo relógio de Brasília, não pelo UTC (23:30 em Brasília já é o dia seguinte em UTC)", () => {
+    expect(proximoEnvio(ligado, new Date("2026-10-23T02:30:00Z"))?.rotulo).toBe("amanhã, 23/10 às 07:00");   // quinta 23:30 em Brasília → sexta
+  });
+  it("desligado ou sem dia escolhido: nada", () => {
+    expect(proximoEnvio(base, new Date("2026-10-23T09:00:00Z"))).toBeNull();
+    expect(proximoEnvio({ ...ligado, dias_semana: [] }, new Date("2026-10-23T09:00:00Z"))).toBeNull();
+  });
+  it("só um dia na semana: pode ser daqui a 7 dias", () => {
+    expect(proximoEnvio({ ...ligado, dias_semana: [5] }, new Date("2026-10-23T11:00:00Z"))?.rotulo).toBe("sexta, 30/10 às 07:00");
+  });
+  it("o último envio aparece no horário de Brasília", () => {
+    expect(quandoFoi("2026-10-23T11:00:00Z")).toBe("23/10 às 08:00");
+    expect(quandoFoi("2026-10-24T02:30:00Z")).toBe("23/10 às 23:30");
+    expect(quandoFoi(null)).toBeNull();
+    expect(quandoFoi("lixo")).toBeNull();
   });
 });

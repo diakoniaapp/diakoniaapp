@@ -13,30 +13,47 @@ import type { ItemReservado, RecursosReservados } from "@/lib/recursosReservados
 
 const ROTULO = "text-2xs uppercase tracking-wide text-muted-foreground font-semibold";
 
-/** Os três números do cabeçalho; "Reservado" é um botão que abre o painel lateral. */
-export function IndicadoresDeSaldo({ recursos }: { recursos: RecursosReservados }) {
+/**
+ * Os três números do cabeçalho; "Reservado" é um botão que abre o painel lateral.
+ *
+ * No CELULAR (23/10/2026, decisão dela) só o que ajuda a decidir fica à vista: o Saldo livre e, ao lado, o que o pai passar em `depoisDoLivre` (o "Sai/semana"). "Saldo nas contas" e
+ * "Reservado" ficam atrás de "Ver detalhamento". No computador os três continuam todos à mostra, na ordem de sempre.
+ */
+export function IndicadoresDeSaldo({ recursos, depoisDoLivre }: { recursos: RecursosReservados; depoisDoLivre?: React.ReactNode }) {
   const [aberto, setAberto] = useState(false);
+  const [detalhe, setDetalhe] = useState(false);   // só vale no celular
+  const escondido = detalhe ? "" : "max-sm:hidden";
   const livreNegativo = recursos.saldoLivre < 0;
   const contasNegativo = recursos.saldoNasContas < 0;
   return (
     <>
-      <div className="flex items-center gap-3 sm:gap-4" data-saldos>
-        <div className="text-right">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-4" data-saldos>
+        <div className={`text-right max-sm:text-left max-sm:order-3 ${escondido}`}>
           <p className={ROTULO}>Saldo nas contas</p>
           {/* negativo é vermelho (o "Disponível" antigo era verde mesmo no negativo) */}
           <p className={`text-sm font-bold tabular-nums ${contasNegativo ? "text-destructive-text" : "text-success-text"}`} data-saldo-contas>{brl(recursos.saldoNasContas)}</p>
         </div>
-        <div className="w-px h-7 bg-border" />
+        <div className="w-px h-7 bg-border max-sm:hidden" />
         <button type="button" onClick={() => setAberto(true)} aria-label={`Reservado ${brl(recursos.reservado)} — ver detalhe`}
-          className="group -mx-1 rounded-md px-1 text-right hover:bg-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
+          className={`group -mx-1 rounded-md px-1 text-right max-sm:text-left max-sm:order-4 hover:bg-muted/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold ${escondido}`}>
           <p className={`${ROTULO} inline-flex items-center gap-0.5`}>Reservado <ChevronRight className="h-3 w-3 opacity-60 group-hover:translate-x-0.5 transition-transform" aria-hidden /></p>
           <p className="text-sm font-bold tabular-nums text-info-text">{brl(recursos.reservado)}</p>
         </button>
-        <div className="w-px h-7 bg-border" />
-        <div className="text-right">
+        <div className="w-px h-7 bg-border max-sm:hidden" />
+        <div className="text-right max-sm:text-left max-sm:order-1">
           <p className={ROTULO}>Saldo livre</p>
           <p className={`text-sm font-bold tabular-nums ${livreNegativo ? "text-destructive-text" : "text-success-text"}`}>{brl(recursos.saldoLivre)}</p>
         </div>
+        {depoisDoLivre && (
+          <>
+            <div className="w-px h-7 bg-border max-sm:hidden" />
+            <div className="max-sm:order-2">{depoisDoLivre}</div>
+          </>
+        )}
+        <button type="button" onClick={() => setDetalhe(d => !d)} aria-expanded={detalhe} data-ver-detalhamento
+          className={`sm:hidden order-5 text-left text-xs font-medium text-muted-foreground underline-offset-2 hover:underline ${detalhe ? "basis-full" : "ml-auto"}`}>
+          {detalhe ? "Ocultar" : "Detalhar →"}
+        </button>
       </div>
       <PainelDosReservados aberto={aberto} onOpenChange={setAberto} recursos={recursos} />
     </>

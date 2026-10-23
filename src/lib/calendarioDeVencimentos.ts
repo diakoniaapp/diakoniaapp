@@ -68,3 +68,30 @@ export const limitesDoMesDoCalendario = (m: MesDoCalendario): { de: string; ate:
 });
 export const NOMES_DOS_MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 export const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+// ─── A SEMANA (23/10/2026): a agenda do celular ──────────────────────────────────────────────────────────────────────────────────────────────────────
+// No telefone a grade de um mês não cabe; a Mesa abre numa semana (domingo a sábado, como a grade) com a lista do dia embaixo. Datas como texto AAAA-MM-DD, sempre em UTC para não escorregar um dia no fuso.
+export const somarDias = (ymd: string, n: number): string => {
+  const d = new Date(Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)) + n));
+  return `${d.getUTCFullYear()}-${dois(d.getUTCMonth() + 1)}-${dois(d.getUTCDate())}`;
+};
+
+export interface SemanaDoCalendario { inicio: string; fim: string; dias: CelulaDoCalendario[] }
+
+/** A semana (domingo a sábado) que contém `ymd`. */
+export function semanaDe(ymd: string): SemanaDoCalendario {
+  const dow = new Date(Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(5, 7)) - 1, Number(ymd.slice(8, 10)))).getUTCDay();
+  const inicio = somarDias(ymd, -dow);
+  const dias = Array.from({ length: 7 }, (_, i) => { const data = somarDias(inicio, i); return { data, dia: Number(data.slice(8, 10)) }; });
+  return { inicio, fim: dias[6].data!, dias };
+}
+
+/** "19 a 25 de outubro" · "26 de outubro a 1 de novembro" (a semana que atravessa o mês) · "28 de dezembro a 3 de janeiro de 2027" (a que atravessa o ano). */
+export function rotuloDaSemana(s: Pick<SemanaDoCalendario, "inicio" | "fim">): string {
+  const [a, b] = [s.inicio, s.fim];
+  const d = (ymd: string) => Number(ymd.slice(8, 10));
+  const m = (ymd: string) => NOMES_DOS_MESES[Number(ymd.slice(5, 7)) - 1];
+  if (a.slice(0, 7) === b.slice(0, 7)) return `${d(a)} a ${d(b)} de ${m(b)}`;
+  if (a.slice(0, 4) === b.slice(0, 4)) return `${d(a)} de ${m(a)} a ${d(b)} de ${m(b)}`;
+  return `${d(a)} de ${m(a)} de ${a.slice(0, 4)} a ${d(b)} de ${m(b)} de ${b.slice(0, 4)}`;
+}

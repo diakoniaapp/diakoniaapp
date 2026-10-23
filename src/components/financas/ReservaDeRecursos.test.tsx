@@ -74,3 +74,34 @@ describe("Saldo nas contas · Reservado · Saldo livre", () => {
     expect(document.body.querySelector("[role=dialog]")!.textContent).toContain("Projeto com Reserva Financeira");
   });
 });
+
+describe("no celular só o Saldo livre e o 'Sai/semana' ficam à vista (23/10/2026)", () => {
+  function montarComSai(saldo: number) {
+    const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
+    act(() => { raiz!.render(<MemoryRouter><IndicadoresDeSaldo recursos={montarRecursosReservados(saldo, [])} depoisDoLivre={<p>Sai/semana R$ 5.844,09</p>} /></MemoryRouter>); });
+    return alvo;
+  }
+  it("o que vem em depoisDoLivre aparece ao lado do Saldo livre", () => {
+    const el = montarComSai(1000);
+    expect(el.textContent).toContain("Sai/semana R$ 5.844,09");
+  });
+  it("Saldo nas contas e Reservado ficam escondidos (só no celular, por classe) até 'Ver detalhamento'", () => {
+    const el = montarComSai(1000);
+    const contas = el.querySelector("[data-saldo-contas]")!.parentElement as HTMLElement;
+    const reservado = el.querySelector("button[aria-label^='Reservado']") as HTMLElement;
+    expect(contas.className).toContain("max-sm:hidden");
+    expect(reservado.className).toContain("max-sm:hidden");
+    const alternar = el.querySelector("[data-ver-detalhamento]") as HTMLButtonElement;
+    expect(alternar.textContent).toBe("Detalhar →");
+    expect(alternar.className).toContain("sm:hidden");   // no computador o botão nem existe
+    act(() => { alternar.click(); });
+    expect(contas.className).not.toContain("max-sm:hidden");
+    expect(reservado.className).not.toContain("max-sm:hidden");
+    expect(alternar.textContent).toBe("Ocultar");
+  });
+  it("no computador os três continuam à mostra: nenhuma classe esconde sem o prefixo do celular", () => {
+    const el = montarComSai(1000);
+    const livre = [...el.querySelectorAll("p")].find(p => p.textContent === "Saldo livre")!.parentElement as HTMLElement;
+    expect(livre.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+  });
+});

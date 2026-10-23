@@ -38,9 +38,9 @@ let raiz: Root | null = null;
 beforeAll(() => { (Element.prototype as unknown as { hasPointerCapture?: () => boolean }).hasPointerCapture ??= () => false; });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; pedidos.length = 0; chamadas.length = 0; mudou = 0; });
 
-async function abrir(podeOperar = true) {
+async function abrir(podeOperar = true, modo: "mes" | "semana" = "mes") {
   const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
-  await act(async () => { raiz!.render(<MemoryRouter><CalendarioDeVencimentos hoje="2026-10-20" podeOperar={podeOperar} chaveDeAtualizacao={0} onMudou={() => { mudou++; }} /></MemoryRouter>); });
+  await act(async () => { raiz!.render(<MemoryRouter><CalendarioDeVencimentos hoje="2026-10-20" podeOperar={podeOperar} chaveDeAtualizacao={0} modo={modo} onMudou={() => { mudou++; }} /></MemoryRouter>); });
   await act(async () => { await new Promise(r => setTimeout(r, 30)); });
   return alvo;
 }
@@ -152,5 +152,53 @@ describe("Calendário de vencimentos", () => {
     await clicar([...el.querySelectorAll("button")].find(b => b.textContent === "Hoje")!);
     expect(el.textContent).toContain("outubro de 2026");
     expect(el.querySelector("[data-dia-aberto]")!.getAttribute("data-dia-aberto")).toBe("2026-10-20");
+  });
+});
+
+describe("Calendário no modo SEMANA — a agenda do celular (23/10/2026)", () => {
+  it("lê só a semana (domingo a sábado) que contém hoje e desenha 7 dias, com a lista de hoje embaixo", async () => {
+    cenario();
+    const el = await abrir(true, "semana");
+    expect(pedidos).toEqual([{ de: "2026-10-18", ate: "2026-10-24" }]);
+    expect(el.querySelector("[data-periodo]")?.textContent).toBe("18 a 24 de outubro");
+    expect(el.querySelectorAll("[data-dia]")).toHaveLength(7);
+    expect(el.querySelectorAll("[role=columnheader]")).toHaveLength(7);
+    expect(el.querySelector("[data-dia-aberto]")?.getAttribute("data-dia-aberto")).toBe("2026-10-20");   // hoje já vem escolhido
+  });
+  it("cada dia da semana leva o total e o tom, como na grade", async () => {
+    cenario();
+    const el = await abrir(true, "semana");
+    expect(celula(el, "2026-10-19").dataset.tom).toBe("aguardando");   // débito aguardando o banco
+    expect(celula(el, "2026-10-20").dataset.tom).toBe("vazio");
+    expect(celula(el, "2026-10-19").textContent).toContain("99");
+  });
+  it("tocar noutro dia mostra as obrigações dele; tocar de novo no escolhido NÃO o desmarca (a semana precisa de um dia)", async () => {
+    cenario();
+    const el = await abrir(true, "semana");
+    await clicar(celula(el, "2026-10-19"));
+    expect(el.querySelector("[data-dia-aberto]")?.getAttribute("data-dia-aberto")).toBe("2026-10-19");
+    expect(el.textContent).toContain("Verisure");
+    await clicar(celula(el, "2026-10-19"));
+    expect(el.querySelector("[data-dia-aberto]")?.getAttribute("data-dia-aberto")).toBe("2026-10-19");
+  });
+  it("as setas andam de semana em semana (e a leitura acompanha); 'Hoje' volta", async () => {
+    cenario();
+    const el = await abrir(true, "semana");
+    await clicar(el.querySelector("[aria-label='Próxima semana']")!);
+    expect(pedidos.at(-1)).toEqual({ de: "2026-10-25", ate: "2026-10-31" });
+    expect(el.querySelector("[data-periodo]")?.textContent).toBe("25 a 31 de outubro");
+    expect(celula(el, "2026-10-25").dataset.tom).toBe("aberto");
+    await clicar(el.querySelector("[aria-label='Semana anterior']")!);
+    await clicar(el.querySelector("[aria-label='Semana anterior']")!);
+    expect(el.querySelector("[data-periodo]")?.textContent).toBe("11 a 17 de outubro");
+    await clicar([...el.querySelectorAll("button")].find(b => b.textContent === "Hoje")!);
+    expect(el.querySelector("[data-periodo]")?.textContent).toBe("18 a 24 de outubro");
+  });
+  it("a semana reaproveita o bloco do dia da grade (mesmas linhas e ações do Livro)", async () => {
+    cenario();
+    const el = await abrir(true, "semana");
+    await clicar(celula(el, "2026-10-19"));
+    expect(el.textContent).toContain("Verisure");
+    expect(el.querySelector("[data-modo='semana']")).not.toBeNull();
   });
 });

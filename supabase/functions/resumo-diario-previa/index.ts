@@ -1,5 +1,7 @@
 // ─── resumo-diario-previa — VISUALIZAR o e-mail diário da Tesouraria e mandar um e-mail de TESTE (22/10/2026) ───────────────────────────────────────────
 //
+//   { acao: "agora" } → ENVIA o e-mail de hoje aos destinatários cadastrados, na hora, e registra o que foi listado (o mesmo envio do agendamento). Ignora o interruptor e os dias da semana; recusa se não há destinatário,
+//                       se já saiu um há menos de 20 minutos ou se não há nada a pagar. Responde só contagens e o motivo (23/10/2026: botão "Enviar agora" do painel Resumo diário).
 //   (opcional nos dois: `incluir_sigilosos` — a escolha ainda não salva que a tela está mostrando; sem ela vale a configuração salva)
 //   { acao: "previa" } → devolve { assunto, html, texto, contagem, total } com os dados de AGORA, como o e-mail das 7h sairia. NADA é enviado e nada é registrado.
 //   { acao: "teste"  } → manda esse e-mail, marcado "[TESTE]", SÓ para o e-mail cadastrado de quem pediu (nunca um endereço vindo da chamada). NÃO registra "já enviado" (não conta como envio).
@@ -9,7 +11,8 @@
 // Implantação: `supabase functions deploy resumo-diario-previa` (com verificação de JWT, o padrão). Depende da migration 20261022210000.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
+import { motivoDeNaoEnviarAgora, prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
+import { enviarDiarioAosDestinatarios } from "../_shared/pagamentos/enviarDiario.ts";
 import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
@@ -31,7 +34,7 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const corpo = await req.json().catch(() => ({})) as { acao?: string; incluir_sigilosos?: boolean };
-  if (corpo.acao !== "previa" && corpo.acao !== "teste") return resposta({ erro: "Ação desconhecida." }, 400);
+  if (corpo.acao !== "previa" && corpo.acao !== "teste" && corpo.acao !== "agora") return resposta({ erro: "Ação desconhecida." }, 400);
 
   // quem chama: sessão válida E papel de admin ou diakonia
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -39,7 +42,7 @@ Deno.serve(async (req) => {
   if (sessao.error || !sessao.data.user) return resposta({ erro: "Faça login para visualizar ou testar o resumo diário." }, 401);
   const usuario = sessao.data.user;
   const { data: papeis } = await supabase.from("user_roles").select("role").eq("user_id", usuario.id).in("role", ["admin", "diakonia"]);
-  if (!papeis || papeis.length === 0) return resposta({ erro: "Só a administração pode visualizar ou testar o resumo diário." }, 403);
+  if (!papeis || papeis.length === 0) return resposta({ erro: "Só a administração pode visualizar, testar ou enviar o resumo diário." }, 403);
 
   try {
     const { data, error } = await supabase.rpc("resumo_diario_dados");
@@ -50,6 +53,18 @@ Deno.serve(async (req) => {
   dados.igreja_nome = await lerNomeDaIgreja(supabase);   // cabeçalho do e-mail (Identidade da Igreja)
     const preparo = prepararDiario(dados, corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo diário" : "PRÉVIA — nada foi enviado", typeof corpo.incluir_sigilosos === "boolean" ? corpo.incluir_sigilosos : undefined);
     const { email } = preparo;
+
+    if (corpo.acao === "agora") {
+      // sem o aviso de "PRÉVIA/TESTE": é o e-mail de verdade, igual ao do agendamento. Nenhuma escolha vinda da chamada vale aqui — o que sai é o que a configuração salva manda.
+      const real = prepararDiario(dados);
+      const motivo = motivoDeNaoEnviarAgora(dados, real);
+      if (motivo) return resposta({ ok: true, enviados: 0, motivo, destinatarios: dados.destinatarios.length });
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (!resendApiKey) return resposta({ erro: "RESEND_API_KEY não configurada — ver Project Settings → Edge Functions → Secrets" }, 500);
+      const r = await enviarDiarioAosDestinatarios(supabase, resendApiKey, REMETENTE, dados, real);
+      if (!r.ok) return resposta({ erro: r.erro, detalhe: r.detalhe }, 502);
+      return resposta({ ok: true, enviados: r.enviados, falharam: r.falharam, itens: r.itens, reembolsos: r.reembolsos, registrados: r.registrados });
+    }
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, contagem: email.contagem, total: email.total, hoje: dados.hoje });
 

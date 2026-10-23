@@ -51,6 +51,14 @@ export function prepararDiario(d: DadosDoDiario, aviso?: string, incluirSigiloso
 export function motivoDeNaoEnviar(d: DadosDoDiario, preparo: PreparoDoDiario, agora = Date.now()): MotivoDeNaoEnviar | null {
   if (!d.config.ativo) return "desligado";
   if (!d.config.dias_semana.includes(d.dow)) return "fora_dos_dias";
+  return motivoDeNaoEnviarAgora(d, preparo, agora);
+}
+
+/**
+ * O botão "Enviar agora" do painel Resumo diário (23/10/2026): alguém da administração manda o e-mail de hoje aos destinatários, na hora. Vale o que protege de erro — sem destinatário, repetição
+ * em 20 minutos (duplo clique) e nada a pagar —, mas NÃO o interruptor nem os dias da semana: é um envio pedido por uma pessoa, não o agendamento.
+ */
+export function motivoDeNaoEnviarAgora(d: DadosDoDiario, preparo: PreparoDoDiario, agora = Date.now()): MotivoDeNaoEnviar | null {
   if (d.destinatarios.length === 0) return "sem_destinatarios";
   if (d.ultimo_envio_geral && agora - new Date(d.ultimo_envio_geral).getTime() < INTERVALO_MINIMO_ENTRE_ENVIOS_MS) return "enviado_ha_pouco";
   // reembolso aprovado a pagar também é "algo a pagar": o e-mail sai mesmo sem nenhuma conta a pagar

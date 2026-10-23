@@ -60,9 +60,10 @@ describe("endereço antigo dos Insights e abertura da Mesa", () => {
     expect(readFileSync("src/pages/PainelTesouraria.tsx", "utf8")).toContain(`get("analises") === "1"`);
   });
 
-  it("a Mesa abre sempre no Calendário; o botão do Calendário vem primeiro e a Fila só por troca ou ?mesa=fila", () => {
+  it("no computador a Mesa abre sempre no Calendário (a Fila só por troca ou ?mesa=fila); no celular abre na Semana", () => {
     const mesa = readFileSync("src/components/financas/MesaDoTesoureiro.tsx", "utf8");
-    expect(mesa).toContain(`naUrl.mesa === "fila" ? "fila" : "calendario"`);
-    expect(mesa).toContain(`(["calendario", "fila"] as const).map(v => (`);
+    expect(mesa).toContain(`naUrl.mesa === "fila" ? "fila" : naUrl.mesa === "calendario" ? "calendario" : noCelular ? "semana" : "calendario"`);
+    expect(mesa).toContain(`["calendario", "fila"] as const).map(v => (`);
+    expect(mesa).toContain(`["semana", "calendario", "fila"] as const`);
   });
 });

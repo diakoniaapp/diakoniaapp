@@ -174,11 +174,13 @@ export async function salvarResumoDiario(config: ResumoDiarioConfig, destinatari
   if (error) throw error;
 }
 
-async function chamarPreviaDoDiario(acao: "previa" | "teste", incluirSigilosos?: boolean) {
+async function chamarPreviaDoDiario(acao: "previa" | "teste" | "agora", incluirSigilosos?: boolean) {
   const { data, error } = await supabase.functions.invoke("resumo-diario-previa", { body: { acao, ...(incluirSigilosos === undefined ? {} : { incluir_sigilosos: incluirSigilosos }) } });
   if (error) {
     let msg = error.message;
     try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }
+    // a função implantada antes do "Enviar agora" não conhece a ação e responde isto
+    if (acao === "agora" && /Ação desconhecida/i.test(msg)) msg = "O \"Enviar agora\" ainda não foi implantado no Supabase — reimplante a função resumo-diario-previa.";
     if (/Failed to send a request|Function not found|NOT_FOUND|404/i.test(msg)) {
       msg = "A função do e-mail diário ainda não foi implantada no Supabase (resumo-diario-previa) — veja docs/RESUMO_DIARIO_IMPLANTACAO.md.";
     }
@@ -197,4 +199,14 @@ export async function previaDoResumoDiario(incluirSigilosos?: boolean): Promise<
 export async function enviarTesteDoResumoDiario(incluirSigilosos?: boolean): Promise<{ enviadoPara: string; itens: number }> {
   const r = await chamarPreviaDoDiario("teste", incluirSigilosos);
   return { enviadoPara: r.enviadoPara ?? "", itens: r.itens ?? 0 };
+}
+
+/** Por que o "Enviar agora" não enviou (o servidor recusa em vez de errar): sem destinatário, já saiu um há menos de 20 minutos, ou nada a pagar. */
+export type MotivoDoEnvioAgora = "sem_destinatarios" | "enviado_ha_pouco" | "nada_a_pagar";
+export interface ResultadoDoEnvioAgora { enviados: number; falharam: number; itens: number; reembolsos: number; motivo?: MotivoDoEnvioAgora; destinatarios?: number }
+
+/** Manda o e-mail diário de HOJE aos destinatários cadastrados, na hora (mesmo envio e mesmo registro do agendamento). Só admin e diakonia. */
+export async function enviarResumoDiarioAgora(): Promise<ResultadoDoEnvioAgora> {
+  const r = await chamarPreviaDoDiario("agora");
+  return { enviados: r.enviados ?? 0, falharam: r.falharam ?? 0, itens: r.itens ?? 0, reembolsos: r.reembolsos ?? 0, motivo: r.motivo, destinatarios: r.destinatarios };
 }

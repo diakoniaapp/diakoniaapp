@@ -103,6 +103,7 @@ import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDi
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { FixarFavoritoDialog } from "@/components/financas/FixarFavoritoDialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { MissoesDrawer } from "@/components/financas/MissoesDrawer";
 import { RemessaMissionariaDetalheDrawer } from "@/components/financas/RemessaMissionariaDetalheDrawer";
 import { listarFavoritos, desfixarFavorito, type FinFavorito } from "@/services/favoritosService";
@@ -523,13 +524,65 @@ export default function PainelTesouraria() {
   // vencimentos, tipo diferente) — só o `id`+rótulo importam pro diálogo.
   const [anexosVencimento, setAnexosVencimento] = useState<{ id: string; label: string } | null>(null);
 
+  // O "+" do celular (23/10/2026): as quatro ações de "Meu trabalho" num lugar só, sempre à mão — a faixa de botões ocupava três linhas antes da agenda.
+  const [acoesDoCelular, setAcoesDoCelular] = useState(false);
+  const [pedidoDeNota, setPedidoDeNota] = useState(0);
+  const fazer = (acao: () => void) => { setAcoesDoCelular(false); acao(); };
+  const saiNaSemana = (
+    <div className="text-right max-sm:text-left">
+      <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Sai/semana</p>
+      <p className="text-sm font-bold tabular-nums text-destructive-text">{brl(valorSemanaPagar)}</p>
+    </div>
+  );
+
+  // As quatro áreas. No computador moram DENTRO do cabeçalho fixo; no celular (23/10/2026) o cabeçalho rola junto da página e SÓ as abas ficam fixas.
+  const abasDoWorkspace = (
+    <>
+      {([
+        ["operacoes", "1 Operações"], ["gestao", "2 Gestão"],
+        ["cadastros", "3 Cadastros"], ["fechamento", "4 Fechamento"],
+      ] as [Aba, string][]).map(([chave, rotulo]) => (
+        <button key={chave} type="button" onClick={() => setAba(chave)}
+          className={`text-xs font-bold pb-2 border-b-2 whitespace-nowrap ${
+            aba === chave ? "border-gold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}>
+          {rotulo}
+        </button>
+      ))}
+    </>
+  );
+
+  // Os favoritos: no computador logo abaixo de "Meu trabalho"; no celular, numa linha só com rolagem lateral, DEPOIS da agenda (a ordem que ela pediu).
+  const favoritosDaTesouraria = (rolagemLateral: boolean) => (
+    <section className={rolagemLateral ? "flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" : "flex flex-wrap items-center gap-1.5"}>
+      <span className="text-2xs font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
+        Favoritos
+      </span>
+      {favoritos.map(f => (
+        <span key={f.id} className="inline-flex items-center gap-1 rounded-full border bg-card pl-2.5 pr-1 py-1 text-xs shrink-0">
+          <Link to={f.rota} className="flex items-center gap-1 font-medium hover:text-gold-text whitespace-nowrap">
+            <Star className="w-3 h-3 text-gold fill-gold shrink-0" /> {f.rotulo}
+          </Link>
+          <button type="button" onClick={() => removerFavorito(f.id)} title="Desfixar"
+            className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <X className="w-3 h-3" />
+          </button>
+        </span>
+      ))}
+      <button type="button" onClick={() => setFixarAberto(true)}
+        className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/40 shrink-0 whitespace-nowrap">
+        <Plus className="w-3 h-3" /> Fixar novo atalho
+      </button>
+    </section>
+  );
+
   return (
-    <div className="p-6 space-y-4 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-4 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* Mesma largura e mesmo cabeçalho fixo do Painel Pastoral e do Painel
           da Secretaria — ver os comentários de largura naqueles dois
           arquivos, resolvidos em 27/08/2026. A faixa de indicadores é o
           índice da tela. */}
-      <div className="sticky top-0 z-20 bg-background -mx-6 px-6 -mt-6 pt-6 pb-3 space-y-3 border-b">
+      <div className="md:sticky md:top-0 md:z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 -mt-4 sm:-mt-6 pt-4 sm:pt-6 pb-3 space-y-3 md:border-b">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-serif text-2xl flex items-center gap-2">
@@ -551,18 +604,15 @@ export default function PainelTesouraria() {
               visão mensal completa); `valorSemanaReceber` é o par do lado
               ENTRADA que só faltava calcular. */}
           {resumo && (
-            <div className="flex items-center gap-4">
-              {/* Saldo nas contas · Reservado · Saldo livre — o "Disponível" somava dinheiro que já tem destino (ver ReservaDeRecursos.tsx) */}
-              {recursos && <IndicadoresDeSaldo recursos={recursos} />}
-              <div className="w-px h-7 bg-border" />
-              <div className="text-right">
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Sai/semana</p>
-                <p className="text-sm font-bold tabular-nums text-destructive-text">{brl(valorSemanaPagar)}</p>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 max-md:order-3 max-md:basis-full">
+              {/* Saldo nas contas · Reservado · Saldo livre — o "Disponível" somava dinheiro que já tem destino (ver ReservaDeRecursos.tsx). No celular só o Saldo livre e o Sai/semana ficam à vista. */}
+              {recursos
+                ? <IndicadoresDeSaldo recursos={recursos} depoisDoLivre={saiNaSemana} />
+                : <>{saiNaSemana}</>}
               {aba !== "operacoes" && (
                 <>
-                  <div className="w-px h-7 bg-border" />
-                  <div className="text-right">
+                  <div className="w-px h-7 bg-border max-sm:hidden" />
+                  <div className="text-right max-sm:text-left">
                     <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({eclRotuloDoPeriodo})</p>
                     <p className="text-sm font-bold tabular-nums text-info-text">{brl(arrecTotalAtual)}</p>
                   </div>
@@ -574,16 +624,16 @@ export default function PainelTesouraria() {
           <Button
             type="button" variant="ghost" size="sm"
             onClick={carregar} disabled={carregando}
-            className="gap-1.5 text-xs shrink-0"
+            className="gap-1.5 text-xs shrink-0 max-md:order-2"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} />
-            Atualizar
+            <span className="max-sm:sr-only">Atualizar</span>
           </Button>
         </div>
 
         {/* ── Resumo em linguagem natural ──────────────────────────────── */}
         {fiscal && aba !== "fechamento" && (
-          <p className="text-sm text-muted-foreground flex items-start gap-1.5">
+          <p className={`text-sm text-muted-foreground flex items-start gap-1.5 ${aba === "operacoes" ? "max-md:hidden" : ""}`}>
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
               {resumoNatural(fiscal, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
@@ -612,20 +662,11 @@ export default function PainelTesouraria() {
             agora vivem em abas diferentes, e um índice cujo alvo muda de
             aba a cada clique não serve mais pra nada — a própria aba já
             é o índice. */}
-        <nav className="flex gap-5 -mb-3 pt-1 overflow-x-auto">
-          {([
-            ["operacoes", "1 Operações"], ["gestao", "2 Gestão"],
-            ["cadastros", "3 Cadastros"], ["fechamento", "4 Fechamento"],
-          ] as [Aba, string][]).map(([chave, rotulo]) => (
-            <button key={chave} type="button" onClick={() => setAba(chave)}
-              className={`text-xs font-bold pb-2 border-b-2 whitespace-nowrap ${
-                aba === chave ? "border-gold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}>
-              {rotulo}
-            </button>
-          ))}
-        </nav>
+        <nav className="hidden md:flex gap-5 -mb-3 pt-1 overflow-x-auto">{abasDoWorkspace}</nav>
       </div>
+
+      {/* só no celular: as abas ficam fixas no topo enquanto o resto da página rola */}
+      <nav className="md:hidden sticky top-0 z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 !mt-0 pt-2 border-b flex gap-3 sm:gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Áreas do Workspace">{abasDoWorkspace}</nav>
 
       {erro && (
         <p className="text-sm text-destructive-text border border-destructive-line rounded-md px-3 py-2">
@@ -648,7 +689,7 @@ export default function PainelTesouraria() {
               menu ou não existiam soltos nenhum lugar. `LancamentoForm` e
               `TransferenciaForm` já aceitam conta opcional — nenhum dos
               dois precisou de prop nova pra funcionar solto aqui. */}
-          <section className="flex flex-wrap items-center gap-1.5">
+          <section className="hidden md:flex flex-wrap items-center gap-1.5">
             <span className="text-2xs font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
               Meu trabalho
             </span>
@@ -668,9 +709,7 @@ export default function PainelTesouraria() {
               onClick={abrirImportacao}>
               <Download className="w-3 h-3" /> Importar extrato
             </Button>
-            <Button asChild type="button" variant="outline" size="sm" className="h-7 rounded-full gap-1.5 text-xs">
-              <Link to="/financas/prestacao-de-contas"><Archive className="w-3 h-3" /> Fechar o mês</Link>
-            </Button>
+            {/* "Fechar o mês" saiu daqui (23/10/2026): levava à Prestação de Contas (um relatório), e o fechamento de verdade é a aba "4 Fechamento". Na virada do mês a Mesa mostra um aviso com o andamento. */}
           </section>
 
           {/* ── Favoritos da tesouraria ──────────────────────────────────
@@ -679,26 +718,7 @@ export default function PainelTesouraria() {
               "Também pertencem ao usuário e não à área", pedido dela — por
               isso continuam visíveis independente de qual seção da tela se
               está olhando. */}
-          <section className="flex flex-wrap items-center gap-1.5">
-            <span className="text-2xs font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
-              Favoritos
-            </span>
-            {favoritos.map(f => (
-              <span key={f.id} className="inline-flex items-center gap-1 rounded-full border bg-card pl-2.5 pr-1 py-1 text-xs">
-                <Link to={f.rota} className="flex items-center gap-1 font-medium hover:text-gold-text">
-                  <Star className="w-3 h-3 text-gold fill-gold shrink-0" /> {f.rotulo}
-                </Link>
-                <button type="button" onClick={() => removerFavorito(f.id)} title="Desfixar"
-                  className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-            <button type="button" onClick={() => setFixarAberto(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-foreground/40">
-              <Plus className="w-3 h-3" /> Fixar novo atalho
-            </button>
-          </section>
+          <div className={aba === "operacoes" ? "hidden md:block" : ""}>{favoritosDaTesouraria(false)}</div>
 
           {aba === "operacoes" && (
           <>
@@ -710,6 +730,8 @@ export default function PainelTesouraria() {
               docs/OPERACOES_MESA_DO_TESOUREIRO.md. */}
           <section id="operar">
             <MesaDoTesoureiro
+              aposAAgenda={favoritosDaTesouraria(true)}
+              pedidoDeNotaQuitada={pedidoDeNota}
               chaveDeAtualizacao={atualizadoEm?.getTime() ?? 0}
               onPagar={(v) => acoes.pagar(v)}
               onAnexo={(a) => setAnexosVencimento(a)}
@@ -1198,6 +1220,34 @@ export default function PainelTesouraria() {
         lancamento={remessaEditando}
         onSaved={() => { carregar(); carregarMissoesRemessa(); setRemessaEditando(null); }}
       />
+      <button type="button" onClick={() => setAcoesDoCelular(true)} aria-label="Ações rápidas" data-acoes-do-celular
+        className="md:hidden fixed right-3 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 h-11 w-11 rounded-full bg-gold text-gold-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform">
+        <Plus className="w-5 h-5" />
+      </button>
+      <Sheet open={acoesDoCelular} onOpenChange={setAcoesDoCelular}>
+        <SheetContent side="bottom">
+          <SheetHeader className="text-left"><SheetTitle className="font-serif">Ações rápidas</SheetTitle></SheetHeader>
+          <div className="grid gap-2 py-4">
+            <Button type="button" variant="outline" className="h-12 justify-start gap-3 text-sm" onClick={() => fazer(() => setNovoLancamentoAberto("saida"))}>
+              <Plus className="w-4 h-4" /> Novo lançamento
+            </Button>
+            <Button type="button" variant="outline" className="h-12 justify-start gap-3 text-sm" onClick={() => fazer(() => setNovoLancamentoAberto("entrada"))}>
+              <ArrowDownCircle className="w-4 h-4" /> Registrar recebimento
+            </Button>
+            <Button type="button" variant="outline" className="h-12 justify-start gap-3 text-sm" onClick={() => fazer(() => setTransferenciaAberta(true))}>
+              <ArrowLeftRight className="w-4 h-4" /> Transferir
+            </Button>
+            <Button type="button" variant="outline" className="h-12 justify-start gap-3 text-sm" onClick={() => fazer(abrirImportacao)}>
+              <Download className="w-4 h-4" /> Importar extrato
+            </Button>
+            {aba === "operacoes" && (
+              <Button type="button" variant="ghost" className="h-12 justify-start gap-3 text-sm" onClick={() => fazer(() => setPedidoDeNota(n => n + 1))}>
+                <FileText className="w-4 h-4" /> NF já quitada por terceiro
+              </Button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
       <FixarFavoritoDialog
         open={fixarAberto}
         onOpenChange={setFixarAberto}

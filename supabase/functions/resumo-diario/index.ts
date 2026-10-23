@@ -23,6 +23,7 @@ import { motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../_share
 import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
+import { enviarDiarioAosDestinatarios } from "../_shared/pagamentos/enviarDiario.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const CORS = {
@@ -57,30 +58,9 @@ Deno.serve(async (req) => {
     return resposta({ ok: true, enviados: 0, motivo });
   }
 
-  const envios = await Promise.all(dados.destinatarios.map(async d => {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: REMETENTE, to: [d.email], subject: preparo.email.assunto, html: preparo.email.html, text: preparo.email.texto }),
-    });
-    return r.ok ? { ok: true as const } : { ok: false as const, detalhe: await r.text() };
-  }));
-  const enviados = envios.filter(e => e.ok).length;
-  const falharam = envios.length - enviados;
-  if (enviados === 0) return resposta({ erro: "Falha ao enviar pelo Resend", detalhe: envios.filter(e => !e.ok) }, 502);
-
-  // o registro do que foi listado (é o que evita o pagamento em duplicidade no e-mail seguinte). Uma falha aqui não desfaz o envio — só é avisada.
-  // os reembolsos entram no mesmo registro (a obrigação-raiz é a chave): quem pagou ontem pode ainda não ter dado baixa
-  let registrados = 0;
-  const registro = [
-    ...preparo.email.listados.map(i => ({ lancamento_id: i.id, valor: i.valor, vencimento: i.vencimento, destinatarios: enviados })),
-    ...preparo.email.reembolsosListados.filter(r => r.obrigacao_id).map(r => ({ lancamento_id: r.obrigacao_id as string, valor: r.valor, vencimento: r.data_despesa ?? null, destinatarios: enviados })),
-  ];
-  if (registro.length > 0) {
-    const { error: eReg } = await supabase.from("resumo_diario_enviados").insert(registro);
-    if (!eReg) registrados = registro.length;
-  }
+  const r = await enviarDiarioAosDestinatarios(supabase, resendApiKey, REMETENTE, dados, preparo);
+  if (!r.ok) return resposta({ erro: r.erro, detalhe: r.detalhe }, 502);
 
   // Resposta enxuta: esta função é alcançável sem login. Contagens, nunca destinatário nem conteúdo.
-  return resposta({ ok: true, enviados, falharam, itens: preparo.email.listados.length, reembolsos: preparo.email.reembolsosListados.length, registrados });
+  return resposta({ ok: true, enviados: r.enviados, falharam: r.falharam, itens: r.itens, reembolsos: r.reembolsos, registrados: r.registrados });
 });

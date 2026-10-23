@@ -62,3 +62,14 @@ Atenção a dois achados nos dados:
 ## Quem recebe
 
 Uma lista própria, **separada dos perfis do resumo semanal**: pessoas do Cadastro de Pessoas com e-mail (os tesoureiros não precisam ter login). A tela busca pelo nome e adiciona; só se liga com ao menos um destinatário.
+
+## O painel "Resumo diário" da Mesa e o "Enviar agora" (23/10/2026)
+
+O botão **Preparar envio** do cartão da agenda virou **Resumo diário** e abre um painel: ligado/desligado, **último envio**, **próximo envio**, destinatários, **Visualizar**, **Enviar agora** e **Configurar** (admin e diakonia); o envio manual de antes (escolher itens, WhatsApp, ZIP) fica dentro do painel até a Fase 2 (anexos). Quem não é da administração só vê o atalho do envio manual.
+
+- **Banco:** nada a aplicar.
+- **Funções — reimplantar (nesta ordem):**
+  1. `supabase functions deploy resumo-diario-previa` — ganhou a ação `agora`. **Sem isso o botão "Enviar agora" responde "ainda não foi implantado"; o resto do painel funciona.**
+  2. `supabase functions deploy resumo-diario --no-verify-jwt` — passou a usar o envio compartilhado (`_shared/pagamentos/enviarDiario.ts`); o comportamento é o mesmo, mas convém reimplantar para as duas funções não divergirem.
+- **O que o "Enviar agora" faz:** manda o e-mail de hoje a TODOS os destinatários cadastrados, na hora, e registra o que foi listado (o mesmo registro do agendamento, que alimenta o "já enviado em…" do e-mail seguinte). **Ignora** o interruptor e os dias da semana. **Recusa** (sem erro, com aviso) se não há destinatário, se já saiu um resumo há menos de 20 minutos ou se não há nada a pagar. Pede confirmação na tela, dizendo para quem vai.
+- Só admin e diakonia (a função confere sessão e papel por dentro, como a prévia e o teste).

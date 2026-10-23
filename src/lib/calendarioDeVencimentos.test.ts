@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alertasDoDia, gradeDoMes, limitesDoMesDoCalendario, mesDe, somarMeses, tomDoDia } from "./calendarioDeVencimentos";
+import { alertasDoDia, gradeDoMes, limitesDoMesDoCalendario, mesDe, rotuloDaSemana, semanaDe, somarDias, somarMeses, tomDoDia } from "./calendarioDeVencimentos";
 import type { LinhaDoExtrato } from "./extratoDeObrigacoes";
 
 const linha = (o: Partial<LinhaDoExtrato>): LinhaDoExtrato => ({
@@ -78,5 +78,34 @@ describe("alertasDoDia — quantas pedem atenção (a linha de alerta da célula
   });
   it("cancelada não conta", () => {
     expect(alertasDoDia(dia({ situacao: "cancelada", data: "2026-10-01" }), hoje).vencidas).toBe(0);
+  });
+});
+
+describe("a semana do celular", () => {
+  it("vai de domingo a sábado e contém o dia pedido", () => {
+    const s = semanaDe("2026-10-23");   // sexta
+    expect(s.inicio).toBe("2026-10-18");
+    expect(s.fim).toBe("2026-10-24");
+    expect(s.dias.map(d => d.data)).toEqual(["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24"]);
+    expect(s.dias[0].dia).toBe(18);
+  });
+  it("domingo abre a própria semana; sábado fecha a dele", () => {
+    expect(semanaDe("2026-10-18").inicio).toBe("2026-10-18");
+    expect(semanaDe("2026-10-24").inicio).toBe("2026-10-18");
+  });
+  it("atravessa o mês e o ano sem escorregar um dia", () => {
+    expect(semanaDe("2026-09-30")).toMatchObject({ inicio: "2026-09-27", fim: "2026-10-03" });   // quarta: a semana atravessa o mês
+    expect(semanaDe("2026-10-31")).toMatchObject({ inicio: "2026-10-25", fim: "2026-10-31" });   // sábado: fecha a própria semana
+    expect(semanaDe("2027-01-01")).toMatchObject({ inicio: "2026-12-27", fim: "2027-01-02" });
+  });
+  it("soma dias, inclusive para trás e na virada do mês", () => {
+    expect(somarDias("2026-10-23", 7)).toBe("2026-10-30");
+    expect(somarDias("2026-10-30", 7)).toBe("2026-11-06");
+    expect(somarDias("2026-03-01", -1)).toBe("2026-02-28");
+  });
+  it("o rótulo diz a semana em português", () => {
+    expect(rotuloDaSemana(semanaDe("2026-10-23"))).toBe("18 a 24 de outubro");
+    expect(rotuloDaSemana(semanaDe("2026-09-30"))).toBe("27 de setembro a 3 de outubro");
+    expect(rotuloDaSemana(semanaDe("2027-01-01"))).toBe("27 de dezembro de 2026 a 2 de janeiro de 2027");
   });
 });

@@ -173,7 +173,7 @@ describe("o atraso vem da OBRIGAÇÃO; a data do documento aparece e, se diferir
   });
 });
 
-import { INTERVALO_MINIMO_ENTRE_ENVIOS_MS, motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../../supabase/functions/_shared/pagamentos/resumoDiario";
+import { INTERVALO_MINIMO_ENTRE_ENVIOS_MS, motivoDeNaoEnviar, motivoDeNaoEnviarAgora, prepararDiario, type DadosDoDiario } from "../../supabase/functions/_shared/pagamentos/resumoDiario";
 
 describe("motivoDeNaoEnviar — o envio agendado sai hoje?", () => {
   const dados = (o: Omit<Partial<DadosDoDiario>, "config"> & { config?: Partial<DadosDoDiario["config"]> } = {}): DadosDoDiario => ({
@@ -234,5 +234,76 @@ describe("a linha digitável INFORMADA no lançamento, sem anexo (23/10/2026 —
     expect(itemDoDia(cand({ linha_digitavel: "23793.38128 60007.827136 95000.063305 9 75520000010000" })).linha).toBe(informada);
     expect(itemDoDia(cand({ linha_digitavel: "   " })).origem).toBeNull();
     expect(itemDoDia(cand({ linha_digitavel: null })).origem).toBeNull();
+  });
+});
+
+describe("motivoDeNaoEnviarAgora — o botão 'Enviar agora' do painel Resumo diário (23/10/2026)", () => {
+  const dados = (o: Omit<Partial<DadosDoDiario>, "config"> & { config?: Partial<DadosDoDiario["config"]> } = {}): DadosDoDiario => ({
+    hoje: "2026-10-23", dow: 6, gerado_em: "2026-10-23T10:00:00Z", ultimo_envio_geral: null,
+    destinatarios: [{ nome: "Bruno", email: "bruno@x.org" }], itens: [cand({ anexos: [boleto()] })], ...o,
+    config: { ativo: false, dias_semana: [1, 2, 3, 4, 5], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: false, ...o.config },
+  });
+  const agora = (d: DadosDoDiario, t?: number) => motivoDeNaoEnviarAgora(d, prepararDiario(d), t);
+
+  it("ignora o interruptor e os dias da semana: desligado, num sábado, e mesmo assim envia (é um pedido de uma pessoa, não o agendamento)", () => {
+    const d = dados();
+    expect(motivoDeNaoEnviar(d, prepararDiario(d))).toBe("desligado");   // o agendamento não sairia
+    expect(agora(d)).toBeNull();                                         // o botão envia
+  });
+  it("mantém o que protege de erro: sem destinatário, repetição em 20 minutos e nada a pagar", () => {
+    expect(agora(dados({ destinatarios: [] }))).toBe("sem_destinatarios");
+    const t = Date.parse("2026-10-23T10:05:00Z");
+    expect(agora(dados({ ultimo_envio_geral: "2026-10-23T10:00:00Z" }), t)).toBe("enviado_ha_pouco");
+    expect(agora(dados({ ultimo_envio_geral: "2026-10-23T10:00:00Z" }), t + INTERVALO_MINIMO_ENTRE_ENVIOS_MS)).toBeNull();
+    expect(agora(dados({ itens: [] }))).toBe("nada_a_pagar");
+    expect(agora(dados({ itens: [], config: { enviar_sem_pagamentos: true } }))).toBeNull();
+  });
+  it("o agendamento segue igual: a ordem desligado → fora dos dias → o resto não mudou", () => {
+    const d = dados({ config: { ativo: true }, dow: 6 });
+    expect(motivoDeNaoEnviar(d, prepararDiario(d))).toBe("fora_dos_dias");
+    expect(motivoDeNaoEnviar(dados({ config: { ativo: true }, dow: 4, destinatarios: [] }), prepararDiario(dados({ config: { ativo: true }, dow: 4 })))).toBe("sem_destinatarios");
+  });
+});
+
+import { enviarDiarioAosDestinatarios } from "../../supabase/functions/_shared/pagamentos/enviarDiario";
+import { vi } from "vitest";
+
+describe("enviarDiarioAosDestinatarios — o envio e o registro que o agendamento e o 'Enviar agora' dividem", () => {
+  const d: DadosDoDiario = {
+    hoje: "2026-10-23", dow: 5, gerado_em: "2026-10-23T10:00:00Z", ultimo_envio_geral: null,
+    destinatarios: [{ nome: "Bruno", email: "bruno@x.org" }, { nome: "Lúcio", email: "lucio@x.org" }],
+    itens: [cand({ id: "l1", anexos: [boleto()] }), cand({ id: "l2", anexos: [boleto()] })],
+    config: { ativo: true, dias_semana: [5], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: false },
+  };
+  const bd = () => { const gravado: unknown[][] = []; return { gravado, cliente: { from: (t: string) => ({ insert: async (l: unknown[]) => { gravado.push([t, l]); return { error: null }; } }) } }; };
+
+  it("manda um e-mail para CADA destinatário e registra o que foi listado, uma vez", async () => {
+    const chamadas: { to: string[] }[] = [];
+    vi.stubGlobal("fetch", async (_u: string, init: { body: string }) => { chamadas.push(JSON.parse(init.body)); return { ok: true, text: async () => "" }; });
+    const { gravado, cliente } = bd();
+    const r = await enviarDiarioAosDestinatarios(cliente, "chave", "Diakonia <r@x.org>", d, prepararDiario(d));
+    vi.unstubAllGlobals();
+    expect(r).toMatchObject({ ok: true, enviados: 2, falharam: 0, itens: 2, registrados: 2 });
+    expect(chamadas.map(c => c.to[0]).sort()).toEqual(["bruno@x.org", "lucio@x.org"]);
+    expect(gravado).toHaveLength(1);
+    expect(gravado[0][0]).toBe("resumo_diario_enviados");
+    expect((gravado[0][1] as { lancamento_id: string; destinatarios: number }[]).map(l => [l.lancamento_id, l.destinatarios])).toEqual([["l1", 2], ["l2", 2]]);
+  });
+  it("se um e-mail falha e o outro sai, avisa quantos falharam e AINDA registra (o outro destinatário recebeu)", async () => {
+    let n = 0;
+    vi.stubGlobal("fetch", async () => (++n === 1 ? { ok: true, text: async () => "" } : { ok: false, text: async () => "caixa cheia" }));
+    const { gravado, cliente } = bd();
+    const r = await enviarDiarioAosDestinatarios(cliente, "chave", "Diakonia <r@x.org>", d, prepararDiario(d));
+    vi.unstubAllGlobals();
+    expect(r).toMatchObject({ ok: true, enviados: 1, falharam: 1 });
+    expect(gravado).toHaveLength(1);
+  });
+  it("se NENHUM sai, é erro e nada é registrado (o e-mail seguinte não pode dizer 'já enviado')", async () => {
+    vi.stubGlobal("fetch", async () => ({ ok: false, text: async () => "chave inválida" }));
+    const { gravado, cliente } = bd();
+    const r = await enviarDiarioAosDestinatarios(cliente, "chave", "Diakonia <r@x.org>", d, prepararDiario(d));
+    vi.unstubAllGlobals();
+    expect(r.ok).toBe(false);
+    expect(gravado).toHaveLength(0);
   });
 });
