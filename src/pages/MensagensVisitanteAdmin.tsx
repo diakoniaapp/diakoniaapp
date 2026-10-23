@@ -45,7 +45,7 @@ const BLOCOS: { flag: Flag; titulo: string; descricao: string }[] = [
   { flag: "incluir_endereco", titulo: "Endereço", descricao: "Onde fica a igreja." },
   { flag: "incluir_contato", titulo: "Contato", descricao: "Telefone e e-mail de contato." },
   { flag: "incluir_whatsapp", titulo: "WhatsApp", descricao: "Link para conversar com a equipe." },
-  { flag: "incluir_oracao", titulo: "Pedido de oração", descricao: "Link do formulário de pedido de oração." },
+  { flag: "incluir_oracao", titulo: "Pedido de oração", descricao: "Botão com o link do seu formulário de oração (externo, como o Google Forms): o DiakoniaApp ainda não tem formulário próprio." },
   { flag: "incluir_leitura", titulo: "Plano de leitura bíblica", descricao: "Link do plano de leitura." },
 ];
 
@@ -323,7 +323,7 @@ export default function MensagensVisitanteAdmin({ servico = SERVICO_REAL }: { se
                 <CardHeader className="pb-3"><CardTitle className="font-serif text-lg">Assinatura e links úteis</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   {campoTexto("ig-assinatura", "Assinatura", config.assinatura, LIMITES.assinatura, v => setC({ assinatura: v }), 3, "Fecha todas as mensagens. {{igreja}} vira o nome da Identidade.")}
-                  <div><Label htmlFor="ig-oracao">Formulário de pedido de oração</Label><Input id="ig-oracao" value={config.link_pedido_oracao} placeholder="https://…" onChange={e => setC({ link_pedido_oracao: e.target.value })} /></div>
+                  <div><Label htmlFor="ig-oracao">Formulário de pedido de oração (link externo)</Label><Input id="ig-oracao" value={config.link_pedido_oracao} placeholder="https://…" onChange={e => setC({ link_pedido_oracao: e.target.value })} /></div>
                   <div><Label htmlFor="ig-leitura">Plano de leitura bíblica</Label><Input id="ig-leitura" value={config.link_plano_leitura} placeholder="https://…" onChange={e => setC({ link_plano_leitura: e.target.value })} /></div>
                 </CardContent>
               </Card>
