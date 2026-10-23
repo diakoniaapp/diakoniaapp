@@ -457,7 +457,7 @@ export const pageTitles: Record<string, string> = {
   "/financas/extrato-de-obrigacoes": "Extrato de Obrigações",
   "/financas/doadores":       "Doadores",
   "/financas/sustento":       "Conta Corrente de Sustento",
-  "/financas/documentos":     "Central de Documentos",
+  "/financas/documentos":     "Importar documentos em lote",
   "/arrecadacao":            "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",

@@ -278,7 +278,7 @@ export function FechamentoMensal({ onConciliar }: Props) {
       <Etapa n={3} titulo="Prontidão" parte={doc}
         situacao={doc.estado === "ok" ? (doc.dados.resumo.pendencias > 0 ? "atencao" : "ok") : undefined}
         acao={<div className="flex flex-wrap gap-2">
-          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5"><Link to="/financas/documentos"><FileStack className="w-3.5 h-3.5" /> Anexar em lote</Link></Button>
+          <Button asChild size="sm" variant="outline" className="h-8 gap-1.5"><Link to="/financas/documentos"><FileStack className="w-3.5 h-3.5" /> Importar em lote</Link></Button>
           <Button asChild size="sm" variant="ghost" className="h-8 gap-1.5 text-xs"><Link to={`/financas/auditoria-anexos?mes=${ano}-${String(mes).padStart(2, "0")}`}><ClipboardCheck className="w-3.5 h-3.5" /> Tela cheia, com filtros</Link></Button>
         </div>}>
         {doc.estado === "ok" && <>

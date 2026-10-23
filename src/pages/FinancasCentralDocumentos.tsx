@@ -1,4 +1,8 @@
-// ─── FinancasCentralDocumentos.tsx — Central de Documentos Contábeis (v1) ────
+// ─── FinancasCentralDocumentos.tsx — "Importar documentos em lote" (antes: Central de Documentos Contábeis, v1) ────
+//
+// 23/10/2026 (decisão dela): a tela deixou de ser a "central" dos documentos. Ela nasceu para a MIGRAÇÃO (soltar pastas e deixar o sistema ler e sugerir o lançamento de cada arquivo); o dia a dia
+// da Tesouraria — "o que falta para fechar o mês?" — mora na Auditoria de documentos (Prontidão do malote). Por isso: novo nome, saída da primeira tela (a Mesa leva à Auditoria), o KPI do ano fica
+// só aqui (como andamento da regularização de 2026) e a tela aponta de volta para as pendências.
 //
 // Objetivo (Telma, 03/10/2026): selecionar uma PASTA com dezenas ou centenas de PDFs
 // e concluir a vinculação em poucos minutos. Foco: velocidade, simplicidade,
@@ -17,6 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ClipboardCheck } from "lucide-react";
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Download, FileStack, FolderOpen, Loader2, RotateCcw,
   Undo2, Upload, XCircle,
@@ -349,9 +354,12 @@ export default function FinancasCentralDocumentos() {
 
       <header className="flex items-start gap-3 flex-wrap">
         <div className="min-w-0 flex-1 basis-60">
-          <h1 className="font-serif text-2xl flex items-center gap-2"><FileStack className="w-5 h-5 text-gold shrink-0" /> Central de Documentos</h1>
-          <p className="text-sm text-muted-foreground">Solte uma pasta com os documentos: o sistema lê, sugere o lançamento de cada um e você confere.</p>
+          <h1 className="font-serif text-2xl flex items-center gap-2"><FileStack className="w-5 h-5 text-gold shrink-0" /> Importar documentos em lote</h1>
+          <p className="text-sm text-muted-foreground">Para quando você tem muitos arquivos de uma vez: solte uma pasta, o sistema lê, sugere o lançamento de cada um e você confere.</p>
         </div>
+        <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
+          <Link to="/financas/auditoria-anexos" data-voltar-pendencias><ClipboardCheck className="w-3.5 h-3.5" /> Ver o que falta (Auditoria)</Link>
+        </Button>
       </header>
 
       {/* 2. Entrada de arquivos */}
@@ -470,6 +478,11 @@ export default function FinancasCentralDocumentos() {
               )}
               {cont.gravados > 0 && <span className="text-success-text"> · {cont.gravados} já gravado(s)</span>}
             </p>
+            {lotes.length > 0 && (
+              <Button asChild size="sm" variant="ghost" className="gap-1.5 text-xs">
+                <Link to="/financas/auditoria-anexos" data-ver-o-que-falta><ClipboardCheck className="w-3.5 h-3.5" /> Ver o que ainda falta</Link>
+              </Button>
+            )}
             {lotes.length > 0 && (
               <Button size="sm" variant="outline" className="gap-1.5" onClick={desfazer} disabled={!!gravando}>
                 <Undo2 className="w-3.5 h-3.5" /> Desfazer o último lote ({lotes[lotes.length - 1].criados.length})

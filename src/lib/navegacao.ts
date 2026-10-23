@@ -153,7 +153,7 @@ export const TELAS: Tela[] = [
   T("/financas/sustento", "Conta Corrente de Sustento", "financeiro", { secao: "cadastros" }),
   // Fechamento
   T("/financas/fiscal", "Módulo Fiscal", "financeiro", { secao: "fechamento" }),
-  T("/financas/documentos", "Central de Documentos", "financeiro", { secao: "fechamento" }),
+  T("/financas/documentos", "Importar documentos em lote", "financeiro", { secao: "fechamento" }),
   T("/financas/auditoria-anexos", "Auditoria de documentos", "financeiro", { secao: "fechamento" }),
   T("/financas/reunioes", "Reuniões Financeiras", "financeiro", { secao: "fechamento" }),
   T("/financas/prestacao-de-contas", "Prestação de Contas", "financeiro", { secao: "fechamento" }),

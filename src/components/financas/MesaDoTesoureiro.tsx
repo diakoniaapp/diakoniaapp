@@ -48,6 +48,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import { useNoCelular } from "@/hooks/use-mobile";
 import { avisoDoFechamento } from "@/lib/avisoDoFechamento";
+import { auditoriaDoMes, chipsDeDocumentacao, mesDaAuditoria, pendenciasDaAuditoria } from "@/lib/documentacaoDaMesa";
 import {
   agruparVencimentos, coberturaDoCaixa, diasEntreDatas, montarChecklist, pendenciasDoChecklist,
   resumoDoCaixa, soma, totalAPagar, type ItemDoChecklist,
@@ -255,7 +256,9 @@ export function MesaDoTesoureiro({
   }
   const { aPagar, caixa, compromissos7, cobertura, ind, pagosHoje, semComprovante, checklist, porId } = derivados;
   // os itens do checklist que NÃO são um dos quatro números do topo (atrasadas, hoje e débitos já são números)
-  const tambemHoje = checklist.filter(i => !i.feito && !["atrasadas", "hoje", "debitos"].includes(i.chave));
+  // os documentos saem do checklist: viram UM CHIP POR MÊS (decisão dela, 23/10/2026), cada um levando à Auditoria daquele mês
+  const tambemHoje = checklist.filter(i => !i.feito && !["atrasadas", "hoje", "debitos", "documentos"].includes(i.chave));
+  const chipsDeDocs = chipsDeDocumentacao(hoje, dados.documentosAnterior, dados.documentos);
   const aviso = avisoDoFechamento(hoje, dados.documentosAnterior, dados.documentos);
   const irParaAFila = () => { setVisao("fila"); window.setTimeout(() => rolarPara("mesa-contas"), 60); };
 
@@ -297,18 +300,21 @@ export function MesaDoTesoureiro({
         </span>
       </div>
 
-      {tambemHoje.length > 0 ? (
+      {tambemHoje.length + chipsDeDocs.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-lg border bg-card px-3 py-2 text-xs" data-tambem-hoje>
           <span className="font-bold uppercase tracking-wide text-muted-foreground text-2xs max-md:hidden">Também hoje</span>
           {tambemHoje.map(i => {
             const acao = acaoDoItem(i.chave, { onImportarExtrato });
             const rotulo = <>{i.rotulo}<span className="text-muted-foreground"> · {i.detalhe}</span></>;
             const cls = "rounded-full border bg-background px-2.5 py-1 hover:bg-muted/60";
-            return i.chave === "documentos"
-              ? <Link key={i.chave} to="/financas/documentos" className={cls}>{rotulo}</Link>
-              : acao ? <button key={i.chave} type="button" onClick={acao} className={cls}>{rotulo}</button>
+            return acao ? <button key={i.chave} type="button" onClick={acao} className={cls}>{rotulo}</button>
               : <span key={i.chave} className={cls}>{rotulo}</span>;
           })}
+          {chipsDeDocs.map(c => (
+            <Link key={c.mes} to={c.para} data-chip-documentos={c.mes} className="rounded-full border bg-background px-2.5 py-1 hover:bg-muted/60">
+              {c.texto}<span className="text-muted-foreground"> · {c.detalhe}</span>
+            </Link>
+          ))}
         </div>
       ) : (
         <p className="text-xs text-success-text px-1" data-tambem-hoje>✓ Comprovantes, extrato e documentos em dia.</p>
@@ -427,12 +433,16 @@ export function MesaDoTesoureiro({
           {dados.documentos ? (
             <div className="space-y-2">
               {dados.documentosAnterior && (
-                <ResumoDeDocumentos rotulo={dados.documentosAnterior.rotulo} r={dados.documentosAnterior.resumo} />
+                <ResumoDeDocumentos rotulo={dados.documentosAnterior.rotulo} r={dados.documentosAnterior.resumo} para={auditoriaDoMes(mesDaAuditoria(hoje, -1))} />
               )}
-              <ResumoDeDocumentos rotulo="Este mês" r={dados.documentos} />
-              <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
-                <Link to="/financas/documentos"><FileText className="w-3 h-3" /> Abrir Central de Documentos</Link>
-              </Button>
+              <ResumoDeDocumentos rotulo="Este mês" r={dados.documentos} para={auditoriaDoMes(mesDaAuditoria(hoje))} />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Button asChild size="sm" variant="outline" className="h-7 gap-1 text-xs">
+                  {/* o mês com mais urgência: o anterior, enquanto ele ainda tem pendência; senão, o corrente */}
+                  <Link to={auditoriaDoMes(dados.documentosAnterior && pendenciasDaAuditoria(dados.documentosAnterior.resumo) > 0 ? mesDaAuditoria(hoje, -1) : mesDaAuditoria(hoje))} data-resolver-pendencias><FileText className="w-3 h-3" /> Resolver pendências</Link>
+                </Button>
+                <Link to="/financas/documentos" className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">Importar documentos em lote</Link>
+              </div>
             </div>
           ) : <p className="text-sm text-muted-foreground">Não foi possível calcular a cobertura agora.</p>}
         </Cartao>
@@ -482,7 +492,8 @@ export function MesaDoTesoureiro({
   );
 }
 
-function ResumoDeDocumentos({ rotulo, r }: { rotulo: string; r: { exigem: number; comDocumento: number; pendencias: number; cobertura: number } }) {
+function ResumoDeDocumentos({ rotulo, r, para }: { rotulo: string; r: { exigem: number; comDocumento: number; parciais: number; sem: number; administrativas: number; cobertura: number }; /** a Auditoria deste mês, já nas pendências */ para: string }) {
+  const pendencias = pendenciasDaAuditoria(r);   // o número que a Auditoria mostra em "Pendências"
   return (
     <div>
       <p className="text-xs font-semibold text-muted-foreground">{rotulo}</p>
@@ -493,7 +504,7 @@ function ResumoDeDocumentos({ rotulo, r }: { rotulo: string; r: { exigem: number
           <p className="text-xl font-extrabold tabular-nums leading-tight">{r.cobertura.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</p>
           <p className="text-xs text-muted-foreground">
             {r.comDocumento} de {r.exigem} com documentação completa
-            {r.pendencias > 0 && <> · <b className="text-warning-text">{r.pendencias} faltando</b></>}
+            {pendencias > 0 && <> · <Link to={para} className="font-bold text-warning-text underline underline-offset-2">{pendencias} {pendencias === 1 ? "pendência" : "pendências"}</Link>{r.administrativas > 0 && <span> ({r.parciais + r.sem} de documento · {r.administrativas} {r.administrativas === 1 ? "administrativa" : "administrativas"})</span>}</>}
           </p>
         </>
       )}

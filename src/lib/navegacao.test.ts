@@ -62,7 +62,7 @@ describe("casamento de rota", () => {
     expect(casarTela("/ebd/abc-123")!.params).toEqual({ classeId: "abc-123" });
   });
   it("ignora barra final, query e hash", () => {
-    expect(casarTela("/financas/documentos/")!.tela.titulo).toBe("Central de Documentos");
+    expect(casarTela("/financas/documentos/")!.tela.titulo).toBe("Importar documentos em lote");
     expect(casarTela("/financas/admin?aba=categorias")!.tela.titulo).toBe("Contas e categorias");
     expect(casarTela("/painel-tesouraria#ir-para")!.tela.titulo).toBe("Painel da Tesouraria");
   });
@@ -77,8 +77,8 @@ describe("casamento de rota", () => {
 });
 
 describe("a trilha (exemplos dela)", () => {
-  it("Home › Financeiro › Fechamento › Central de Documentos", () => {
-    expect(rotulos("/financas/documentos")).toEqual(["Home", "Financeiro", "Fechamento", "Central de Documentos"]);
+  it("Home › Financeiro › Fechamento › Importar documentos em lote", () => {
+    expect(rotulos("/financas/documentos")).toEqual(["Home", "Financeiro", "Fechamento", "Importar documentos em lote"]);
     // o módulo e a seção são links: a seção abre o Painel já na aba certa
     expect(alvos("/financas/documentos")).toEqual(["/", "/painel-tesouraria", "/painel-tesouraria#fechamento", null]);
   });
@@ -197,7 +197,7 @@ describe("histórico interno: o voltar não tira a pessoa do sistema", () => {
     t = registrarNaTrilha(t, 2, "/d", "PUSH");          // foi para /d a partir de /b
     expect(t).toEqual({ 0: "/a", 1: "/b", 2: "/d" });
   });
-  it("o fluxo dela: Painel da Tesouraria → Central de Documentos → voltar = Painel da Tesouraria", () => {
+  it("o fluxo dela: Painel da Tesouraria → Importar documentos em lote → voltar = Painel da Tesouraria", () => {
     let t = registrarNaTrilha({}, 3, "/painel-tesouraria", "REPLACE");
     t = registrarNaTrilha(t, 4, "/financas/documentos", "PUSH");
     expect(anteriorValida(t, 4, "/financas/documentos")).toBe("/painel-tesouraria");

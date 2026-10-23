@@ -130,11 +130,11 @@ describe("Fechamento do mês — a casa do mês", () => {
     expect(etapa(el, 5).textContent).toContain("Avisos de reembolso");
   });
 
-  it("a Prontidão aponta para a Central (anexar em lote) e para a tela cheia do mês — não existe mais link para a Auditoria no rodapé", async () => {
+  it("a Prontidão aponta para a importação em lote e para a tela cheia do mês — não existe mais link para a Auditoria no rodapé", async () => {
     cenario();
     const el = await abrir();
     const links = [...el.querySelectorAll("a")].map(a => [a.textContent!.trim(), a.getAttribute("href")]);
-    expect(links).toContainEqual(["Anexar em lote", "/financas/documentos"]);
+    expect(links).toContainEqual(["Importar em lote", "/financas/documentos"]);
     expect(links.some(([t, h]) => /Tela cheia/.test(String(t)) && /^\/financas\/auditoria-anexos\?mes=\d{4}-\d{2}$/.test(String(h)))).toBe(true);
     expect(links.filter(([, h]) => String(h).startsWith("/financas/auditoria-anexos"))).toHaveLength(1);
     expect(links.some(([t]) => /Movimento do mês/.test(String(t)))).toBe(false);      // o relatório "Movimento do mês" (e o CSV) deixou de existir

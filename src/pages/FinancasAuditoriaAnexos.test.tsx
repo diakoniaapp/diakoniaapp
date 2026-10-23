@@ -154,3 +154,24 @@ describe("Auditoria de documentos — fila de Pendências do Malote", () => {
     expect(fila(el)[0].textContent).toContain("Falta Declaração do Terceiro e comprovante do PIX da igreja (reembolso ainda não pago)");
   });
 });
+
+describe("a Auditoria é a experiência principal; a importação em lote é o acesso secundário (23/10/2026)", () => {
+  it("o link do chip da Mesa (?mes=2026-09) abre a fila JÁ nas pendências", async () => {
+    cenario();
+    const el = await abrir();
+    // só pendências na lista: a completa e a tarifa (dispensa) não aparecem
+    expect(fila(el).length).toBe(3);
+  });
+  it("quem opera vê 'Importar documentos em lote' no cabeçalho, apontando para a tela de importação", async () => {
+    cenario();
+    const el = await abrir();
+    const link = el.querySelector("[data-importar-em-lote]") as HTMLAnchorElement;
+    expect(link.textContent).toContain("Importar documentos em lote");
+    expect(link.getAttribute("href")).toBe("/financas/documentos");
+  });
+  it("quem só consulta não vê o acesso à importação", async () => {
+    cenario(); temPapel = false;
+    const el = await abrir();
+    expect(el.querySelector("[data-importar-em-lote]")).toBeNull();
+  });
+});

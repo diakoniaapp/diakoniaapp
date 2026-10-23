@@ -49,14 +49,14 @@ export function CoberturaDocumentalCard({ ano = new Date().getFullYear(), atuali
   const largura = Math.min(100, Math.max(pct, dados && pct > 0 ? 0.6 : 0)); // 0,3% ainda precisa ser visível
 
   return (
-    <Card aria-label="Cobertura documental">
+    <Card aria-label="Andamento da regularização documental">
       <CardContent className="p-4 md:p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-              <ClipboardCheck className="w-3.5 h-3.5 text-gold" /> Cobertura Documental
+              <ClipboardCheck className="w-3.5 h-3.5 text-gold" /> Andamento da regularização de {ano}
             </p>
-            <p className="text-sm text-muted-foreground tabular-nums">{ano}</p>
+            <p className="text-sm text-muted-foreground">Documentação completa × saídas que exigem documento — o ano inteiro. O número do mês, para fechar, está na Prontidão do malote.</p>
           </div>
 
           <div className="text-left sm:text-right">
@@ -64,7 +64,7 @@ export function CoberturaDocumentalCard({ ano = new Date().getFullYear(), atuali
               <>
                 <p className="font-serif text-4xl leading-none tabular-nums">
                   {formatarPercentual(pct)}%
-                  <span className="ml-2 text-base font-sans text-muted-foreground">documentado</span>
+                  <span className="ml-2 text-base font-sans text-muted-foreground">concluído</span>
                 </p>
                 <p className="text-sm text-muted-foreground tabular-nums mt-1.5">
                   <strong className="text-foreground">{dados.com}</strong> de{" "}
@@ -86,7 +86,7 @@ export function CoberturaDocumentalCard({ ano = new Date().getFullYear(), atuali
           <div
             className="relative h-2.5 rounded-full bg-muted"
             role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct * 10) / 10}
-            aria-label={`Cobertura documental de ${ano}: ${formatarPercentual(pct)}%`}
+            aria-label={`Regularização documental de ${ano}: ${formatarPercentual(pct)}%`}
           >
             <span className="absolute inset-y-0 left-0 rounded-full bg-gold" style={{ width: `${largura}%` }} />
             {[15, 45, COBERTURA_META, COBERTURA_META_IDEAL].map(m => (

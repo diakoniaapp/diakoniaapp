@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, ClipboardCheck, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, ClipboardCheck, FileStack, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,6 +133,11 @@ export default function FinancasAuditoriaAnexos() {
           </h1>
           <p className="text-sm text-muted-foreground">Esta despesa está pronta para a contabilidade? É a etapa "Prontidão" do Fechamento do mês, em tela cheia e com filtros.</p>
         </div>
+        {podeOperar && (
+          <Button asChild variant="ghost" size="sm" className="gap-1.5 ml-auto md:ml-0 text-xs">
+            <Link to="/financas/documentos" data-importar-em-lote><FileStack className="w-3.5 h-3.5" /> Importar documentos em lote</Link>
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="gap-1.5 ml-auto md:ml-0" onClick={carregar} disabled={carregando}>
           <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} /> Atualizar
         </Button>

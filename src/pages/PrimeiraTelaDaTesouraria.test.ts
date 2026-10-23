@@ -52,3 +52,33 @@ describe("o celular", () => {
     expect(mesa).toContain('["semana", "calendario", "fila"]');
   });
 });
+
+describe("documentação: a primeira tela leva à Auditoria, não à importação (23/10/2026)", () => {
+  const central = readFileSync("src/pages/FinancasCentralDocumentos.tsx", "utf8");
+  const auditoria = readFileSync("src/pages/FinancasAuditoriaAnexos.tsx", "utf8");
+  it("o chip é um por mês (a Mesa usa chipsDeDocumentacao) e o checklist não manda mais 'documentos' para a Central", () => {
+    expect(mesa).toContain("chipsDeDocumentacao(hoje, dados.documentosAnterior, dados.documentos)");
+    expect(mesa).toContain('["atrasadas", "hoje", "debitos", "documentos"]');
+    expect(mesa).toContain("data-chip-documentos");
+  });
+  it("o cartão 'Documentos para a contabilidade' tem 'Resolver pendências' (Auditoria) e só um link discreto para a importação", () => {
+    expect(mesa).toContain("Resolver pendências</Link>");
+    expect(mesa).not.toContain("Abrir Central de Documentos");
+    expect(mesa).toContain("Importar documentos em lote</Link>");
+  });
+  it("a Mesa só aponta para /financas/documentos pelo link discreto de importação (nenhum chip nem botão principal)", () => {
+    expect(mesa.split('to="/financas/documentos"').length - 1).toBe(1);
+  });
+  it("a importação aponta de volta para as pendências e oferece 'Ver o que ainda falta' depois de gravar", () => {
+    expect(central).toContain("data-voltar-pendencias");
+    expect(central).toContain("data-ver-o-que-falta");
+    expect(central).toContain("Importar documentos em lote</h1>");
+  });
+  it("o KPI do ano mora só na importação, com o nome de regularização", () => {
+    const card = readFileSync("src/components/financas/CoberturaDocumentalCard.tsx", "utf8");
+    expect(card).toContain("Andamento da regularização de {ano}");
+    expect(card).toContain("concluído");
+    expect(mesa).not.toContain("CoberturaDocumentalCard");
+    expect(auditoria).not.toContain("CoberturaDocumentalCard");
+  });
+});
