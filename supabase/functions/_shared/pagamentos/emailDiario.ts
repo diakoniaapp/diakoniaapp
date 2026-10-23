@@ -187,7 +187,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     corpo += D.secao("Saldo das contas") + saldos.map(s => D.cartaoDeSaldo({ nome: s.nome, saldo: brl(s.saldo), situacao: s.texto, defasado: s.defasado })).join("") + D.blocoDeObservacao(NOTA_DO_SALDO);
   }
   corpo += D.blocoDeObservacao(AVISO_DE_CONFERENCIA) + D.botao(LINK_DO_SISTEMA, "Abrir o DiakoniaApp");
-  const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader: resumo || intro, corpo });
+  const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader: resumo || intro, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
   // ── texto simples ──
   const t: string[] = [];
@@ -221,7 +221,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   }
   if (porSecao.sigiloso.length > 0) t.push("", `🔒 ${plural(porSecao.sigiloso.length, "pagamento sigiloso não aparece", "pagamentos sigilosos não aparecem")} neste e-mail.`);
   if (saldos.length > 0) t.push("", "SALDO DAS CONTAS", ...saldos.map(s => `${s.nome}: ${brl(s.saldo)} — ${s.defasado ? "⚠ " : ""}${s.texto}`), NOTA_DO_SALDO);
-  t.push("", AVISO_DE_CONFERENCIA, "", `Abrir o DiakoniaApp: ${LINK_DO_SISTEMA}`, "", assinaturaEmTexto("mensagem"));
+  t.push("", AVISO_DE_CONFERENCIA, "", `Abrir o DiakoniaApp: ${LINK_DO_SISTEMA}`, "", `“${D.VERSICULO_DOS_RELATORIOS.texto}” — ${D.VERSICULO_DOS_RELATORIOS.ref}`, "", assinaturaEmTexto("mensagem"));
 
   return { assunto, html, texto: t.join("\n"), contagem: { pagar: porSecao.pagar.length, conferir: porSecao.conferir.length, semMeio: porSecao.sem_meio.length, sigilosos: porSecao.sigiloso.length, sigilososIncluidos: incluidosSigilosos.length, reembolsos: reembolsos.length }, reembolsosListados: reembolsos, total, listados };
 }

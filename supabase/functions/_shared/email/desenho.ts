@@ -43,6 +43,12 @@ export const RODAPE = {
   autoria: "Desenvolvimento e parametrização: Telma Souza · CNPJ 34.926.658/0001-40",
 } as const;
 
+/**
+ * O versículo dos relatórios financeiros (Prestação de Contas, DRE…): o rodapé impresso traz "Tudo, porém, deve ser feito com decência e ordem." — 1 Coríntios 14:40.
+ * Pedido dela (23/10/2026): o mesmo versículo fecha o e-mail diário e o semanal da Tesouraria. Uma definição só; `emailDesignSystem.test.ts` confere que a Prestação de Contas diz a mesma coisa.
+ */
+export const VERSICULO_DOS_RELATORIOS = { texto: "Tudo, porém, deve ser feito com decência e ordem.", ref: "1 Coríntios 14:40" } as const;
+
 export const esc = (s: unknown): string => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 /** Só http(s) vira link; qualquer outra coisa (javascript:, data:) vira `null`. */
 export const urlSegura = (u: string | null | undefined): string | null => (u && /^https?:\/\/[^\s<>"']+$/i.test(u.trim()) ? u.trim() : null);
@@ -61,6 +67,8 @@ export interface OpcoesDaMoldura {
   preheader?: string;
   /** o miolo, já montado com os cartões abaixo */
   corpo: string;
+  /** versículo que fecha o e-mail, logo antes do rodapé (resumos da Tesouraria) */
+  versiculo?: { texto: string; ref: string };
 }
 
 export function moldura(o: OpcoesDaMoldura): string {
@@ -70,7 +78,7 @@ export function moldura(o: OpcoesDaMoldura): string {
     + `<body style="margin:0;padding:0;background:${COR.fundo}">${pre}`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COR.fundo}"><tr><td align="center" style="padding:24px 12px;font-family:${FONTE}">`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${LARGURA}px"><tr><td style="background:${COR.cartao};border-radius:12px;padding:28px 26px;color:${COR.texto};font-size:15px;line-height:1.55;font-family:${FONTE}">`
-    + faixa + cabecalho(o.igreja) + o.corpo + rodape()
+    + faixa + cabecalho(o.igreja) + o.corpo + (o.versiculo ? versiculo(o.versiculo) : "") + rodape()
     + `</td></tr></table></td></tr></table></body></html>`;
 }
 
@@ -78,6 +86,13 @@ export function moldura(o: OpcoesDaMoldura): string {
 function cabecalho(igreja?: string | null): string {
   return `<p style="margin:0 0 4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${COR.suave};font-weight:bold">DiakoniaApp</p>`
     + (igreja && igreja.trim() ? `<p style="margin:0 0 20px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${COR.titulo};font-weight:bold">${esc(igreja.trim())}</p>` : `<div style="height:16px"></div>`);
+}
+
+/** O versículo, centralizado e em itálico serifado, como no rodapé dos relatórios impressos. */
+export function versiculo(v: { texto: string; ref: string }): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px"><tr><td align="center" style="padding:14px 8px 0;font-family:Georgia,'Times New Roman',serif">`
+    + `<p style="margin:0;font-size:14px;font-style:italic;line-height:1.5;color:${COR.suave}">“${esc(v.texto)}”</p>`
+    + `<p style="margin:4px 0 0;font-size:12px;letter-spacing:.06em;color:${COR.link}">${esc(v.ref)}</p></td></tr></table>`;
 }
 
 /** O rodapé institucional: os mesmos quatro textos, na mesma ordem, em todo e-mail. */

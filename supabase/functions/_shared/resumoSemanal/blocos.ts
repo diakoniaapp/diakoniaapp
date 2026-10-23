@@ -162,7 +162,7 @@ export function montarHtml(dataGerado: string, blocos: readonly BlocoPronto[], a
     + D.paragrafo(`${dataFmt.charAt(0).toLocaleUpperCase("pt-BR")}${dataFmt.slice(1)}. ${pedemAtencao > 0 ? `${plural(pedemAtencao, "ponto pede", "pontos pedem")} a sua atenção.` : "Nada pede a sua atenção agora."}`)
     + blocos.map(b => D.cartaoDeLista({ titulo: b.titulo, frase: b.frase, itens: b.itens, tom: b.tom })).join("")
     + D.botao("https://portal.diakoniaapp.com.br", "Abrir o DiakoniaApp");
-  return D.moldura({ assunto: ASSUNTO, igreja, aviso, preheader: pedemAtencao > 0 ? `${plural(pedemAtencao, "ponto pede", "pontos pedem")} a sua atenção` : "Resumo da semana", corpo });
+  return D.moldura({ assunto: ASSUNTO, igreja, aviso, preheader: pedemAtencao > 0 ? `${plural(pedemAtencao, "ponto pede", "pontos pedem")} a sua atenção` : "Resumo da semana", corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 }
 
 export const ASSUNTO = "Diakonia — resumo da semana";

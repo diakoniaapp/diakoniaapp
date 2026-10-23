@@ -74,6 +74,29 @@ describe("todo e-mail do sistema sai da mesma moldura", () => {
   });
 });
 
+describe("o versículo dos relatórios fecha os resumos da Tesouraria (23/10/2026)", () => {
+  it("o diário e o semanal terminam com o versículo, antes do rodapé", () => {
+    for (const nome of ["resumo diário", "resumo semanal"]) {
+      const html = todos[nome];
+      expect(html).toContain("Tudo, porém, deve ser feito com decência e ordem.");
+      expect(html).toContain("1 Coríntios 14:40");
+      expect(html.indexOf("1 Coríntios 14:40")).toBeLessThan(html.lastIndexOf(D.RODAPE.nome + "</p>"));
+    }
+  });
+  it("a versão em texto do diário também traz o versículo", () => {
+    const e = montarEmailDiario(montarItensDoDia([cand()]), { hojeYmd: "2026-10-22", hora: 7 });
+    expect(e.texto).toContain(`${D.VERSICULO_DOS_RELATORIOS.texto}” — ${D.VERSICULO_DOS_RELATORIOS.ref}`);
+  });
+  it("é o MESMO texto do rodapé da Prestação de Contas impressa", () => {
+    const pagina = fs.readFileSync("src/pages/FinancasPrestacaoContas.tsx", "utf8");
+    expect(pagina).toContain(D.VERSICULO_DOS_RELATORIOS.texto);
+    expect(pagina).toContain(D.VERSICULO_DOS_RELATORIOS.ref);
+  });
+  it("os demais e-mails (alertas, boas-vindas) não levam o versículo dos relatórios", () => {
+    for (const nome of ["alerta de visitante", "alerta de ata", "boas-vindas"]) expect(todos[nome]).not.toContain("1 Coríntios 14:40");
+  });
+});
+
 describe("os componentes escapam o que vem do cadastro", () => {
   const veneno = "<script>alert(1)</script> & \"aspas\"";
   const html = D.moldura({ assunto: veneno, igreja: veneno, aviso: veneno, preheader: veneno, corpo: [
