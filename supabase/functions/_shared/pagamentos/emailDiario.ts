@@ -7,7 +7,9 @@
 //   · "já enviado em dd/mm — confira se já foi pago": o e-mail se repete enquanto a obrigação estiver em aberto, e quem pagou ontem pode ainda não ter dado baixa no sistema;
 //   · quatro seções (ver `secaoDoItem`): Para pagar · Conferir antes de pagar (sem o código) · Sem linha nem Pix · e a nota dos sigilosos, que não aparecem.
 import { AVISO_DE_CONFERENCIA, bancoDaLinha, formatarLinha, ICONE_SEM_MEIO, periodoDoDia, rotuloDoCodigo, tipoDaLinha } from "./envioDePagamentos.ts";
-import { assinaturaEmHtml, assinaturaEmTexto } from "./assinaturaDoSistema.ts";
+import { assinaturaEmTexto } from "./assinaturaDoSistema.ts";
+import * as D from "../email/desenho.ts";
+import type { LinhaDeFato, Tom } from "../email/desenho.ts";
 import { secaoDoItem, type ItemDoDia } from "./itensDoDia.ts";
 import { avisoDeExtratoDefasado, ehContaDeBanco, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 import { linhasDoReembolso, quemRecebe, type ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
@@ -30,6 +32,8 @@ export interface OpcoesDoDiario {
   hora: number;
   /** remuneração (prebenda, folha, Sustento, RPA) entra no e-mail, marcada 🔒; padrão do código: fora (a configuração do resumo diário nasce com "incluir") */
   incluirSigilosos?: boolean;
+  /** nome da igreja (Identidade) para o cabeçalho; sem ele o cabeçalho traz só a marca */
+  igreja?: string | null;
   /** linhas no topo do e-mail (prévia e teste) */
   aviso?: string;
   /** saldo das contas com a data do último extrato do banco (resumo_ultimo_extrato_das_contas); sem isso o e-mail não traz o bloco de saldo */
@@ -115,74 +119,72 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   const saldos = contasDeBanco.map(c => ({ nome: c.nome, saldo: c.saldo, ...situacaoDoExtrato(c, o.hojeYmd) }));
   const avisoDeExtrato = avisoDeExtratoDefasado(contasDeBanco, o.hojeYmd);
 
-  // ── HTML ──
-  const mono = `font-family:Consolas,'Courier New',monospace;font-size:12px`;
-  const corDe = (i: ItemDoDia) => (dias(i) < 0 ? "#b4472b" : "#8a6d3b");
+  // ── HTML: Design System de E-mails (_shared/email/desenho.ts) — o mesmo cabeçalho, cartões e rodapé do e-mail de boas-vindas ──
   const limitar = (xs: ItemDoDia[]) => ({ vistos: xs.slice(0, LIMITE_POR_SECAO), resto: Math.max(0, xs.length - LIMITE_POR_SECAO) });
-  let html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:640px">`;
-  if (o.aviso) html += `<p style="margin:0 0 12px;padding:8px 10px;border-radius:6px;background:#f3e6c8;font-size:12px;font-weight:bold;color:#6b4b10">${esc(o.aviso)}</p>`;
-  html += `<p>${esc(saudacao).replace(/\n/g, "<br>")}</p><p>${esc(intro)}</p>`;
-  if (resumo) html += `<p style="margin:12px 0;padding:8px 10px;background:#faf9f5;border-left:3px solid #a5741f"><b>${esc(resumo)}</b></p>`;
-  if (avisoSigiloso) html += `<p style="margin:0 0 8px;font-size:12px;color:#b4472b">${esc(avisoSigiloso)}</p>`;
-  if (avisoDeExtrato) html += `<p style="margin:0 0 8px;padding:8px 10px;border-radius:6px;background:#f6dcd3;font-size:12px;font-weight:bold;color:#8a2f15">${esc(avisoDeExtrato)}</p>`;
+  const statusDe = (i: ItemDoDia): { texto: string; tom: Tom } => ({ texto: situacao(i), tom: dias(i) < 0 ? "atencao" : dias(i) === 0 ? "aviso" : "info" });
+  const etiquetaDe = (i: ItemDoDia) => (i.linha ? [tipoDaLinha(i.linha), bancoDaLinha(i.linha)].filter(Boolean).join(" · ") : "Pix") + (i.sigiloso ? " · 🔒 sigiloso" : "");
+  const fatosDe = (i: ItemDoDia): LinhaDeFato[] => [
+    { icone: "📅", rotulo: "Vencimento", valor: dataBr(i.vencimento) },
+    ...(i.centro ? [{ icone: "🏢", rotulo: "Centro de custo", valor: i.centro }] : []),
+    ...(i.categoria ? [{ icone: "🏷️", rotulo: "Categoria", valor: i.categoria }] : []),
+  ];
+  const quando = (i: ItemDoDia) => (i.descricao && i.descricao.trim().toLocaleUpperCase("pt-BR") !== beneficiario(i) ? i.descricao : undefined);
+  const repetidoDe = (i: ItemDoDia): { texto: string; tom: Tom } | undefined => { const r = jaEnviado(i, o.hojeYmd); return r ? { texto: `↻ ${r}`, tom: "atencao" } : undefined; };
+  const maisOutros = (n: number, um: string, varios: string) => (n > 0 ? D.blocoDeObservacao(`+ ${plural(n, um, varios)} — abra o DiakoniaApp.`) : "");
 
-  const blocoPagar = (i: ItemDoDia) => {
-    const repetido = jaEnviado(i, o.hojeYmd);
-    return `<p style="margin:14px 0 0"><b>➡️ ${esc(cabecalho(i))}</b> <span style="color:${corDe(i)};font-size:12px;font-weight:bold">· ${esc(situacao(i))}</span><br>${esc(beneficiario(i))}`
-      + (i.descricao && i.descricao.trim().toLocaleUpperCase("pt-BR") !== beneficiario(i) ? `<br><span style="font-size:12px;color:#777">${esc(i.descricao)}</span>` : "")
-      + (rotuloDoCodigo(i) ? `<br><span style="font-size:11px;color:#777">${esc(rotuloDoCodigo(i))}</span>` : "")
-      + `<br><span style="${mono}">${esc(codigoDo(i))}</span>`
-      + i.avisos.map(a => `<br><span style="font-size:11px;color:#777">ℹ ${esc(a)}</span>`).join("")
-      + (repetido ? `<br><span style="font-size:12px;color:#b4472b">↻ ${esc(repetido)}</span>` : "") + `</p>`;
-  };
+  let corpo = D.saudacao(saudacao) + D.paragrafo(intro);
+  const inds: { icone: string; rotulo: string; valor: string; tom?: Tom }[] = [];
+  if (total.quantidade > 0) {
+    inds.push({ icone: "🧾", rotulo: "Pagamentos", valor: brl(total.valor) });
+    inds.push({ icone: "🔴", rotulo: `Em atraso · ${total.atrasados.quantidade}`, valor: brl(total.atrasados.valor), tom: total.atrasados.quantidade > 0 ? "atencao" : "ok" });
+    inds.push({ icone: "📅", rotulo: `Vencem hoje · ${total.hoje.quantidade}`, valor: brl(total.hoje.valor), tom: total.hoje.quantidade > 0 ? "aviso" : undefined });
+  }
+  if (reembolsos.length > 0) inds.push({ icone: "↺", rotulo: `Reembolsos · ${reembolsos.length}`, valor: brl(totalReembolsos), tom: "info" });
+  if (inds.length > 0) corpo += D.indicadores(inds);
+  if (avisoSigiloso) corpo += D.cartaoDeAlerta({ titulo: "Pagamentos sigilosos", linhas: [avisoSigiloso.replace(/^🔒\s*/, "")], tom: "aviso" });
+  if (avisoDeExtrato) corpo += D.cartaoDeAlerta({ titulo: "Atenção", linhas: [avisoDeExtrato.replace(/^⚠\s*/, "")], tom: "atencao" });
+
   if (porSecao.pagar.length > 0) {
     const { vistos, resto } = limitar(porSecao.pagar);
-    html += `<h3 style="margin:20px 0 0;font-size:14px;color:#6b4b10">Para pagar</h3>${vistos.map(blocoPagar).join("")}`;
-    if (resto > 0) html += `<p style="margin-top:10px;color:#777">+ ${plural(resto, "outro pagamento", "outros pagamentos")} — abra o DiakoniaApp.</p>`;
+    corpo += D.secao("Para pagar", "Atrasadas primeiro. A origem de cada código está indicada no cartão.")
+      + vistos.map(i => D.cartaoDePagamento({
+        etiqueta: etiquetaDe(i), titulo: beneficiario(i), subtitulo: quando(i), valor: brl(i.valor), status: statusDe(i), fatos: fatosDe(i),
+        codigo: { rotulo: rotuloDoCodigo(i), texto: codigoDo(i) }, notas: i.avisos, alerta: repetidoDe(i),
+      })).join("") + maisOutros(resto, "outro pagamento", "outros pagamentos");
   }
   if (reembolsos.length > 0) {
-    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#6b4b10">↺ Reembolsos a pagar · ${esc(brl(totalReembolsos))}</h3><p style="margin:4px 0 0;font-size:12px;color:#777">A igreja deve este dinheiro a quem pagou a despesa — não ao fornecedor. O Pix, quando há, é o de quem recebe.</p>`;
+    corpo += D.secao("Reembolsos a pagar", `${brl(totalReembolsos)} — a igreja deve este dinheiro a quem pagou a despesa, não ao fornecedor. O Pix, quando há, é o de quem recebe.`);
     for (const r of reembolsos.slice(0, LIMITE_POR_SECAO)) {
+      const L = linhasDoReembolsoNoDiario(r);
       const repetido = jaEnviadoReembolso(r);
-      html += `<p style="margin:14px 0 0"><b>➡️ ${esc(quemRecebe(r).toLocaleUpperCase("pt-BR"))}</b>`
-        + (() => {
-          const L = linhasDoReembolsoNoDiario(r);
-          const linha = (l: { rotulo: string; texto: string }) => `<br><span style="font-size:13px">${esc(l.rotulo)}: <b>${esc(l.texto)}</b></span>`;
-          return L.antes.map(linha).join("")
-            + (L.especie
-              ? `<br><span style="font-size:13px">💵 <b>${esc(L.especie)}</b></span>`
-              : L.pix
-              ? `<br><span style="font-size:13px">💳 ${esc(L.pix.rotulo)}: <b>${esc(L.pix.chave)}</b></span>` + (L.pix.copiaECola ? `<br><span style="${mono}">${esc(L.pix.copiaECola)}</span>` : "")
-              : `<br><span style="font-size:13px;color:#b4472b">⚠ ${esc(L.semPix)}</span>`)
-            + linha(L.conta);
-        })()
-        + (repetido ? `<br><span style="font-size:12px;color:#b4472b">↻ ${esc(repetido)}</span>` : "") + `</p>`;
+      corpo += D.cartaoDePagamento({
+        etiqueta: "Reembolso · quem recebe", titulo: quemRecebe(r), valor: brl(r.valor),
+        fatos: [{ icone: "🧾", rotulo: "Quitou", valor: L.antes[0].texto }, ...(L.pix ? [{ icone: "💳", rotulo: L.pix.rotulo, valor: L.pix.chave }] : []), { icone: "🏦", rotulo: L.conta.rotulo, valor: L.conta.texto }],
+        codigo: L.pix?.copiaECola ? { rotulo: "Pix copia e cola (já com o valor do reembolso):", texto: L.pix.copiaECola } : undefined,
+        alerta: repetido ? { texto: `↻ ${repetido}`, tom: "atencao" } : L.especie ? { texto: `💵 ${L.especie}`, tom: "info" } : !L.pix ? { texto: `⚠ ${L.semPix}`, tom: "aviso" } : undefined,
+      });
     }
-    if (reembolsos.length > LIMITE_POR_SECAO) html += `<p style="margin-top:10px;color:#777">+ ${plural(reembolsos.length - LIMITE_POR_SECAO, "outro reembolso", "outros reembolsos")} — abra o DiakoniaApp.</p>`;
+    corpo += maisOutros(reembolsos.length - LIMITE_POR_SECAO, "outro reembolso", "outros reembolsos");
   }
   if (porSecao.conferir.length > 0) {
-    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#b4472b">⚠ Conferir antes de pagar</h3><p style="margin:4px 0 0;font-size:12px;color:#777">O documento não bate com a obrigação: o código não vem neste e-mail. Não pague antes de conferir no DiakoniaApp.</p>`;
-    for (const i of limitar(porSecao.conferir).vistos) {
-      html += `<p style="margin:12px 0 0"><b>⚠ ${esc(beneficiario(i))}</b> · ${esc(brl(i.valor))} · vence ${esc(dataBr(i.vencimento))} <span style="color:${corDe(i)};font-size:12px;font-weight:bold">· ${esc(situacao(i))}</span>${i.avisos.map(a => `<br><span style="font-size:12px;color:#b4472b">• ${esc(a)}</span>`).join("")}</p>`;
-    }
+    const { vistos } = limitar(porSecao.conferir);
+    corpo += D.secao("Conferir antes de pagar", "O documento não bate com a obrigação: o código não vem neste e-mail. Não pague antes de conferir no DiakoniaApp.", "atencao")
+      + vistos.map(i => D.cartaoDePagamento({ etiqueta: etiquetaDe(i), titulo: beneficiario(i), valor: brl(i.valor), status: statusDe(i), fatos: fatosDe(i), alerta: i.avisos.length > 0 ? { texto: `⚠ ${i.avisos.join(" · ")}`, tom: "atencao" } : undefined })).join("");
   }
   if (porSecao.sem_meio.length > 0) {
-    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#6b4b10">${ICONE_SEM_MEIO} Sem linha digitável nem Pix</h3><p style="margin:4px 0 0;font-size:12px;color:#777">Pague pelo documento (no DiakoniaApp).</p>`;
-    for (const i of limitar(porSecao.sem_meio).vistos) {
-      html += `<p style="margin:10px 0 0">${esc(beneficiario(i))} · ${esc(brl(i.valor))} · vence ${esc(dataBr(i.vencimento))} <span style="color:${corDe(i)};font-size:12px;font-weight:bold">· ${esc(situacao(i))}</span>`
-        + (i.documentos > 0 ? ` <span style="font-size:12px;color:#777">(${plural(i.documentos, "documento", "documentos")} no sistema)</span>` : "")
-        + (jaEnviado(i, o.hojeYmd) ? `<br><span style="font-size:12px;color:#b4472b">↻ ${esc(jaEnviado(i, o.hojeYmd)!)}</span>` : "") + `</p>`;
-    }
+    const { vistos } = limitar(porSecao.sem_meio);
+    corpo += D.secao(`${ICONE_SEM_MEIO} Sem linha digitável nem Pix`, "Pague pelo documento (no DiakoniaApp).")
+      + vistos.map(i => D.cartaoDePagamento({
+        etiqueta: i.sigiloso ? "🔒 sigiloso" : undefined, titulo: beneficiario(i), valor: brl(i.valor), status: statusDe(i), fatos: fatosDe(i),
+        notas: i.documentos > 0 ? [`${plural(i.documentos, "documento", "documentos")} no sistema`] : undefined, alerta: repetidoDe(i),
+      })).join("");
   }
-  if (porSecao.sigiloso.length > 0) html += `<p style="margin-top:18px;font-size:12px;color:#777">🔒 ${esc(plural(porSecao.sigiloso.length, "pagamento sigiloso (remuneração) não aparece", "pagamentos sigilosos (remuneração) não aparecem"))} neste e-mail.</p>`;
+  if (porSecao.sigiloso.length > 0) corpo += D.blocoDeObservacao(`🔒 ${plural(porSecao.sigiloso.length, "pagamento sigiloso (remuneração) não aparece", "pagamentos sigilosos (remuneração) não aparecem")} neste e-mail.`);
   if (saldos.length > 0) {
-    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#6b4b10">Saldo das contas</h3>`
-      + saldos.map(s => `<p style="margin:6px 0 0">${esc(s.nome)}: <b>${esc(brl(s.saldo))}</b><br><span style="font-size:12px;color:${s.defasado ? "#b4472b" : "#777"}">${s.defasado ? "⚠ " : ""}${esc(s.texto)}</span></p>`).join("")
-      + `<p style="margin:8px 0 0;font-size:12px;color:#777">${esc(NOTA_DO_SALDO)}</p>`;
+    corpo += D.secao("Saldo das contas") + saldos.map(s => D.cartaoDeSaldo({ nome: s.nome, saldo: brl(s.saldo), situacao: s.texto, defasado: s.defasado })).join("") + D.blocoDeObservacao(NOTA_DO_SALDO);
   }
-  html += `<p style="margin-top:20px;font-size:12px;color:#555">${esc(AVISO_DE_CONFERENCIA)}</p>`;
-  html += `<p style="font-size:13px"><a href="${LINK_DO_SISTEMA}" style="color:#a5741f;font-weight:bold;text-decoration:none">Abrir o DiakoniaApp →</a></p>`;
-  html += assinaturaEmHtml("mensagem") + `</div>`;
+  corpo += D.blocoDeObservacao(AVISO_DE_CONFERENCIA) + D.botao(LINK_DO_SISTEMA, "Abrir o DiakoniaApp");
+  const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader: resumo || intro, corpo });
 
   // ── texto simples ──
   const t: string[] = [];

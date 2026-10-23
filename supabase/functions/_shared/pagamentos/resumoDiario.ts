@@ -24,6 +24,8 @@ export interface DadosDoDiario {
   contas_extrato?: ExtratoDaConta[];
   /** reembolsos aprovados a pagar (quem recebe, o que quitou, valor, conta prevista); a Edge Function os acrescenta (`resumo_reembolsos_a_pagar`) — ausente/vazio = o e-mail sai sem a seção */
   reembolsos_a_pagar?: ReembolsoParaExibir[];
+  /** o nome da igreja (Identidade) para o cabeçalho do e-mail; a Edge Function o acrescenta (`lerNomeDaIgreja`) */
+  igreja_nome?: string | null;
 }
 
 /** Quanto tempo depois de um envio um novo disparo é tratado como repetição do mesmo (agendamento duplicado, chamada repetida na URL pública). */
@@ -39,7 +41,7 @@ export interface PreparoDoDiario { itens: ItemDoDia[]; email: EmailDoDiario }
  */
 export function prepararDiario(d: DadosDoDiario, aviso?: string, incluirSigilosos?: boolean): PreparoDoDiario {
   const itens = montarItensDoDia(d.itens);
-  return { itens, email: montarEmailDiario(itens, { hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.contas_extrato, reembolsos: d.reembolsos_a_pagar, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
+  return { itens, email: montarEmailDiario(itens, { igreja: d.igreja_nome, hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.contas_extrato, reembolsos: d.reembolsos_a_pagar, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
 }
 
 /**

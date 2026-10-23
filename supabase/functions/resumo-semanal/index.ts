@@ -26,6 +26,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ASSUNTO, montarBlocos, montarHtml, type Digest } from "../_shared/resumoSemanal/blocos.ts";
+import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 import { juntarExtrato, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { blocosDaPessoa, mesclarConfig, type PerfilConfigurado } from "../_shared/resumoSemanal/catalogo.ts";
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     return resposta({ erro: e instanceof Error ? e.message : "Erro ao ler a configuração" }, 500);
   }
+  const nomeDaIgreja = await lerNomeDaIgreja(supabase);   // cabeçalho do e-mail (Identidade da Igreja)
   const { data: destinatarios, error: errDest } = await supabase.rpc("resumo_semanal_destinatarios_v2");
   if (errDest) return resposta({ erro: errDest.message }, 500);
 
@@ -110,7 +112,7 @@ Deno.serve(async (req) => {
   for (const p of pessoas.values()) {
     const ids = blocosDaPessoa([...p.perfis], config);
     if (ids.length === 0) { ignorados++; continue; }   // perfil desligado ou sem bloco ativo: não se manda e-mail vazio
-    envios.push(enviar(p.email, montarHtml(digest.gerado_em, montarBlocos(ids, digest))));
+    envios.push(enviar(p.email, montarHtml(digest.gerado_em, montarBlocos(ids, digest), undefined, nomeDaIgreja)));
   }
   const resultados = await Promise.all(envios);
   const falhas = resultados.filter(r => !r.ok);

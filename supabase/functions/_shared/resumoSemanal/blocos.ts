@@ -6,6 +6,7 @@
 import { avisoDeExtratoDefasado, ehContaDeBanco, hojeEmBrasilia, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 
 import { textoCurtoDoReembolso, type ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
+import * as D from "../email/desenho.ts";
 
 /** Quantos reembolsos o bloco semanal lista (o resto vira "+ N outros"). */
 const LIMITE_DE_REEMBOLSOS = 10;
@@ -151,40 +152,17 @@ export function montarBlocos(ids: readonly string[], d: Digest): BlocoPronto[] {
   return ids.map(id => montarBloco(id, d)).filter((b): b is BlocoPronto => b !== null);
 }
 
-// ─── o HTML ─────────────────────────────────────────────────────────────────────────────────────────────
+// ─── o HTML — Design System de E-mails (_shared/email/desenho.ts): o mesmo cabeçalho, cartões e rodapé do e-mail de boas-vindas ─────────────────────────────────────────────────
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const COR_DO_TOM: Record<Tom, string> = { atencao: "#b4472b", info: "#a5741f", ok: "#5f7f4c" };
-
-const blocoHtml = (b: BlocoPronto) => `
-    <tr><td style="padding:16px 0;border-bottom:1px solid #e4e1d3">
-      <p style="margin:0 0 6px;font:600 15px Georgia,serif;color:#211d16"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COR_DO_TOM[b.tom]};margin-right:8px"></span>${esc(b.titulo)}</p>
-      <p style="margin:0;font:14px -apple-system,sans-serif;color:#5c5646;line-height:1.5">${esc(b.frase)}</p>${b.itens.length > 0 ? `
-      <ul style="margin:8px 0 0;padding-left:18px;font:13px -apple-system,sans-serif;color:#5c5646;line-height:1.6">${b.itens.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}
-    </td></tr>`;
-
-/** O invólucro é o mesmo de sempre (cabeçalho, blocos, link); `aviso` acrescenta uma faixa no topo (prévia e teste). */
-export function montarHtml(dataGerado: string, blocos: readonly BlocoPronto[], aviso?: string): string {
+/** O invólucro é o mesmo de todo e-mail do sistema; `aviso` acrescenta uma faixa no topo (prévia e teste) e `igreja` o nome da Identidade no cabeçalho. */
+export function montarHtml(dataGerado: string, blocos: readonly BlocoPronto[], aviso?: string, igreja?: string | null): string {
   const dataFmt = new Date(dataGerado).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Sao_Paulo" });
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#eef0e7;font-family:-apple-system,sans-serif">
-    <table style="max-width:560px;margin:0 auto;background:#faf9f5;border-radius:10px;padding:24px 28px">${aviso ? `
-      <tr><td style="padding-bottom:12px"><p style="margin:0;padding:8px 10px;border-radius:6px;background:#f3e6c8;font:600 12px -apple-system,sans-serif;color:#6b4b10">${esc(aviso)}</p></td></tr>` : ""}
-      <tr><td style="padding-bottom:12px">
-        <p style="margin:0;font:600 12px monospace;letter-spacing:.06em;text-transform:uppercase;color:#a5741f">
-          Resumo da semana · Diakonia
-        </p>
-        <p style="margin:4px 0 0;font:14px -apple-system,sans-serif;color:#8a8371;text-transform:capitalize">
-          ${dataFmt}
-        </p>
-      </td></tr>
-      ${blocos.map(blocoHtml).join("")}
-      <tr><td style="padding-top:16px">
-        <a href="https://portal.diakoniaapp.com.br" style="font:600 13px -apple-system,sans-serif;color:#a5741f;text-decoration:none">
-          Abrir o Diakonia →
-        </a>
-      </td></tr>
-    </table>
-  </body></html>`;
+  const pedemAtencao = blocos.filter(b => b.tom === "atencao").length;
+  const corpo = D.saudacao("Resumo da semana")
+    + D.paragrafo(`${dataFmt.charAt(0).toLocaleUpperCase("pt-BR")}${dataFmt.slice(1)}. ${pedemAtencao > 0 ? `${plural(pedemAtencao, "ponto pede", "pontos pedem")} a sua atenção.` : "Nada pede a sua atenção agora."}`)
+    + blocos.map(b => D.cartaoDeLista({ titulo: b.titulo, frase: b.frase, itens: b.itens, tom: b.tom })).join("")
+    + D.botao("https://portal.diakoniaapp.com.br", "Abrir o DiakoniaApp");
+  return D.moldura({ assunto: ASSUNTO, igreja, aviso, preheader: pedemAtencao > 0 ? `${plural(pedemAtencao, "ponto pede", "pontos pedem")} a sua atenção` : "Resumo da semana", corpo });
 }
 
 export const ASSUNTO = "Diakonia — resumo da semana";

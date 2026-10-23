@@ -159,7 +159,7 @@ describe("os blocos como texto", () => {
     expect(html).toContain("Contas atrasadas");
     expect(html).toContain("Saldo das contas");
     expect(html).toContain("PRÉVIA — nada foi enviado");
-    expect(html).toContain("Abrir o Diakonia →");
+    expect(html).toContain("Abrir o DiakoniaApp");
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
   });

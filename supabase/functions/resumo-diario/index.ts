@@ -22,6 +22,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
 import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
+import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const CORS = {
@@ -45,7 +46,8 @@ Deno.serve(async (req) => {
   if (error) return resposta({ erro: error.message }, 500);   // sem a migration: erro claro, nunca um e-mail
   const dados = data as DadosDoDiario;
   dados.contas_extrato = await lerExtratoDasContas(supabase);   // sem a migration 20261022220000 vem vazio: o e-mail sai sem o bloco de saldo
-  dados.reembolsos_a_pagar = await lerReembolsosAPagar(supabase);   // sem a migration 20261022230000 vem vazio: o e-mail sai sem a seção de reembolsos
+  dados.reembolsos_a_pagar = await lerReembolsosAPagar(supabase);
+  dados.igreja_nome = await lerNomeDaIgreja(supabase);   // cabeçalho do e-mail (Identidade da Igreja)
 
   const preparo = prepararDiario(dados);
   const motivo = motivoDeNaoEnviar(dados, preparo);

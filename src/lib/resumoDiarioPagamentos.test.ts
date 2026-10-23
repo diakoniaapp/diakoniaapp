@@ -71,6 +71,9 @@ describe("secaoDoItem — para onde cada item vai", () => {
   });
 });
 
+/** O texto que o leitor vê: sem tags e com espaços colapsados (o HTML agora é de cartões, e o teste não deve depender da marcação). */
+const semTags = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+
 describe("montarEmailDiario", () => {
   const hoje = "2026-10-22";
   const itens = montarItensDoDia([
@@ -92,7 +95,9 @@ describe("montarEmailDiario", () => {
   });
   it("atrasada primeiro; mostra o banco, a linha em grupos de 5 e a ORIGEM do código", () => {
     expect(e.html.indexOf("LIGHT SERVIÇOS")).toBeLessThan(e.html.indexOf("CEDAE"));
-    expect(e.html).toContain("Boleto bancário · Bradesco · R$ 300,00 · vence 17/10/2026");
+    expect(semTags(e.html)).toContain("Boleto bancário · Bradesco");
+    expect(semTags(e.html)).toContain("R$ 300,00");
+    expect(semTags(e.html)).toContain("Vencimento 17/10/2026");
     expect(e.html).toContain("ATRASADO há 5d");
     expect(e.html).toContain("23793 38128 60007 82713 69500 00633 05975 52000 00100 00");
     expect(e.html).toContain("🧾 Linha digitável do documento");
@@ -117,7 +122,7 @@ describe("montarEmailDiario", () => {
   });
   it("traz o aviso de conferência, a assinatura, o link do sistema e a versão em texto", () => {
     expect(e.html).toContain("Confira sempre os valores e vencimentos");
-    expect(e.html).toContain("Abrir o DiakoniaApp →");
+    expect(e.html).toContain("Abrir o DiakoniaApp");
     expect(e.html).toContain("DiakoniaApp");
     expect(e.texto).toContain("PARA PAGAR");
     expect(e.texto).toContain("Abrir o DiakoniaApp: https://portal.diakoniaapp.com.br");
@@ -152,7 +157,7 @@ describe("o atraso vem da OBRIGAÇÃO; a data do documento aparece e, se diferir
   it("obrigação de 13/10 com boleto de 12/10: cabeçalho com a data do boleto, atraso pela obrigação (9d) e a nota da diferença", () => {
     const itens = montarItensDoDia([cand({ data: "2026-10-13", dias_para_vencer: -9, anexos: [boleto({ vencimento: "2026-10-12" })] })]);
     const e = montarEmailDiario(itens, { hojeYmd: "2026-10-22", hora: 7 });
-    expect(e.html).toContain("vence 12/10/2026");
+    expect(semTags(e.html)).toContain("Vencimento 12/10/2026");
     expect(e.html).toContain("ATRASADO há 9d");
     expect(e.html).toContain("o boleto vence em 12/10/2026, a obrigação em 13/10/2026");
     expect(e.total.atrasados.quantidade).toBe(1);

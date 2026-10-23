@@ -12,6 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ASSUNTO, montarBlocos, montarHtml, type Digest } from "../_shared/resumoSemanal/blocos.ts";
+import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 import { juntarExtrato, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { PERFIS, blocosDaPessoa, mesclarConfig, paraSalvar, type Perfil } from "../_shared/resumoSemanal/catalogo.ts";
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
     const aviso = ids.length === 0
       ? "Nenhum bloco ativo neste perfil — nada seria enviado."
       : corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo semanal" : "PRÉVIA — nada foi enviado";
-    const html = montarHtml(digest.gerado_em, montarBlocos(ids, digest), aviso);
+    const html = montarHtml(digest.gerado_em, montarBlocos(ids, digest), aviso, await lerNomeDaIgreja(supabase));
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: ASSUNTO, html, blocos: ids });
 

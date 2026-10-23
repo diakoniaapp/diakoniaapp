@@ -29,51 +29,11 @@
 //   curl -X POST https://prjoftmlkusbjoeptabp.supabase.co/functions/v1/alerta-ata-atrasada
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { assuntoDasAtas, htmlDasAtas, type AtaAtrasada } from "../_shared/email/alertas.ts";
+import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const EMAIL_ADMIN = "telma@diakoniaapp.com.br";
-
-interface AtaAtrasada {
-  id: string;
-  titulo: string;
-  tipo: string;
-  data_reuniao: string;
-  dias_sem_ata: number;
-  secretaria_nome: string | null;
-}
-
-function montarHtml(atas: AtaAtrasada[]): string {
-  const linhas = atas.map(a => `
-    <tr><td style="padding:12px 0;border-bottom:1px solid #e4e1d3">
-      <p style="margin:0;font:600 14px -apple-system,sans-serif;color:#211d16">${a.titulo}</p>
-      <p style="margin:2px 0 0;font:13px -apple-system,sans-serif;color:#5c5646">
-        ${a.dias_sem_ata} dias sem ata — reunião de ${new Date(a.data_reuniao + "T12:00:00").toLocaleDateString("pt-BR")}
-        ${a.secretaria_nome ? ` · secretariada por ${a.secretaria_nome}` : ""}
-      </p>
-    </td></tr>`).join("");
-
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#eef0e7;font-family:-apple-system,sans-serif">
-    <table style="max-width:560px;margin:0 auto;background:#faf9f5;border-radius:10px;padding:24px 28px">
-      <tr><td style="padding-bottom:12px">
-        <p style="margin:0;font:600 12px monospace;letter-spacing:.06em;text-transform:uppercase;color:#a5741f">
-          Alerta · Diakonia
-        </p>
-        <p style="margin:6px 0 0;font:600 16px Georgia,serif;color:#211d16">
-          ${atas.length} ata${atas.length !== 1 ? "s" : ""} de reunião atrasada${atas.length !== 1 ? "s" : ""}
-        </p>
-        <p style="margin:4px 0 0;font:13px -apple-system,sans-serif;color:#8a8371">
-          Mais de 7 dias desde a reunião, e a decisão ainda não ficou registrada.
-        </p>
-      </td></tr>
-      ${linhas}
-      <tr><td style="padding-top:16px">
-        <a href="https://portal.diakoniaapp.com.br/governanca" style="font:600 13px -apple-system,sans-serif;color:#a5741f;text-decoration:none">
-          Abrir Governança →
-        </a>
-      </td></tr>
-    </table>
-  </body></html>`;
-}
 
 Deno.serve(async (_req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -113,7 +73,7 @@ Deno.serve(async (_req) => {
   const emailSecretaria = (destinatarios ?? []).find((d: { papel: string }) => d.papel === "secretaria")?.email as string | undefined;
   const destinos = Array.from(new Set([EMAIL_ADMIN, ...(emailSecretaria ? [emailSecretaria] : [])]));
 
-  const html = montarHtml(lista);
+  const html = htmlDasAtas(lista, await lerNomeDaIgreja(supabase));
   const falhas: string[] = [];
   for (const destino of destinos) {
     const resp = await fetch("https://api.resend.com/emails", {
@@ -122,7 +82,7 @@ Deno.serve(async (_req) => {
       body: JSON.stringify({
         from: REMETENTE,
         to: [destino],
-        subject: `Diakonia — ${lista.length} ata${lista.length !== 1 ? "s" : ""} de reunião atrasada${lista.length !== 1 ? "s" : ""}`,
+        subject: assuntoDasAtas(lista.length),
         html,
       }),
     });

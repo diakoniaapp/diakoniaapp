@@ -29,50 +29,11 @@
 //   curl -X POST https://prjoftmlkusbjoeptabp.supabase.co/functions/v1/alerta-visitante-esfriando
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { assuntoDosVisitantes, htmlDosVisitantes, type VisitanteEsfriando } from "../_shared/email/alertas.ts";
+import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 
 const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
 const EMAIL_ADMIN = "telma@diakoniaapp.com.br";
-
-interface VisitanteEsfriando {
-  id: string;
-  nome_completo: string;
-  telefone_celular: string | null;
-  dias_sem_contato: number;
-  ultimo_contato_em: string | null;
-  created_at: string;
-}
-
-function montarHtml(visitantes: VisitanteEsfriando[]): string {
-  const linhas = visitantes.map(v => `
-    <tr><td style="padding:12px 0;border-bottom:1px solid #e4e1d3">
-      <p style="margin:0;font:600 14px -apple-system,sans-serif;color:#211d16">${v.nome_completo}</p>
-      <p style="margin:2px 0 0;font:13px -apple-system,sans-serif;color:#5c5646">
-        ${v.ultimo_contato_em ? `Sem contato há ${v.dias_sem_contato} dias` : `Nunca contatado(a) — ${v.dias_sem_contato} dias desde o cadastro`}
-      </p>
-    </td></tr>`).join("");
-
-  return `<!doctype html><html><body style="margin:0;padding:24px;background:#eef0e7;font-family:-apple-system,sans-serif">
-    <table style="max-width:560px;margin:0 auto;background:#faf9f5;border-radius:10px;padding:24px 28px">
-      <tr><td style="padding-bottom:12px">
-        <p style="margin:0;font:600 12px monospace;letter-spacing:.06em;text-transform:uppercase;color:#a5741f">
-          Alerta · Diakonia
-        </p>
-        <p style="margin:6px 0 0;font:600 16px Georgia,serif;color:#211d16">
-          ${visitantes.length} visitante${visitantes.length !== 1 ? "s" : ""} esfriando
-        </p>
-        <p style="margin:4px 0 0;font:13px -apple-system,sans-serif;color:#8a8371">
-          Sem contato há mais de 2 dias — quanto mais tempo passa, menor a chance de voltar.
-        </p>
-      </td></tr>
-      ${linhas}
-      <tr><td style="padding-top:16px">
-        <a href="https://portal.diakoniaapp.com.br/visitantes" style="font:600 13px -apple-system,sans-serif;color:#a5741f;text-decoration:none">
-          Abrir Visitantes →
-        </a>
-      </td></tr>
-    </table>
-  </body></html>`;
-}
 
 Deno.serve(async (_req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -114,7 +75,7 @@ Deno.serve(async (_req) => {
   const emailPastoral = (destinatarios ?? []).find((d: { papel: string }) => d.papel === "pastoral")?.email as string | undefined;
   const destinos = Array.from(new Set([EMAIL_ADMIN, ...(emailPastoral ? [emailPastoral] : [])]));
 
-  const html = montarHtml(lista);
+  const html = htmlDosVisitantes(lista, await lerNomeDaIgreja(supabase));
   const falhas: string[] = [];
   for (const destino of destinos) {
     const resp = await fetch("https://api.resend.com/emails", {
@@ -123,7 +84,7 @@ Deno.serve(async (_req) => {
       body: JSON.stringify({
         from: REMETENTE,
         to: [destino],
-        subject: `Diakonia — ${lista.length} visitante${lista.length !== 1 ? "s" : ""} esfriando`,
+        subject: assuntoDosVisitantes(lista.length),
         html,
       }),
     });

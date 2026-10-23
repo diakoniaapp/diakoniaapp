@@ -10,6 +10,8 @@
 // Este módulo só transforma configuração em texto. Quem guarda a configuração é o banco (`visitante_mensagens()`); quem envia é a pessoa (link do WhatsApp) ou a Edge Function (e-mail).
 // Nada aqui lê rede. Todo texto vindo da configuração é tratado como não confiável: o HTML escapa tudo e só endereços http(s) viram link.
 
+import { cartao, moldura } from "../email/desenho.ts";
+
 export const SITUACOES = ["primeira_visita", "segunda_visita", "nao_retornou", "interesse_membresia", "infantil", "jovem", "indicado_ministerio"] as const;
 export type SituacaoDaMensagem = (typeof SITUACOES)[number];
 export const CANAIS = ["whatsapp", "email", "sms"] as const;
@@ -228,23 +230,21 @@ export function montarMensagem(m: ModeloDaMensagem, ctx: ContextoDaMensagem): Me
   const texto = partes.join("\n\n");
   if (m.canal === "whatsapp") return { assunto, texto, html: null, blocos: ids };
 
-  // e-mail: cartão simples, tudo escapado, só http(s) vira link
+  // e-mail: a moldura do Design System (a MESMA de todos os e-mails do sistema — esta mensagem foi o modelo dela), tudo escapado, só http(s) vira link
   const a = (url: string, rotulo: string) => `<a href="${esc(url)}" style="color:${CORES.link};font-weight:bold;text-decoration:none">${esc(rotulo)}</a>`;
-  let h = `<div style="background:${CORES.fundo};padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:560px;margin:0 auto;background:${CORES.cartao};border-radius:10px;padding:28px 30px;color:${CORES.texto};font-size:15px;line-height:1.55">`;
-  h += `<p style="margin:0 0 18px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:${CORES.titulo};font-weight:bold">${esc(ctx.igreja.nome)}</p>`;
+  let corpo = "";
   for (const b of blocos) {
-    if (b.paragrafo) { h += `<p style="margin:0 0 14px">${paragrafos(b.linhas[0])}</p>`; continue; }
-    if (b.id === "assinatura") { h += `<p style="margin:22px 0 0;color:${CORES.suave}">${esc(b.linhas[0]).replace(/\n/g, "<br>")}</p>`; continue; }
-    h += `<div style="margin:0 0 16px;padding:12px 14px;background:${CORES.fundo};border-radius:8px">`;
-    if (b.titulo) h += `<p style="margin:0 0 6px;font-weight:bold;color:${CORES.titulo}">${esc(b.titulo)}${b.id === "eventos" ? ":" : ""}</p>`;
+    if (b.paragrafo) { corpo += `<p style="margin:0 0 14px">${paragrafos(b.linhas[0])}</p>`; continue; }
+    if (b.id === "assinatura") { corpo += `<p style="margin:22px 0 0;color:${CORES.suave}">${esc(b.linhas[0]).replace(/\n/g, "<br>")}</p>`; continue; }
+    let miolo: string;
     if (b.marcadores) {
-      h += `<ul style="margin:0;padding-left:18px">${b.linhas.map((l, i) => { const link = b.links?.[i]; return `<li style="margin:2px 0">${link ? (b.id === "eventos" ? `${esc(l)} — ${a(link, "saiba mais")}` : a(link, l)) : esc(l)}</li>`; }).join("")}</ul>`;
+      miolo = `<ul style="margin:0;padding-left:18px">${b.linhas.map((l, i) => { const link = b.links?.[i]; return `<li style="margin:2px 0">${link ? (b.id === "eventos" ? `${esc(l)} — ${a(link, "saiba mais")}` : a(link, l)) : esc(l)}</li>`; }).join("")}</ul>`;
     } else {
-      h += b.linhas.map((l, i) => { const link = b.links?.[i]; return `<p style="margin:0">${esc(l)}${link ? ` ${a(link, link.replace(/^https?:\/\//, ""))}` : ""}</p>`; }).join("");
+      miolo = b.linhas.map((l, i) => { const link = b.links?.[i]; return `<p style="margin:0">${esc(l)}${link ? ` ${a(link, link.replace(/^https?:\/\//, ""))}` : ""}</p>`; }).join("");
     }
-    h += `</div>`;
+    corpo += cartao(b.titulo ? `${b.titulo}${b.id === "eventos" ? ":" : ""}` : null, miolo);
   }
-  h += `</div></div>`;
+  const h = moldura({ assunto, igreja: ctx.igreja.nome, corpo });
   return { assunto, texto, html: h, blocos: ids };
 }
 

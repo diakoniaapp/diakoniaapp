@@ -7,6 +7,8 @@ import { montarBloco, type Digest } from "../../supabase/functions/_shared/resum
 import { motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../../supabase/functions/_shared/pagamentos/resumoDiario";
 
 const HOJE = "2026-10-22";
+/** O texto que o leitor vê: sem tags e com espaços colapsados (o HTML é de cartões; o teste não depende da marcação). */
+const semTags = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ");
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }).replace(/ /g, " ");
 const lucio = (o: Partial<ReembolsoParaExibir> = {}): ReembolsoParaExibir => ({
   obrigacao_id: "ob1", quem_recebe: "Lúcio", quitou: "Leandro", valor: 500, conta_prevista: "Caixinha Administrativa", data_despesa: "2026-10-10", ...o,
@@ -39,12 +41,12 @@ describe("e-mail diário — Reembolsos a pagar", () => {
   it("lista QUEM recebe em destaque, o que quitou, o valor e a conta prevista (os dois exemplos dela)", () => {
     const e = email([lucio(), lucio({ obrigacao_id: "ob2", quem_recebe: "Marta", quitou: "Padaria Pão Quente", valor: 120.5, conta_prevista: "Bradesco" })]);
     expect(e.html).toContain("Reembolsos a pagar");
-    expect(e.html).toContain("<b>➡️ LÚCIO</b>");
-    expect(e.html).toContain("Quitou: <b>Leandro</b>");
-    expect(e.html).toContain("Valor: <b>R$ 500,00</b>");
-    expect(e.html).toContain("Pagar pela conta: <b>Caixinha Administrativa</b>");
-    expect(e.html).toContain("<b>➡️ MARTA</b>");
-    expect(e.html).toContain("Pagar pela conta: <b>Bradesco</b>");
+    expect(semTags(e.html)).toContain("Lúcio");
+    expect(semTags(e.html)).toContain("Quitou Leandro");
+    expect(semTags(e.html)).toContain("R$ 500,00");
+    expect(semTags(e.html)).toContain("Pagar pela conta Caixinha Administrativa");
+    expect(semTags(e.html)).toContain("Marta");
+    expect(semTags(e.html)).toContain("Pagar pela conta Bradesco");
     expect(e.html).toContain("R$ 620,50");   // o total no título da seção
     expect(e.texto).toContain("➡️ LÚCIO");
     expect(e.texto).toContain("Quitou: Leandro");
@@ -58,7 +60,7 @@ describe("e-mail diário — Reembolsos a pagar", () => {
   });
   it("conta a definir é dito com clareza; já enviado antes de hoje vem com o alerta contra duplicidade", () => {
     const e = email([lucio({ conta_prevista: null, ultimo_envio: "2026-10-21T10:00:00Z" })]);
-    expect(e.html).toContain("Pagar pela conta: <b>a definir ao pagar</b>");
+    expect(semTags(e.html)).toContain("Pagar pela conta a definir ao pagar");
     expect(e.html).toContain("já enviado em 21/10 — confira se já foi pago");
   });
   describe("conta que não é o Bradesco = pagamento em espécie, sempre (23/10/2026)", () => {
@@ -92,7 +94,7 @@ describe("e-mail diário — Reembolsos a pagar", () => {
     const comPix = lucio({ chave_pix: "12345678909", tipo_chave_pix: "cpf", conta_prevista: "Bradesco" });
     it("mostra a chave de quem recebe, o copia e cola com o valor do reembolso e a conta de onde sai", () => {
       const e = email([comPix]);
-      expect(e.html).toContain("Pix de Lúcio: <b>123.456.789-09</b>");
+      expect(semTags(e.html)).toContain("Pix de Lúcio 123.456.789-09");
       expect(e.html).toMatch(/00020126[0-9A-Za-z.-@ ]*5406500.00/);   // copia e cola com o valor de R$ 500,00
       expect(e.html.indexOf("Pix de Lúcio")).toBeLessThan(e.html.indexOf("Pagar pela conta"));
       expect(e.texto).toContain("Pix de Lúcio: 123.456.789-09");
@@ -106,7 +108,7 @@ describe("e-mail diário — Reembolsos a pagar", () => {
     });
     it("nunca traz o meio de pagamento do fornecedor da nota: o único Pix do bloco é o de quem recebe", () => {
       const e = email([comPix]);
-      expect(e.html).toContain("Quitou: <b>Leandro</b>");   // o fornecedor aparece só como o que foi quitado
+      expect(semTags(e.html)).toContain("Quitou Leandro");   // o fornecedor aparece só como o que foi quitado
       expect((e.html.match(/Pix de /g) ?? []).length).toBe(1);
     });
     it("a leitura do banco repassa chave e tipo", async () => {
@@ -119,7 +121,7 @@ describe("e-mail diário — Reembolsos a pagar", () => {
     expect(email(undefined).contagem.reembolsos).toBe(0);
   });
   it("o nome é escapado (nada de HTML vindo do cadastro)", () => {
-    expect(email([lucio({ quem_recebe: "<b>X</b> & cia" })]).html).toContain("&lt;B&gt;X&lt;/B&gt; &amp; CIA");
+    expect(email([lucio({ quem_recebe: "<b>X</b> & cia" })]).html).toContain("&lt;b&gt;X&lt;/b&gt; &amp; cia");
   });
   it("com reembolso a pagar o resumo SAI mesmo sem nenhuma conta a pagar; sem nada, continua não saindo", () => {
     const base = (reembolsos: ReembolsoParaExibir[]): DadosDoDiario => ({
