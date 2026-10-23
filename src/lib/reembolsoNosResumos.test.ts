@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contaPrevista, linhasDoReembolso, oQueQuitou, quemRecebe, ROTULO_CONTA_A_DEFINIR, ROTULO_SEM_NOME, textoCurtoDoReembolso, type ReembolsoParaExibir } from "@/lib/reembolsoApresentacao";
 import { lerReembolsosAPagar } from "../../supabase/functions/_shared/reembolsos/lerReembolsos";
+import { pagamentoEmEspecie } from "../../supabase/functions/_shared/reembolsos/pixDoReembolso";
 import { montarEmailDiario } from "../../supabase/functions/_shared/pagamentos/emailDiario";
 import { montarBloco, type Digest } from "../../supabase/functions/_shared/resumoSemanal/blocos";
 import { motivoDeNaoEnviar, prepararDiario, type DadosDoDiario } from "../../supabase/functions/_shared/pagamentos/resumoDiario";
@@ -60,19 +61,46 @@ describe("e-mail diário — Reembolsos a pagar", () => {
     expect(e.html).toContain("Pagar pela conta: <b>a definir ao pagar</b>");
     expect(e.html).toContain("já enviado em 21/10 — confira se já foi pago");
   });
+  describe("conta que não é o Bradesco = pagamento em espécie, sempre (23/10/2026)", () => {
+    const comChave = (conta: string | null) => lucio({ chave_pix: "12345678909", tipo_chave_pix: "cpf", conta_prevista: conta });
+    it("da Caixinha: diz ESPÉCIE e o recibo assinado, e não mostra Pix nem aviso de chave — mesmo havendo chave cadastrada", () => {
+      const e = montarEmailDiario([], { hojeYmd: HOJE, hora: 7, reembolsos: [comChave("Caixinha Administrativa")] });
+      expect(e.html).toContain("pagamento em ESPÉCIE, retirado da conta Caixinha Administrativa");
+      expect(e.html).toContain("recibo de reembolso assinado");
+      expect(e.html).not.toContain("Pix de Lúcio");
+      expect(e.html).not.toContain("sem chave Pix");
+      expect(e.texto).toContain("💵 pagamento em ESPÉCIE");
+      expect(e.texto).not.toContain("123.456.789-09");
+    });
+    it("do Bradesco: Pix como antes, sem a frase de espécie", () => {
+      const e = montarEmailDiario([], { hojeYmd: HOJE, hora: 7, reembolsos: [comChave("Bradesco")] });
+      expect(e.html).toContain("Pix de Lúcio");
+      expect(e.html).not.toContain("ESPÉCIE");
+    });
+    it("qualquer conta de caixa vira espécie; conta 'Banco …' segue como banco; conta a definir não conclui nada", () => {
+      expect(pagamentoEmEspecie({ conta_prevista: "Caixa de Aplicação" })).toBe(true);
+      expect(pagamentoEmEspecie({ conta_prevista: "Cofre da Tesouraria" })).toBe(true);
+      expect(pagamentoEmEspecie({ conta_prevista: "Banco do Brasil" })).toBe(false);
+      expect(pagamentoEmEspecie({ conta_prevista: null })).toBe(false);
+      const e = montarEmailDiario([], { hojeYmd: HOJE, hora: 7, reembolsos: [comChave(null)] });
+      expect(e.html).not.toContain("ESPÉCIE");
+      expect(e.html).toContain("Pix de Lúcio");   // conta ainda a definir: o Pix segue à vista
+    });
+  });
+
   describe("o Pix é o de QUEM RECEBE (23/10/2026)", () => {
-    const comPix = lucio({ chave_pix: "12345678909", tipo_chave_pix: "cpf" });
+    const comPix = lucio({ chave_pix: "12345678909", tipo_chave_pix: "cpf", conta_prevista: "Bradesco" });
     it("mostra a chave de quem recebe, o copia e cola com o valor do reembolso e a conta de onde sai", () => {
       const e = email([comPix]);
       expect(e.html).toContain("Pix de Lúcio: <b>123.456.789-09</b>");
       expect(e.html).toMatch(/00020126[0-9A-Za-z.-@ ]*5406500.00/);   // copia e cola com o valor de R$ 500,00
       expect(e.html.indexOf("Pix de Lúcio")).toBeLessThan(e.html.indexOf("Pagar pela conta"));
       expect(e.texto).toContain("Pix de Lúcio: 123.456.789-09");
-      expect(e.texto).toContain("Pagar pela conta: Caixinha Administrativa");
+      expect(e.texto).toContain("Pagar pela conta: Bradesco");
       expect(e.texto).not.toContain("sem chave Pix");
     });
     it("sem chave cadastrada avisa, em vez de inventar um meio de pagamento", () => {
-      const e = email([lucio()]);
+      const e = email([lucio({ conta_prevista: "Bradesco" })]);
       expect(e.html).toContain("Lúcio: sem chave Pix cadastrada");
       expect(e.html).not.toContain("Pix de Lúcio");
     });

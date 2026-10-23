@@ -19,6 +19,21 @@ export interface PixDoReembolso {
 const tiposValidos = ["cpf", "cnpj", "telefone", "email", "aleatoria"];
 const tipoDaChave = (t?: string | null): TipoChavePix | null => (t && tiposValidos.includes(t) ? (t as TipoChavePix) : null);
 
+/**
+ * Regra dela (23/10/2026): se a conta de onde o reembolso sai NÃO é o Bradesco, o pagamento é SEMPRE em espécie (caixa físico) — não adianta mostrar Pix.
+ * Só vale com a conta conhecida: conta "a definir" (despesa na conta estrutural das ofertas) não permite concluir nada, e o e-mail segue mostrando o Pix, se houver.
+ * "Banco" é pelo NOME da conta (Bradesco ou "Banco…"), o mesmo critério do aviso de extrato (`ehContaDeBanco`): conta de banco nova precisa ter um desses nomes.
+ */
+export const ehContaBancariaDoReembolso = (nome: string): boolean => /bradesco|banco/i.test(nome);
+export function pagamentoEmEspecie(r: Pick<ReembolsoParaExibir, "conta_prevista">): boolean {
+  const conta = r.conta_prevista?.trim();
+  return !!conta && !ehContaBancariaDoReembolso(conta);
+}
+
+/** A frase do e-mail: dinheiro do caixa, com o Recibo de Reembolso assinado que a Política exige em espécie. */
+export const textoEmEspecie = (r: Pick<ReembolsoParaExibir, "conta_prevista">): string =>
+  `pagamento em ESPÉCIE, retirado da conta ${r.conta_prevista!.trim()} — colher o recibo de reembolso assinado por quem recebe`;
+
 /** O Pix de quem recebe; nulo quando o cadastro dele não tem chave. */
 export function pixDoReembolso(r: ReembolsoParaExibir): PixDoReembolso | null {
   const chave = r.chave_pix?.trim();

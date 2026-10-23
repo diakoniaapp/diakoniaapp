@@ -11,7 +11,7 @@ import { assinaturaEmHtml, assinaturaEmTexto } from "./assinaturaDoSistema.ts";
 import { secaoDoItem, type ItemDoDia } from "./itensDoDia.ts";
 import { avisoDeExtratoDefasado, ehContaDeBanco, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 import { linhasDoReembolso, quemRecebe, type ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
-import { AVISO_SEM_PIX, pixDoReembolso } from "../reembolsos/pixDoReembolso.ts";
+import { AVISO_SEM_PIX, pagamentoEmEspecie, pixDoReembolso, textoEmEspecie } from "../reembolsos/pixDoReembolso.ts";
 
 export const LIMITE_POR_SECAO = 40;
 const LINK_DO_SISTEMA = "https://portal.diakoniaapp.com.br";
@@ -86,9 +86,12 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   // a ordem que a Tesouraria lê: Quitou · Valor · COMO PAGAR (o Pix de quem recebe) · DE QUAL CONTA sai
   const linhasDoReembolsoNoDiario = (r: ReembolsoParaExibir) => {
     const [quitou, valor, conta] = linhasDoReembolso(r, brl);
-    const pix = pixDoReembolso(r);
+    // conta que não é o Bradesco = sempre em espécie: o Pix não entra (regra dela, 23/10/2026)
+    const especie = pagamentoEmEspecie(r) ? textoEmEspecie(r) : null;
+    const pix = especie ? null : pixDoReembolso(r);
     return {
       antes: [quitou, valor],
+      especie,
       pix,
       semPix: `${quemRecebe(r)}: ${AVISO_SEM_PIX}`,
       conta: { rotulo: "Pagar pela conta", texto: conta.texto },
@@ -138,7 +141,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     if (resto > 0) html += `<p style="margin-top:10px;color:#777">+ ${plural(resto, "outro pagamento", "outros pagamentos")} — abra o DiakoniaApp.</p>`;
   }
   if (reembolsos.length > 0) {
-    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#6b4b10">↺ Reembolsos a pagar · ${esc(brl(totalReembolsos))}</h3><p style="margin:4px 0 0;font-size:12px;color:#777">A igreja deve este dinheiro a quem pagou a despesa — não ao fornecedor. O Pix abaixo é o de quem recebe.</p>`;
+    html += `<h3 style="margin:22px 0 0;font-size:14px;color:#6b4b10">↺ Reembolsos a pagar · ${esc(brl(totalReembolsos))}</h3><p style="margin:4px 0 0;font-size:12px;color:#777">A igreja deve este dinheiro a quem pagou a despesa — não ao fornecedor. O Pix, quando há, é o de quem recebe.</p>`;
     for (const r of reembolsos.slice(0, LIMITE_POR_SECAO)) {
       const repetido = jaEnviadoReembolso(r);
       html += `<p style="margin:14px 0 0"><b>➡️ ${esc(quemRecebe(r).toLocaleUpperCase("pt-BR"))}</b>`
@@ -146,7 +149,9 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
           const L = linhasDoReembolsoNoDiario(r);
           const linha = (l: { rotulo: string; texto: string }) => `<br><span style="font-size:13px">${esc(l.rotulo)}: <b>${esc(l.texto)}</b></span>`;
           return L.antes.map(linha).join("")
-            + (L.pix
+            + (L.especie
+              ? `<br><span style="font-size:13px">💵 <b>${esc(L.especie)}</b></span>`
+              : L.pix
               ? `<br><span style="font-size:13px">💳 ${esc(L.pix.rotulo)}: <b>${esc(L.pix.chave)}</b></span>` + (L.pix.copiaECola ? `<br><span style="${mono}">${esc(L.pix.copiaECola)}</span>` : "")
               : `<br><span style="font-size:13px;color:#b4472b">⚠ ${esc(L.semPix)}</span>`)
             + linha(L.conta);
@@ -197,7 +202,7 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
     for (const r of reembolsos.slice(0, LIMITE_POR_SECAO)) {
       const L = linhasDoReembolsoNoDiario(r);
       t.push("", `➡️ ${quemRecebe(r).toLocaleUpperCase("pt-BR")}`, ...L.antes.map(l => `${l.rotulo}: ${l.texto}`),
-        ...(L.pix ? [`💳 ${L.pix.rotulo}: ${L.pix.chave}`, ...(L.pix.copiaECola ? [L.pix.copiaECola] : [])] : [`⚠ ${L.semPix}`]), `${L.conta.rotulo}: ${L.conta.texto}`, ...(jaEnviadoReembolso(r) ? [`↻ ${jaEnviadoReembolso(r)}`] : []));
+        ...(L.especie ? [`💵 ${L.especie}`] : L.pix ? [`💳 ${L.pix.rotulo}: ${L.pix.chave}`, ...(L.pix.copiaECola ? [L.pix.copiaECola] : [])] : [`⚠ ${L.semPix}`]), `${L.conta.rotulo}: ${L.conta.texto}`, ...(jaEnviadoReembolso(r) ? [`↻ ${jaEnviadoReembolso(r)}`] : []));
     }
     if (reembolsos.length > LIMITE_POR_SECAO) t.push("", `+ ${plural(reembolsos.length - LIMITE_POR_SECAO, "outro reembolso", "outros reembolsos")} — abra o DiakoniaApp.`);
   }
