@@ -1,5 +1,4 @@
-// A Agenda ao abrir (16/10/2026): restaura a última seleção do usuário, MAS nunca abre vazia por causa de um filtro esquecido — se a seleção salva esconde todos os eventos
-// do período, volta tudo marcado e avisa. Filtro salvo que deixa eventos à vista é respeitado.
+// A Agenda ao abrir (22/10/2026): todos os filtros nascem marcados e nada do que a pessoa desmarca é lembrado — sair e voltar, atualizar a página ou entrar pelo menu mostra tudo de novo.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -39,7 +38,6 @@ vi.mock("@/lib/agenda/arrecadacao", async (orig) => ({ ...(await orig<object>())
 vi.mock("sonner", () => ({ toast: { info: (...a: unknown[]) => avisos(...a), error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 import Eventos from "./Eventos";
-import { CATEGORIAS_PADRAO, TODAS_AS_CATEGORIAS } from "@/lib/agenda/types";
 
 let raiz: Root | null = null;
 beforeAll(() => {
@@ -51,65 +49,59 @@ beforeAll(() => {
 beforeEach(() => { (globalThis as any).__rpc = undefined; tabelas.membros = []; localStorage.clear(); avisos.mockClear(); localStorage.setItem("agenda:view:v1", "lista"); });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; });
 
-async function abrir() {
+async function abrir(rota = "/eventos") {
   const alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
-  await act(async () => { raiz!.render(<MemoryRouter initialEntries={["/eventos"]}><Eventos /></MemoryRouter>); });
+  await act(async () => { raiz!.render(<MemoryRouter initialEntries={[rota]}><Eventos /></MemoryRouter>); });
   await act(async () => { await new Promise(r => setTimeout(r, 80)); });
   return alvo;
 }
-const gravado = () => JSON.parse(localStorage.getItem("agenda:filtros:v1") ?? "{}");
+const CHAVE_ANTIGA = "agenda:filtros:v1";
 
-describe("a Agenda ao abrir", () => {
-  it("primeira vez (nada salvo): abre com tudo marcado e mostrando eventos, sem aviso", async () => {
+describe("a Agenda ao abrir (22/10/2026): filtros sempre todos marcados, só valem na sessão", () => {
+  it("primeira vez: mostra os eventos, sem aviso, e NÃO grava filtro no navegador", async () => {
     const el = await abrir();
     expect(el.textContent).toContain("Culto de Celebração");
     expect(avisos).not.toHaveBeenCalled();
-    const f = gravado();
-    expect(f.locais).toEqual(["l1", "l2"]);
-    expect(f.ministerios).toEqual(["m1", "m2"]);
-    expect(f.status.length).toBe(3);
-    expect(f.categorias).toEqual(CATEGORIAS_PADRAO);   // tudo, menos as datas profissionais
+    expect(localStorage.getItem(CHAVE_ANTIGA)).toBeNull();
   });
 
-  it("a última seleção do usuário é restaurada quando ainda mostra eventos", async () => {
-    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ locais: ["l1"], locaisConhecidos: ["l1", "l2"] }));
+  it("seleção antiga gravada no navegador é IGNORADA e apagada: o que ela escondia volta à vista", async () => {
+    localStorage.setItem(CHAVE_ANTIGA, JSON.stringify({ locais: ["l2"], locaisConhecidos: ["l1", "l2"], categorias: ["igreja"], status: ["cancelado"] }));
     const el = await abrir();
     expect(el.textContent).toContain("Culto de Celebração");
     expect(avisos).not.toHaveBeenCalled();
-    expect(gravado().locais).toEqual(["l1"]);   // a escolha dela, intacta
+    expect(localStorage.getItem(CHAVE_ANTIGA)).toBeNull();
   });
 
-  it("um local NOVO entra marcado sozinho, sem desmarcar a escolha anterior", async () => {
-    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ locais: ["l1"], locaisConhecidos: ["l1"] }));   // o l2 nasceu depois
-    await abrir();
-    expect(gravado().locais).toEqual(["l1", "l2"]);
-  });
-
-  it("filtro salvo ANTES da memória de ids (legado) abre com tudo marcado, uma única vez, e passa a lembrar", async () => {
-    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ locais: ["l1"] }));
-    await abrir();
-    expect(gravado().locais).toEqual(["l1", "l2"]);
-    expect(gravado().locaisConhecidos).toEqual(["l1", "l2"]);
-  });
-
-  it("seleção salva que esconde TUDO é desfeita na abertura: volta tudo marcado e avisa", async () => {
-    // `categoriasConhecidas`: sem ela, o filtro é tratado como anterior às Datas Especiais e
-    // as categorias novas entram marcadas — e a agenda deixaria de estar vazia.
-    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ locais: ["l2"], categorias: ["igreja"], categoriasConhecidas: TODAS_AS_CATEGORIAS }));
+  it("o botão Filtros não acusa filtro ligado: nada está restrito ao abrir", async () => {
     const el = await abrir();
-    expect(el.textContent).toContain("Culto de Celebração");
-    expect(avisos).toHaveBeenCalledTimes(1);
-    expect(String(avisos.mock.calls[0][0])).toContain("voltei a mostrar tudo");
-    expect(gravado().locais).toEqual(["l1", "l2"]);
-    expect(gravado().categorias).toEqual(TODAS_AS_CATEGORIAS);   // "mostrar tudo" é tudo mesmo
+    const botao = Array.from(el.querySelectorAll("button")).find((b) => /Filtros/.test(b.textContent ?? ""));
+    expect(botao).toBeTruthy();
+    expect(botao!.textContent).not.toMatch(/d/);   // sem contador de filtros ativos
   });
 
-  it("categorias salvas VAZIAS (o estado que deixava a agenda em branco) abrem com tudo marcado", async () => {
-    localStorage.setItem("agenda:filtros:v1", JSON.stringify({ categorias: [], status: [] }));
-    const el = await abrir();
+  it("desmarcar um filtro vale enquanto a Agenda está aberta (o evento some) e NADA é gravado; ao remontar, volta tudo", async () => {
+    const clicar = async (el: Element | undefined) => { await act(async () => { (el as HTMLElement).click(); }); await act(async () => { await new Promise(r => setTimeout(r, 40)); }); };
+    const botao = (t: string) => [...document.querySelectorAll("button")].find(b => (b.textContent ?? "").trim().startsWith(t));
+    let el = await abrir();
+    await clicar(botao("Filtros"));
+    await clicar(botao("Local"));
+    await clicar(document.querySelector("[role=checkbox]") ?? undefined);   // tira o Templo (l1), onde é o culto
+    expect(document.body.textContent).toContain("1 filtro está escondendo parte da agenda");
+    expect(el.textContent).not.toContain("Culto de Celebração");
+    expect(localStorage.getItem(CHAVE_ANTIGA)).toBeNull();
+    act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = "";
+    el = await abrir();
     expect(el.textContent).toContain("Culto de Celebração");
-    expect(gravado().categorias).toEqual(CATEGORIAS_PADRAO);
-    expect(gravado().status.length).toBe(3);
+  });
+
+  it("restringir pelo atalho de um local vale na sessão e a volta (sair e entrar) abre de novo com tudo", async () => {
+    // /eventos?locais=l2 é o atalho da página Locais: escolha deliberada de quem navegou, vale enquanto a Agenda está aberta.
+    const restrito = await abrir("/eventos?locais=l2");
+    expect(restrito.textContent).not.toContain("Culto de Celebração");   // o culto é no l1
+    act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = "";
+    const el = await abrir();   // voltou pelo menu: nada de memória
+    expect(el.textContent).toContain("Culto de Celebração");
   });
 });
 

@@ -7,7 +7,7 @@ import { Filter, Palette } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AgendaFiltros, AreaOpt, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt,
-  STATUS_LABEL, TIPO_LABEL, CATEGORIAS_PADRAO, TODOS_OS_STATUS, TODOS_OS_TIPOS, filtrosTodosMarcados, categoriasRestringem,
+  STATUS_LABEL, TIPO_LABEL, TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, TODOS_OS_TIPOS, filtrosTodosMarcados, categoriasRestringem,
 } from "@/lib/agenda/types";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -123,10 +123,10 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   ].filter(([sel, tot]) => sel > 0 && sel < tot).length;
 
   // Categoria: tirar a última caixa de TODAS volta ao padrão (nunca à agenda vazia).
-  const cats = filtros.categorias ?? CATEGORIAS_PADRAO;
+  const cats = filtros.categorias ?? TODAS_AS_CATEGORIAS;
   const toggleCategoria = (v: string) => {
     const next = cats.includes(v as CategoriaEvento) ? cats.filter((x) => x !== v) : [...cats, v as CategoriaEvento];
-    onChange({ ...filtros, categorias: next.length === 0 ? CATEGORIAS_PADRAO : next });
+    onChange({ ...filtros, categorias: next.length === 0 ? TODAS_AS_CATEGORIAS : next });
   };
   // "Limpar" de um chip marca todas as caixas DELE e não mexe nas do outro.
   const marcarGrupo = (grupo: { id: CategoriaEvento }[]) => {

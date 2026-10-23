@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
@@ -28,7 +28,7 @@ import {
   AgendaFiltros,
   AgendaView,
   AreaOpt,
-  DEFAULT_FILTROS, migrarFiltros, CATEGORIAS_PADRAO, algumFiltroRestringe, filtrosTodosMarcados, incluirNovos,
+  DEFAULT_FILTROS, TODAS_AS_CATEGORIAS, incluirNovos,
   EventoOcorrencia,
   EventoRow,
   LocalOpt,
@@ -110,28 +110,11 @@ export default function Eventos() {
   });
   // Quais calendários denominacionais entram e o aniversário da igreja — vem da Identidade.
   const calendario = useCalendarioDaIgreja();
-  const [filtros, setFiltros] = useState<AgendaFiltros>(() => {
-    try {
-      const raw = localStorage.getItem(FILTROS_KEY);
-      // As migrações do filtro gravado moram em `migrarFiltros`, testada em
-      // `types.test.ts`. Elas tratam de estragos que só aparecem meses depois
-      // — um tipo de evento novo que nasce escondido, por exemplo — e isso
-      // não se verifica olhando a tela hoje.
-      if (raw) return migrarFiltros(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
-    return DEFAULT_FILTROS;
-  });
+  // Os filtros SEMPRE nascem todos marcados (22/10/2026) e valem só enquanto a Agenda está aberta: sair e voltar, atualizar a página ou entrar pelo menu abre de novo com tudo à
+  // vista. Antes a seleção ficava gravada no navegador ("agenda:filtros:v1") — quem desmarcava algo numa terça abria a Agenda na quarta achando que os compromissos tinham sumido.
+  // O que continua lembrado, de propósito, é só o MODO de exibição (mês/semana/dia): é como a pessoa gosta de ver, não o que ela vê.
+  const [filtros, setFiltros] = useState<AgendaFiltros>(DEFAULT_FILTROS);
 
-  // F13: aplicar ?locais=<id> da URL como filtro inicial (vindo da página Locais)
-  useEffect(() => {
-    const localFromUrl = searchParams.get("locais");
-    if (localFromUrl && !filtros.locais.includes(localFromUrl)) {
-      setFiltros((f) => ({ ...f, locais: [localFromUrl] }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   // Dialog state
   const [editing, setEditing] = useState<EventoOcorrencia | null>(null);
@@ -146,9 +129,10 @@ export default function Eventos() {
   const [viewing, setViewing] = useState<EventoOcorrencia | null>(null);
   const [viewOpen, setViewOpen] = useState(false);
 
+  // A gravação antiga dos filtros fica órfã no navegador de quem usava a Agenda antes: apaga uma vez.
   useEffect(() => {
-    localStorage.setItem(FILTROS_KEY, JSON.stringify(filtros));
-  }, [filtros]);
+    try { localStorage.removeItem(FILTROS_KEY); } catch { /* sem armazenamento: nada a apagar */ }
+  }, []);
   useEffect(() => {
     localStorage.setItem(VIEW_KEY, view);
   }, [view]);
@@ -216,6 +200,17 @@ export default function Eventos() {
     });
   }, [areas, setFiltros]);
 
+  // F13: ?locais=<id> (vindo da página Locais) restringe a Agenda àquele local — escolha deliberada de quem navegou, vale só nesta abertura.
+  // Aplica DEPOIS de a lista de locais carregar e de o efeito acima marcá-los todos, e grava os ids conhecidos: sem isso o `incluirNovos` tratava todo local como "novo" e
+  // remarcava os outros por cima da escolha (22/10/2026: o atalho nunca restringia de verdade).
+  const atalhoDeLocalAplicado = useRef(false);
+  useEffect(() => {
+    const localFromUrl = searchParams.get("locais");
+    if (!localFromUrl || atalhoDeLocalAplicado.current || locais.length === 0) return;
+    atalhoDeLocalAplicado.current = true;
+    setFiltros((f) => ({ ...f, locais: [localFromUrl], locaisConhecidos: locais.map((l) => l.id) }));
+  }, [searchParams, locais]);
+
   // Handle ?novo=1 deep link
   useEffect(() => {
     if (searchParams.get("novo") === "1" && canEdit) {
@@ -270,7 +265,7 @@ export default function Eventos() {
     const externos = eventosExternos(from, to, calendario);
     const aniversarios = aniversariosNoIntervalo(pessoasAniv, from, to);
     // Categoria vazia NÃO esconde a agenda inteira (16/10/2026): sem nenhuma categoria marcada vale o padrão. Era o único filtro em que "nada marcado" = "nada na tela".
-    const cats = filtros.categorias && filtros.categorias.length > 0 ? filtros.categorias : CATEGORIAS_PADRAO;
+    const cats = filtros.categorias && filtros.categorias.length > 0 ? filtros.categorias : TODAS_AS_CATEGORIAS;
     // O universo do período, ANTES de qualquer filtro. É o denominador que
     // permite dizer "61 de 102" em vez de só "61" — ver o cabeçalho.
     const universo = [...internos, ...externos, ...aniversarios, ...reservasOcc];
@@ -361,22 +356,6 @@ export default function Eventos() {
   const ocorrencias = ocorrenciasCalc.lista;
   const totalNoPeriodo = ocorrenciasCalc.universo;
   const escondidos = totalNoPeriodo - ocorrencias.length;
-
-  // ── A agenda nunca abre vazia por causa de um filtro esquecido (16/10/2026) ──────────────────────────────────────────────────────────────
-  // O filtro fica salvo no navegador e vale na próxima abertura (isso é bom: restaura a última seleção). Mas se a seleção salva esconde TODOS os eventos do período —
-  // por exemplo, só "Local: Auditório" marcado e o mês não tem nada lá — a pessoa vê uma agenda vazia e conclui que ela perdeu os eventos. Nesse caso, e só na primeira
-  // abertura, volta tudo marcado e avisa. Se o período está vazio de verdade (nada no universo), nada é mexido.
-  const jaConferiuOsFiltros = useRef(false);
-  useEffect(() => {
-    if (loading || jaConferiuOsFiltros.current) return;
-    jaConferiuOsFiltros.current = true;
-    const universo = { ministerios: ministerios.map((m) => m.id), areas: areas.map((a) => a.id), locais: locais.map((l) => l.id) };
-    if (totalNoPeriodo > 0 && ocorrencias.length === 0 && algumFiltroRestringe(filtros, universo)) {
-      setFiltros((f) => filtrosTodosMarcados(f, universo));
-      toast.info("Os filtros salvos escondiam todos os eventos do período — voltei a mostrar tudo.");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
 
   // ── Pendência agregada (Fase 3 do roadmap, Workspace Agenda) ─────────────
   //

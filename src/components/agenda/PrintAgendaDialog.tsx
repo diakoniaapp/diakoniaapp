@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Printer } from "lucide-react";
 import { format, addDays, startOfMonth, endOfMonth } from "date-fns";
-import { AgendaFiltros, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt, AreaOpt, TIPO_LABEL, STATUS_LABEL, TODAS_AS_CATEGORIAS, CATEGORIAS_PADRAO } from "@/lib/agenda/types";
+import { AgendaFiltros, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt, AreaOpt, TIPO_LABEL, STATUS_LABEL, TODAS_AS_CATEGORIAS } from "@/lib/agenda/types";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
 import { CampoData } from "@/components/CampoData";
@@ -40,7 +40,7 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
   const [locs, setLocs] = useState<string[]>(filtrosAtuais.locais);
   const [tipos, setTipos] = useState<EventoTipo[]>(filtrosAtuais.tipos);
   const [status, setStatus] = useState<EventoStatus[]>(filtrosAtuais.status);
-  const [cats, setCats] = useState<CategoriaEvento[]>(filtrosAtuais.categorias ?? CATEGORIAS_PADRAO);
+  const [cats, setCats] = useState<CategoriaEvento[]>(filtrosAtuais.categorias ?? TODAS_AS_CATEGORIAS);
 
   useEffect(() => {
     if (open) {
@@ -50,7 +50,7 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
       setLocs(filtrosAtuais.locais);
       setTipos(filtrosAtuais.tipos);
       setStatus(filtrosAtuais.status);
-      setCats(filtrosAtuais.categorias ?? CATEGORIAS_PADRAO);
+      setCats(filtrosAtuais.categorias ?? TODAS_AS_CATEGORIAS);
     }
   }, [open, refDate, filtrosAtuais]);
 
