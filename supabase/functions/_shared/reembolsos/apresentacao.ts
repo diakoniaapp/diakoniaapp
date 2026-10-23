@@ -21,6 +21,9 @@ export interface ReembolsoParaExibir {
   /** a conta da despesa — a que a Tesouraria vai usar, salvo escolha em contrário no pagamento; nulo = a despesa está na conta estrutural das ofertas e a conta se escolhe ao pagar */
   conta_prevista: string | null;
   data_despesa?: string;
+  /** a chave Pix de QUEM RECEBE (nunca a do fornecedor da nota); nula = o cadastro dele não tem chave — só o e-mail diário usa */
+  chave_pix?: string | null;
+  tipo_chave_pix?: string | null;
   /** só no e-mail diário: quando esta obrigação já saiu em um resumo (contra o pagamento em duplicidade) */
   ultimo_envio?: string | null;
   obrigacao_id?: string;

@@ -41,13 +41,13 @@ describe("e-mail diário — Reembolsos a pagar", () => {
     expect(e.html).toContain("<b>➡️ LÚCIO</b>");
     expect(e.html).toContain("Quitou: <b>Leandro</b>");
     expect(e.html).toContain("Valor: <b>R$ 500,00</b>");
-    expect(e.html).toContain("Conta prevista para pagamento: <b>Caixinha Administrativa</b>");
+    expect(e.html).toContain("Pagar pela conta: <b>Caixinha Administrativa</b>");
     expect(e.html).toContain("<b>➡️ MARTA</b>");
-    expect(e.html).toContain("Conta prevista para pagamento: <b>Bradesco</b>");
+    expect(e.html).toContain("Pagar pela conta: <b>Bradesco</b>");
     expect(e.html).toContain("R$ 620,50");   // o total no título da seção
     expect(e.texto).toContain("➡️ LÚCIO");
     expect(e.texto).toContain("Quitou: Leandro");
-    expect(e.texto).toContain("Conta prevista para pagamento: Caixinha Administrativa");
+    expect(e.texto).toContain("Pagar pela conta: Caixinha Administrativa");
     expect(e.contagem.reembolsos).toBe(2);
     expect(e.reembolsosListados).toHaveLength(2);
   });
@@ -57,8 +57,34 @@ describe("e-mail diário — Reembolsos a pagar", () => {
   });
   it("conta a definir é dito com clareza; já enviado antes de hoje vem com o alerta contra duplicidade", () => {
     const e = email([lucio({ conta_prevista: null, ultimo_envio: "2026-10-21T10:00:00Z" })]);
-    expect(e.html).toContain("Conta prevista para pagamento: <b>a definir ao pagar</b>");
+    expect(e.html).toContain("Pagar pela conta: <b>a definir ao pagar</b>");
     expect(e.html).toContain("já enviado em 21/10 — confira se já foi pago");
+  });
+  describe("o Pix é o de QUEM RECEBE (23/10/2026)", () => {
+    const comPix = lucio({ chave_pix: "12345678909", tipo_chave_pix: "cpf" });
+    it("mostra a chave de quem recebe, o copia e cola com o valor do reembolso e a conta de onde sai", () => {
+      const e = email([comPix]);
+      expect(e.html).toContain("Pix de Lúcio: <b>123.456.789-09</b>");
+      expect(e.html).toMatch(/00020126[0-9A-Za-z.-@ ]*5406500.00/);   // copia e cola com o valor de R$ 500,00
+      expect(e.html.indexOf("Pix de Lúcio")).toBeLessThan(e.html.indexOf("Pagar pela conta"));
+      expect(e.texto).toContain("Pix de Lúcio: 123.456.789-09");
+      expect(e.texto).toContain("Pagar pela conta: Caixinha Administrativa");
+      expect(e.texto).not.toContain("sem chave Pix");
+    });
+    it("sem chave cadastrada avisa, em vez de inventar um meio de pagamento", () => {
+      const e = email([lucio()]);
+      expect(e.html).toContain("Lúcio: sem chave Pix cadastrada");
+      expect(e.html).not.toContain("Pix de Lúcio");
+    });
+    it("nunca traz o meio de pagamento do fornecedor da nota: o único Pix do bloco é o de quem recebe", () => {
+      const e = email([comPix]);
+      expect(e.html).toContain("Quitou: <b>Leandro</b>");   // o fornecedor aparece só como o que foi quitado
+      expect((e.html.match(/Pix de /g) ?? []).length).toBe(1);
+    });
+    it("a leitura do banco repassa chave e tipo", async () => {
+      const lista = await lerReembolsosAPagar({ rpc: async () => ({ data: [{ obrigacao_id: "o", quem_recebe: "Lúcio", quitou: "Leandro", valor: 500, chave_pix: "lucio@x.org", tipo_chave_pix: "email" }], error: null }) });
+      expect(lista[0]).toMatchObject({ chave_pix: "lucio@x.org", tipo_chave_pix: "email" });
+    });
   });
   it("sem a lista (migration não aplicada) o e-mail sai como antes", () => {
     expect(email(undefined).html).not.toContain("Reembolsos a pagar");

@@ -18,6 +18,8 @@ export async function lerReembolsosAPagar(cliente: { rpc: (nome: string) => Prom
       valor: Number(x.valor ?? 0),
       valor_obrigacao: x.valor_obrigacao === null || x.valor_obrigacao === undefined ? undefined : Number(x.valor_obrigacao),
       conta_prevista: x.conta_prevista ? String(x.conta_prevista) : null,
+      chave_pix: x.chave_pix ? String(x.chave_pix) : null,
+      tipo_chave_pix: x.tipo_chave_pix ? String(x.tipo_chave_pix) : null,
       data_despesa: x.data_despesa ? String(x.data_despesa).slice(0, 10) : undefined,
       ultimo_envio: x.ultimo_envio ? String(x.ultimo_envio) : null,
     }));
