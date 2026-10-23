@@ -14,14 +14,15 @@ export const AVISO_DE_CONFERENCIA = "Confira sempre os valores e vencimentos ant
 export type GrupoDoEnvio = "padrao" | "pix" | "sigiloso" | "sem_dado";
 
 /** DE ONDE veio o meio de pagamento — o tesoureiro precisa saber o que veio do documento, o que veio do cadastro e o que exige conferência. */
-export type OrigemDoMeio = "linha_documento" | "pix_documento" | "pix_cadastro";
+export type OrigemDoMeio = "linha_documento" | "linha_informada" | "pix_documento" | "pix_cadastro";
 
 export const ROTULO_DA_ORIGEM: Record<OrigemDoMeio, string> = {
   linha_documento: "Linha digitável do documento",
+  linha_informada: "Linha digitável informada no lançamento",
   pix_documento: "PIX do documento",
   pix_cadastro: "PIX do cadastro do favorecido",
 };
-export const ICONE_DA_ORIGEM: Record<OrigemDoMeio, string> = { linha_documento: "🧾", pix_documento: "💳", pix_cadastro: "👤" };
+export const ICONE_DA_ORIGEM: Record<OrigemDoMeio, string> = { linha_documento: "🧾", linha_informada: "📝", pix_documento: "💳", pix_cadastro: "👤" };
 export const ROTULO_SEM_MEIO = "Sem meio automático";
 export const ICONE_SEM_MEIO = "❓";
 export const ROTULO_CONFIRMAR_FAVORECIDO = "Confirmar favorecido";
@@ -101,6 +102,8 @@ export interface LeituraDoItem {
   origemDoPix?: "documento" | "cadastro" | "cadastro_por_nome" | null;
   /** nome do favorecido do cadastro (para o "Confirmar favorecido") */
   favorecidoDoPix?: string | null;
+  /** a `linha` foi digitada/colada no próprio lançamento (23/10/2026), e não lida de um anexo */
+  linhaInformada?: boolean;
   /** documentos anexados à obrigação que vão no ZIP */
   documentos?: number;
   /** valor/vencimento que o DOCUMENTO traz, para conferir com a obrigação */
@@ -119,7 +122,7 @@ export function montarItemDeEnvio(b: BaseDoItem, l: LeituraDoItem): ItemDeEnvio 
   const grupo: GrupoDoEnvio = sigiloso ? "sigiloso" : linha ? "padrao" : l.pix ? "pix" : "sem_dado";
   // Origem do meio (ordem de prioridade: linha digitável > Pix do documento > Pix do cadastro do favorecido). Pix de favorecido achado pelo nome exige confirmação.
   const porNome = !linha && !!l.pix && l.origemDoPix === "cadastro_por_nome";
-  const origem: OrigemDoMeio | null = linha ? "linha_documento" : l.pix ? (l.origemDoPix === "documento" ? "pix_documento" : "pix_cadastro") : null;
+  const origem: OrigemDoMeio | null = linha ? (l.linhaInformada ? "linha_informada" : "linha_documento") : l.pix ? (l.origemDoPix === "documento" ? "pix_documento" : "pix_cadastro") : null;
   const favorecidoParaConfirmar = porNome ? (l.favorecidoDoPix ?? "favorecido do cadastro") : null;
   // o que decide o dinheiro (valor e código) trava o "marcado por padrão"; a data diferente só informa. Sigiloso e "confirmar favorecido" NUNCA vêm marcados.
   const bloqueia = avisos.some(a => !a.startsWith("o boleto vence"));
@@ -180,7 +183,7 @@ const codigoDo = (i: ItemDeEnvio) => (i.linha ? formatarLinha(i.linha) : i.pix ?
 export function rotuloDoCodigo(i: ItemDeEnvio): string {
   if (!i.origem) return "";
   const icone = ICONE_DA_ORIGEM[i.origem];
-  if (i.origem === "linha_documento") return `${icone} ${ROTULO_DA_ORIGEM.linha_documento}:`;
+  if (i.origem === "linha_documento" || i.origem === "linha_informada") return `${icone} ${ROTULO_DA_ORIGEM[i.origem]}:`;
   if (i.origem === "pix_documento") return `${icone} ${ROTULO_DA_ORIGEM.pix_documento} — copia e cola:`;
   return `${icone} ${ROTULO_DA_ORIGEM.pix_cadastro} — copia e cola (confira o titular no aplicativo do banco):`;
 }

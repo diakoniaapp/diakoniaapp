@@ -154,3 +154,32 @@ export function decodificarBoleto(entrada: string): BoletoDecodificado {
   if (digitos.length === 44) return decodificarLinhaDigitavel(codigoBarrasParaLinhaDigitavel(digitos));
   return decodificarLinhaDigitavel(digitos);
 }
+
+export interface LinhaParaGuardar {
+  ok: boolean;
+  /** só os dígitos; vazio = a pessoa apagou a linha */
+  digitos: string;
+  erro?: string;
+  /** valor e vencimento que a linha traz (só boleto de 44/47 dígitos), para a tela oferecer a conferência */
+  boleto?: BoletoDecodificado;
+}
+
+/**
+ * A linha digitável INFORMADA no lançamento (23/10/2026): vale guardar quando os dígitos conferem.
+ *  · vazio → apagar;  · 47 (boleto) e 44 (código de barras) → os dígitos verificadores de cada campo precisam bater;
+ *  · 48 (conta de consumo/guia) → guardada como veio: o dígito verificador depende do convênio e este sistema não o confere.
+ * Qualquer outro tamanho é erro com a contagem, para a pessoa ver se faltou ou sobrou um número.
+ */
+export function linhaParaGuardar(entrada: string): LinhaParaGuardar {
+  const digitos = soDigitos(entrada);
+  if (digitos === "") return { ok: true, digitos: "" };
+  if (digitos.length === 48) return { ok: true, digitos };
+  if (digitos.length === 44 || digitos.length === 47) {
+    try {
+      return { ok: true, digitos, boleto: decodificarBoleto(digitos) };
+    } catch (e) {
+      return { ok: false, digitos, erro: e instanceof Error ? e.message : "Os números não conferem." };
+    }
+  }
+  return { ok: false, digitos, erro: `Uma linha digitável tem 47 números (boleto) ou 48 (conta de consumo); você informou ${digitos.length}.` };
+}

@@ -41,7 +41,8 @@ import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { mensagemErro } from "@/lib/erroRede";
 import { hojeLocal } from "@/lib/data";
-import { dadosParaPagarDoLancamento, type DadosParaPagar } from "@/services/documentoPagamentoService";
+import { dadosParaPagarDoLancamento, ID_DA_LINHA_INFORMADA, informarLinhaDigitavel, type DadosParaPagar } from "@/services/documentoPagamentoService";
+import { linhaParaGuardar } from "@/lib/boleto";
 import { fornecedorPeloNome, type FornecedorParaNome } from "@/lib/favorecidoPorNome";
 import { LiquidacaoPainel } from "@/components/financas/LiquidacaoPainel";
 import { liquidacaoDisponivel, liquidar } from "@/services/liquidacaoService";
@@ -83,6 +84,24 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
   // próprio boleto, valor, vencimento) — para pagar sem abrir o PDF e conferir o valor ANTES de pagar.
   const [docsPagamento, setDocsPagamento] = useState<DadosParaPagar[]>([]);
   const [lendoDocs, setLendoDocs] = useState(false);
+  // A linha digitável INFORMADA no lançamento (23/10/2026), para quem não anexou o arquivo da fatura: digitar/colar aqui guarda o código no lançamento e o Pagar, o "Preparar envio" e o e-mail diário passam a mostrá-lo.
+  const [linhaTexto, setLinhaTexto] = useState("");
+  const [salvandoLinha, setSalvandoLinha] = useState(false);
+  const [recarregarDocs, setRecarregarDocs] = useState(0);
+  const linhaInformadaAtual = docsPagamento.find(d => d.anexoId === ID_DA_LINHA_INFORMADA)?.linhaDigitavel ?? "";
+  const temLinhaDeAnexo = docsPagamento.some(d => d.anexoId !== ID_DA_LINHA_INFORMADA && (d.linhaDigitavel || d.codigoBarras));
+  const conferenciaDaLinha = linhaTexto.replace(/\D/g, "") ? linhaParaGuardar(linhaTexto) : null;
+  useEffect(() => { setLinhaTexto(""); }, [confirmando?.id]);
+  async function salvarLinha() {
+    if (!confirmando) return;
+    setSalvandoLinha(true);
+    try {
+      const r = await informarLinhaDigitavel(confirmando.id, linhaTexto);
+      toast.success(r.digitos ? "Linha digitável guardada neste lançamento" : "Linha digitável removida");
+      setLinhaTexto(""); setRecarregarDocs(n => n + 1);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Não consegui guardar a linha digitável"); }
+    finally { setSalvandoLinha(false); }
+  }
   useEffect(() => {
     setDocsPagamento([]);
     if (!confirmando || confirmando.tipo !== "saida") return;
@@ -93,7 +112,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
       .catch(() => { /* melhoria: sem a leitura o "Pagar" continua igual ao de antes */ })
       .finally(() => { if (!cancelado) setLendoDocs(false); });
     return () => { cancelado = true; };
-  }, [confirmando]);
+  }, [confirmando, recarregarDocs]);
 
   // Liquidação real (migration 20261007100000): valor pago × documento, parcial, juros, multa, desconto. Sem a migration
   // o "Pagar" continua o de antes (`liqDisponivel` = false).
@@ -373,6 +392,30 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   </div>
                 );
               })}
+              {!lendoDocs && !temLinhaDeAnexo && (
+                <div className="rounded-md border border-dashed p-2.5 space-y-1.5">
+                  <label htmlFor="pagar-linha" className="text-xs font-medium">
+                    {linhaInformadaAtual ? "Corrigir a linha digitável deste lançamento" : "Sem arquivo anexado? Informe a linha digitável"}
+                  </label>
+                  <div className="flex items-start gap-2">
+                    <Input id="pagar-linha" inputMode="numeric" autoComplete="off" value={linhaTexto} onChange={e => setLinhaTexto(e.target.value)}
+                      placeholder="Cole os 47 números do boleto ou os 48 da conta de consumo" className="h-8 text-xs tabular-nums" />
+                    <Button type="button" size="sm" variant="outline" className="h-8 text-xs shrink-0"
+                      disabled={salvandoLinha || !linhaTexto.trim() || (conferenciaDaLinha !== null && !conferenciaDaLinha.ok)} onClick={() => void salvarLinha()}>
+                      {salvandoLinha ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Guardar"}
+                    </Button>
+                  </div>
+                  {conferenciaDaLinha && !conferenciaDaLinha.ok && <p className="text-xs text-destructive-text">{conferenciaDaLinha.erro}</p>}
+                  {conferenciaDaLinha?.ok && conferenciaDaLinha.boleto && (
+                    <p className="text-xs text-muted-foreground">
+                      ✓ Números conferem{conferenciaDaLinha.boleto.valor ? ` · a linha diz ${brl(conferenciaDaLinha.boleto.valor)}` : ""}
+                      {conferenciaDaLinha.boleto.vencimento ? ` · vence ${dataBrCurta(conferenciaDaLinha.boleto.vencimento)}` : ""}
+                      {conferenciaDaLinha.boleto.valor && Math.abs(conferenciaDaLinha.boleto.valor - Number(confirmando.valor)) > 0.009 ? " — diferente do lançamento, confira" : ""}
+                    </p>
+                  )}
+                  <p className="text-2xs text-muted-foreground">Fica guardada neste lançamento e vai no e-mail diário e no "Preparar envio", como se o arquivo estivesse anexado.</p>
+                </div>
+              )}
               {semContaFinanceira && (
                 <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 space-y-1.5">
                   <label htmlFor="pagar-conta" className="text-xs font-medium">Esta despesa não tem conta financeira. De qual conta sai o pagamento?</label>

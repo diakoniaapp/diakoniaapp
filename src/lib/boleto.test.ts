@@ -11,7 +11,7 @@
 //     caindo em 15/01/1998)
 //   valor = 0000010000 (centavos) → R$ 100,00
 import { describe, it, expect } from "vitest";
-import { decodificarLinhaDigitavel, codigoBarrasParaLinhaDigitavel, decodificarBoleto } from "./boleto";
+import { decodificarLinhaDigitavel, codigoBarrasParaLinhaDigitavel, decodificarBoleto, linhaParaGuardar } from "./boleto";
 
 const LINHA_VALIDA =
   "1234567897" + "12345678903" + "12345678903" + "1" + "0100" + "0000010000";
@@ -107,5 +107,37 @@ describe("decodificarBoleto", () => {
     expect(doCodigoBarras).toEqual(daLinha);
     expect(doCodigoBarras.valor).toBe(100);
     expect(doCodigoBarras.vencimento).toBe("1998-01-15");
+  });
+});
+
+describe("linhaParaGuardar — a linha informada no lançamento (23/10/2026)", () => {
+  it("linha de 47 dígitos que confere: guarda só os dígitos e devolve valor e vencimento para a tela conferir", () => {
+    const r = linhaParaGuardar("12345.67897 12345.678903 12345.678903 1 01000000010000");
+    expect(r.ok).toBe(true);
+    expect(r.digitos).toBe(LINHA_VALIDA);
+    expect(r.boleto?.valor).toBe(100);
+    expect(r.boleto?.vencimento).toBe("1998-01-15");
+  });
+  it("o código de barras (44) também vale", () => {
+    expect(linhaParaGuardar(CODIGO_BARRAS_VALIDO).ok).toBe(true);
+  });
+  it("dígito errado: recusa, com a mensagem do leitor de boleto", () => {
+    const r = linhaParaGuardar(LINHA_VALIDA.slice(0, 5) + "9" + LINHA_VALIDA.slice(6));
+    expect(r.ok).toBe(false);
+    expect(r.erro).toBeTruthy();
+  });
+  it("conta de consumo/guia (48 dígitos) fica como veio — o sistema não confere o dígito do convênio", () => {
+    const r = linhaParaGuardar("8".repeat(48));
+    expect(r.ok).toBe(true);
+    expect(r.digitos).toHaveLength(48);
+    expect(r.boleto).toBeUndefined();
+  });
+  it("tamanho errado: diz quantos números a pessoa informou", () => {
+    const r = linhaParaGuardar("12345 6789");
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/informou 9/);
+  });
+  it("vazio apaga a linha", () => {
+    expect(linhaParaGuardar("  ")).toEqual({ ok: true, digitos: "" });
   });
 });

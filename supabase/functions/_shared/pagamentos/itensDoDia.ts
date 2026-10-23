@@ -20,6 +20,8 @@ export interface CandidataDoDia {
   id: string; data: string; valor: number; dias_para_vencer: number;
   fornecedor_id: string | null; fornecedor_nome: string | null; pessoa_nome: string | null; descricao: string | null;
   categoria: string | null; centro: string | null; chave_pix: string | null; tipo_chave_pix: string | null;
+  /** a linha digitável INFORMADA no lançamento (sem anexo); vale quando nenhum documento lido traz uma — a leitura do documento continua mandando */
+  linha_digitavel?: string | null;
   /** quando esta obrigação foi listada pela última vez num resumo diário enviado */
   ultimo_envio: string | null;
   anexos: AnexoDoDia[];
@@ -43,13 +45,14 @@ export function itemDoDia(c: CandidataDoDia): ItemDoDia {
   const fornecedor = c.fornecedor_nome || c.pessoa_nome || c.descricao || c.categoria || "Sem favorecido";
   const docs = c.anexos.filter(a => TIPOS_QUE_SE_PAGAM.includes(a.tipo)).map(a => lerGuardado(a.dados)).filter((d): d is DocumentoLido => d !== null).slice(0, MAX_DOCUMENTOS);
   const comLinha = docs.find(d => d.linhaDigitavel);
+  const linhaInformada = !comLinha && (c.linha_digitavel ?? "").trim() ? c.linha_digitavel!.replace(/[^0-9]/g, "") : null;
   const comPix = docs.find(d => d.pix);
   const doc = comLinha ?? comPix ?? docs[0] ?? null;
 
-  let pix: string | null = comLinha ? null : comPix?.pix ?? null;
+  let pix: string | null = comLinha || linhaInformada ? null : comPix?.pix ?? null;
   let origemDoPix: "documento" | "cadastro" | null = pix ? "documento" : null;
   let favorecidoDoPix: string | null = null;
-  if (!comLinha && !pix && c.fornecedor_id && (c.chave_pix ?? "").trim()) {
+  if (!comLinha && !linhaInformada && !pix && c.fornecedor_id && (c.chave_pix ?? "").trim()) {
     try {
       pix = montarPayloadPix({ chave: c.chave_pix!, tipoChave: c.tipo_chave_pix as TipoChavePix | null, nomeRecebedor: c.fornecedor_nome ?? fornecedor, valor: Number(c.valor) });
       origemDoPix = "cadastro"; favorecidoDoPix = c.fornecedor_nome;
@@ -59,7 +62,7 @@ export function itemDoDia(c: CandidataDoDia): ItemDoDia {
   const item = montarItemDeEnvio(
     { id: c.id, fornecedor, descricao: c.descricao, categoria: c.categoria, centro: c.centro, valor: Number(c.valor), vencimento: String(c.data).slice(0, 10), diasParaVencer: c.dias_para_vencer },
     {
-      linha: comLinha?.linhaDigitavel ?? null, pix, origemDoPix, favorecidoDoPix, documentos: c.anexos.filter(a => entraNoZip(a.tipo)).length,
+      linha: comLinha?.linhaDigitavel ?? linhaInformada, linhaInformada: !!linhaInformada, pix, origemDoPix, favorecidoDoPix, documentos: c.anexos.filter(a => entraNoZip(a.tipo)).length,
       valorDoDocumento: doc?.valor ?? null, vencimentoDoDocumento: doc?.vencimento ? String(doc.vencimento).slice(0, 10) : null, codigoValido: comLinha?.codigoValido ?? null,
     },
   );

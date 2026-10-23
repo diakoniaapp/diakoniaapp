@@ -100,7 +100,8 @@ export const blocoDeObservacao = (texto: string): string => `<p style="margin:14
 /** Título de uma parte do e-mail ("Para pagar", "Saldo das contas"); `subtitulo` é a regra em uma frase. */
 export function secao(titulo: string, subtitulo?: string, tom: Tom | null = null): string {
   const cor = tom ? COR[tom].traco : COR.titulo;
-  return `<p style="margin:26px 0 ${subtitulo ? "2" : "10"}px;font-size:15px;font-weight:bold;color:${cor}">${esc(titulo)}</p>`
+  // o mesmo ponto colorido dos blocos do resumo semanal: a cor diz o tom da seção antes de a pessoa ler o título
+  return `<p style="margin:26px 0 ${subtitulo ? "2" : "10"}px;font-size:15px;font-weight:bold;color:${cor}"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${COR[tom ?? "aviso"].traco};margin-right:7px"></span>${esc(titulo)}</p>`
     + (subtitulo ? `<p style="margin:0 0 10px;font-size:12px;line-height:1.5;color:${COR.suave}">${txt(subtitulo)}</p>` : "");
 }
 

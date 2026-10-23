@@ -132,7 +132,10 @@ export function montarEmailDiario(itens: readonly ItemDoDia[], o: OpcoesDoDiario
   const repetidoDe = (i: ItemDoDia): { texto: string; tom: Tom } | undefined => { const r = jaEnviado(i, o.hojeYmd); return r ? { texto: `↻ ${r}`, tom: "atencao" } : undefined; };
   const maisOutros = (n: number, um: string, varios: string) => (n > 0 ? D.blocoDeObservacao(`+ ${plural(n, um, varios)} — abra o DiakoniaApp.`) : "");
 
-  let corpo = D.saudacao(saudacao) + D.paragrafo(intro);
+  // o mesmo título e a mesma linha de data do resumo semanal ("Resumo da semana" / "Sexta-feira, 23 de outubro"), antes da saudação
+  const dataPorExtenso = new Date(`${o.hojeYmd}T12:00:00Z`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+  let corpo = D.saudacao("Resumo diário da Tesouraria") + D.paragrafo(`${dataPorExtenso.charAt(0).toLocaleUpperCase("pt-BR")}${dataPorExtenso.slice(1)}.`)
+    + D.paragrafo(`${saudacao}\n\n${intro}`);
   const inds: { icone: string; rotulo: string; valor: string; tom?: Tom }[] = [];
   if (total.quantidade > 0) {
     inds.push({ icone: "🧾", rotulo: "Pagamentos", valor: brl(total.valor) });

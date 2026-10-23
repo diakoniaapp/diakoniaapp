@@ -203,3 +203,35 @@ describe("motivoDeNaoEnviar — o envio agendado sai hoje?", () => {
     expect(prepararDiario(dados({ config: { hora: 15 } })).email.html).toContain("boa tarde");
   });
 });
+
+describe("a linha digitável INFORMADA no lançamento, sem anexo (23/10/2026 — fatura Amil)", () => {
+  const informada = "23793381286000782713695000063305975520000010000";
+  it("sem nenhum anexo, a linha informada vira o meio de pagamento: sai em 'Para pagar', com a origem dita", () => {
+    const i = itemDoDia(cand({ linha_digitavel: informada }));
+    expect(i.linha).toBe(informada);
+    expect(i.origem).toBe("linha_informada");
+    expect(secaoDoItem(i)).toBe("pagar");
+    const e = montarEmailDiario([i], { hojeYmd: "2026-10-22", hora: 7 });
+    expect(e.html).toContain("Linha digitável informada no lançamento");
+    expect(e.html).toContain("23793 38128 60007 82713 69500 00633 05975 52000 00100 00");
+    expect(e.html).not.toContain("Sem linha digitável nem Pix");
+    expect(e.texto).toContain("Linha digitável informada no lançamento");
+  });
+  it("a leitura do DOCUMENTO continua mandando: com linha no anexo, a informada não entra", () => {
+    const doc = "34191790010104351004791020150008291070026000";
+    const i = itemDoDia(cand({ linha_digitavel: informada, anexos: [boleto({ linhaDigitavel: "34191000000000000000000000000000000000000000000" })] }));
+    expect(i.origem).toBe("linha_documento");
+    expect(i.linha).not.toBe(informada);
+    expect(doc).toBeTruthy();
+  });
+  it("a informada vale mais que o Pix do cadastro (ordem: linha > Pix do documento > Pix do cadastro)", () => {
+    const i = itemDoDia(cand({ linha_digitavel: informada, chave_pix: "12345678909", tipo_chave_pix: "cpf" }));
+    expect(i.origem).toBe("linha_informada");
+    expect(i.pix).toBeNull();
+  });
+  it("com pontos e espaços, só os dígitos; vazio ou em branco é como não ter", () => {
+    expect(itemDoDia(cand({ linha_digitavel: "23793.38128 60007.827136 95000.063305 9 75520000010000" })).linha).toBe(informada);
+    expect(itemDoDia(cand({ linha_digitavel: "   " })).origem).toBeNull();
+    expect(itemDoDia(cand({ linha_digitavel: null })).origem).toBeNull();
+  });
+});

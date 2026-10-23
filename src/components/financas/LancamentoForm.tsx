@@ -39,11 +39,11 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import { lerDocumentoDePagamento } from "@/lib/documentos/pagamento";
 import type { Sugestao } from "@/lib/documentos/sugestaoPagamento";
 import {
-  RECADO_MIGRATION_DE_DOCUMENTOS, aprenderComEscolha, pareceDocumentoDePagamento, sugerirParaDocumento,
+  RECADO_MIGRATION_DE_DOCUMENTOS, aprenderComEscolha, lancamentoAceitaLinhaDigitavel, pareceDocumentoDePagamento, sugerirParaDocumento,
   type LeituraDoArquivo,
 } from "@/services/documentoPagamentoService";
 import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
-import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
+import { decodificarBoleto, linhaParaGuardar, type BoletoDecodificado } from "@/lib/boleto";
 import { CampoData } from "@/components/CampoData";
 import { FaixaDoVinculoBancario, tirarMarcasDoExtrato, useVinculosDoLancamento } from "@/components/financas/VinculoBancario";
 import { Textarea } from "@/components/ui/textarea";
@@ -700,6 +700,11 @@ export function LancamentoForm({
       };
       // emissão: só vai quando há valor novo (ou foi apagada) — sem a migration 20261022100000 a coluna nem existe, e editar outra coisa não pode quebrar por isso
       if (dataEmissao !== emissaoOriginal) payload.data_emissao = dataEmissao || null;
+      // a linha digitável colada em "Ler boleto" também fica guardada no lançamento novo (23/10/2026) — antes só preenchia valor e vencimento e o código se perdia. Só vai se os dígitos conferem e o banco já tem a coluna.
+      if (!isEdit) {
+        const linha = linhaParaGuardar(boletoTexto);
+        if (linha.ok && linha.digitos && (await lancamentoAceitaLinhaDigitavel())) payload.linha_digitavel = linha.digitos;
+      }
       // só vai quando MUDOU (a coluna existe há muito, mas editar outra coisa não deve reescrever a data de pagamento): pago → o dia do pagamento escolhido; deixou de ser pago → sem data de pagamento
       if (isEdit && lancamento) {
         const eraPago = lancamento.status === "realizado" || lancamento.status === "conciliado";

@@ -5488,6 +5488,8 @@ export type Database = {
           data: string
           // migration 20261022100000_fin_lancamentos_data_emissao.sql
           data_emissao: string | null
+          // ENTRADA MANUAL (23/10/2026) — migration 20261023140000_linha_digitavel_no_lancamento.sql; regenerar `types.ts` descarta isto até rodar de novo.
+          linha_digitavel: string | null
           data_competencia: string | null
           data_pagamento: string | null
           descricao: string | null
@@ -5526,6 +5528,7 @@ export type Database = {
           created_at?: string
           data: string
           data_emissao?: string | null
+          linha_digitavel?: string | null
           data_competencia?: string | null
           data_pagamento?: string | null
           descricao?: string | null
@@ -5564,6 +5567,7 @@ export type Database = {
           created_at?: string
           data?: string
           data_emissao?: string | null
+          linha_digitavel?: string | null
           data_competencia?: string | null
           data_pagamento?: string | null
           descricao?: string | null

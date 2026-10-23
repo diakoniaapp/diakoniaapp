@@ -91,7 +91,7 @@ async function lerItem(v: FinVencimento, valor: number, ctx: Contexto): Promise<
     } catch { /* chave inválida: sem Pix */ }
   }
   return montarItemDeEnvio(base, {
-    linha: comLinha?.linhaDigitavel ?? null, pix, origemDoPix, favorecidoDoPix,
+    linha: comLinha?.linhaDigitavel ?? null, linhaInformada: comLinha?.origem === "informada", pix, origemDoPix, favorecidoDoPix,
     documentos: ctx.documentos.get(v.id)?.length ?? 0,
     valorDoDocumento: doc?.valor ?? null, vencimentoDoDocumento: doc?.vencimento ? String(doc.vencimento).slice(0, 10) : null,
     codigoValido: comLinha?.codigoValido ?? null,

@@ -12,6 +12,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { linhaParaGuardar } from "@/lib/boleto";
 import { anexoSignedUrl, atualizarLancamento } from "@/services/finService";
 import { extrairDadosDoComprovante, textoDoPdf } from "@/services/ocrService";
 import { pixDoQrDoArquivo } from "@/services/qrDoDocumentoService";
@@ -215,7 +216,7 @@ export interface DadosParaPagar {
   codigoValido: boolean | null;
   pix: { payload: string; nome: string | null; crcValido: boolean } | null;
   /** "guardado" = veio de `dados_extraidos`; "lido agora" = leu o PDF neste instante (anexo anterior à migration). */
-  origem: "guardado" | "lido agora";
+  origem: "guardado" | "lido agora" | "informada";
 }
 
 const TIPOS_QUE_SE_PAGAM = ["boleto", "guia", "fatura", "outro", "documento"];
@@ -283,7 +284,40 @@ export async function dadosParaPagarDoLancamento(lancamentoId: string): Promise<
       if (temColuna) void guardarLeituraNoAnexo(a.id, doc).catch(() => { /* melhoria: não atrapalha o pagamento */ });
     } catch { /* um arquivo ilegível não impede os outros nem o pagamento */ }
   }
+  // A linha digitável INFORMADA no lançamento (23/10/2026): vale quando nenhum documento traz uma — a leitura do documento continua mandando. É o caso da fatura sem arquivo anexado.
+  if (!saida.some(d => d.linhaDigitavel)) {
+    const informada = await linhaInformadaDoLancamento(lancamentoId).catch(() => null);
+    if (informada) saida.push({ anexoId: ID_DA_LINHA_INFORMADA, nomeDoArquivo: null, rotulo: "Linha digitável informada no lançamento", valor: null, vencimento: null, beneficiario: null, linhaDigitavel: informada, codigoBarras: null, codigoValido: null, pix: null, origem: "informada" });
+  }
   return saida;
+}
+
+/** O banco já tem a coluna `fin_lancamentos.linha_digitavel` (migration 20261023140000)? Quem grava um lançamento novo só manda a linha se tiver. */
+export const lancamentoAceitaLinhaDigitavel = () => existe("fin_lancamentos", "linha_digitavel");
+
+/** Identifica, na lista do Pagar, o cartão que não é um anexo: a linha digitada no próprio lançamento. */
+export const ID_DA_LINHA_INFORMADA = "linha-informada";
+
+/** A linha digitável guardada no lançamento (só dígitos); `null` sem linha ou sem a migration 20261023140000. */
+export async function linhaInformadaDoLancamento(lancamentoId: string): Promise<string | null> {
+  if (!(await existe("fin_lancamentos", "linha_digitavel"))) return null;
+  const { data, error } = await supabase.from("fin_lancamentos").select("linha_digitavel").eq("id", lancamentoId).maybeSingle();
+  if (error) throw new Error(error.message);
+  const l = ((data as unknown as { linha_digitavel: string | null } | null)?.linha_digitavel ?? "").trim();
+  return l || null;
+}
+
+/** Grava (ou apaga, com texto vazio) a linha digitável do lançamento. Valida antes (`linhaParaGuardar`) e confere a escrita: a RLS pode barrar sem erro. */
+export async function informarLinhaDigitavel(lancamentoId: string, texto: string): Promise<{ digitos: string }> {
+  const v = linhaParaGuardar(texto);
+  if (!v.ok) throw new Error(v.erro ?? "Esses números não conferem.");
+  if (!(await existe("fin_lancamentos", "linha_digitavel"))) throw new Error("Falta aplicar a migration 20261023140000 no banco para guardar a linha digitável.");
+  const r = conferir(
+    await supabase.from("fin_lancamentos").update({ linha_digitavel: v.digitos || null } as never).eq("id", lancamentoId).select("id"),
+    "A linha digitável",
+  );
+  if (!r.ok) throw new Error(r.erro);
+  return { digitos: v.digitos };
 }
 
 /** Baixa o anexo e lê o QR Code do Pix; `null` se não há QR de Pix (ou o arquivo não abre). */
