@@ -56,6 +56,7 @@ import FinancasAdmin from "./pages/FinancasAdmin.tsx";
 import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
 import { RedirecionaParaOFechamento } from "./pages/RedirecionaParaOFechamento.tsx";
 import FinancasAuditoriaAnexos from "./pages/FinancasAuditoriaAnexos.tsx";
+import SondagemDeRegrasDeAtraso from "./pages/SondagemDeRegrasDeAtraso.tsx";
 import FinancasCentralDocumentos from "./pages/FinancasCentralDocumentos.tsx";
 import ContaComAbas from "./pages/ContaComAbas.tsx";
 import FinancasEstoque from "./pages/FinancasEstoque.tsx";
@@ -269,6 +270,7 @@ const App = () => (
                   <Route path="/admin/exportacao" element={<ExportacaoAdmin />} />
                   <Route path="/admin/campanhas" element={<CampanhasAdmin />} />
                   <Route path="/comunicacao" element={<ComunicacaoERelatorios />} />
+                  <Route path="/admin/sondagem-regras-de-atraso" element={<SondagemDeRegrasDeAtraso />} />
                   <Route path="/admin/resumo-semanal" element={<Navigate to="/comunicacao?aba=agendamentos" replace />} />
                 </Route>
 
