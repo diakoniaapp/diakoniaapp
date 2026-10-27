@@ -272,3 +272,7 @@ Pedido: apresentar também os **nomes dos membros que não contribuíram nenhuma
 **Reuso:** o mesmo cálculo único (seção 5.2) alimenta tela, exportação e o agregado do e-mail, para o número do pastor ser o mesmo da tela. `prestacaoIndicadores` (que conta por nome normalizado) deve passar a usar esse cálculo antes de este bloco ir ao ar, ou os dois relatórios discordarão.
 
 **Medição pendente:** quantos membros/congregados ativos existem por tipo e quantos têm entrada identificada desde 01/01/2026 (contagens, sem listar nomes) — a fazer, só leitura, antes da Fase 3.
+
+## 14. Primeira fatia implementada (27/10/2026)
+
+Painel, aba Pessoas, bloco "Sem contribuição", presets 90 dias/6/12 meses, Excel/CSV e o registro de acessos estão no código (ver `docs/CONTRIBUICOES_IMPLANTACAO.md`). Contagens reais medidas para o bloco: base de 304 membros/congregados ativos (47 menores de 18, 59 sem data de nascimento); desde 01/01/2026, 149 contribuíram e 159 não — dos 159, 33 são menores, 38 não têm data de nascimento e 55 têm alguém da família que contribuiu. Faltam: e-mail agregado ao pastor, e a decisão de passar a Prestação de Contas ao mesmo cálculo.

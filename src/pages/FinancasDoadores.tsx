@@ -1,177 +1,209 @@
-// ─── FinancasDoadores.tsx ────────────────────────────────────────────────
+// ─── FinancasDoadores.tsx — Doadores e dizimistas (evoluída em 27/10/2026) ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 //
-// Histórico de contribuição por pessoa — gap achado na auditoria do ERP
-// financeiro (12/09/2026), construído depois que a Telma respondeu a nota
-// de privacidade do doador: "os tesoureiros e administrador do sistema
-// podem ver tudo sobre as doações". Por isso esta tela e a de detalhe
-// (`FinancasDoadorDetalhe.tsx`) são fechadas a `ROLES_DOADORES` — mais
-// estreito que `ROLES_FINANCEIRO`, que também vê aluguel/conta de luz.
-//
-// Ordenado por NOME por padrão, não por valor — a mesma nota de
-// privacidade registrava o risco pastoral de virar "ranking de
-// doadores". Quem quiser ver por valor pode trocar a ordenação.
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { useEstadoNaUrl, numeroDe } from "@/hooks/useEstadoNaUrl";
+// A tela já existia (12/09/2026: histórico de contribuição por pessoa, fechada a `ROLES_DOADORES` depois que ela respondeu "os tesoureiros e administrador podem ver tudo sobre as doações"). Em
+// 27/10/2026 ela pediu para EVOLUIR esta tela — sem criar outra — com indicadores, gráficos, o bloco "Sem contribuição no período" e auditoria de quem vê os nomes. Três abas na mesma rota:
+//   · Painel — só agregados (nenhum nome): indicadores, gráficos, destaques. É o que o e-mail ao pastor levará.
+//   · Pessoas — a lista nominal de antes, sobre o período, com grupos. NOMINAL: exige o registro do acesso.
+//   · Sem contribuição — quem não contribuiu no período (base: membros e congregados ativos). NOMINAL: exige o registro do acesso.
+// O PISO (decisão dela): toda análise começa em 01/01/2026 — antes disso só ~30–35% dos dízimos têm pessoa ligada. O período pedido é ajustado ao piso e a tela diz que foi.
+// Ordem padrão da lista: por NOME, não por valor — a nota de privacidade do projeto ("não virar ranking de doadores") continua valendo.
+// O que mora na URL: aba, período, filtros — abrir uma pessoa e voltar devolve a tela como estava (`useEstadoNaUrl`). Links antigos com `?ano=&mes=` continuam funcionando.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { saveAs } from "file-saver";
+import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { ArrowLeft, Users, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { listarDoadoresComResumo, type DoadorResumo } from "@/services/doadorService";
-import { brl } from "@/services/finService";
+import { FileSpreadsheet, Info, RefreshCw, Users } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
+import { hojeLocal } from "@/lib/data";
+import { gerarXlsx } from "@/lib/xlsxSimples";
+import {
+  PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ajustarAoPiso, analisarContribuicoes, analisarSemContribuicao, intervaloDoPreset, resumirPessoas,
+  type LinhaDeContribuicao, type PessoaDaBase, type PresetDePeriodo,
+} from "@/lib/contribuicoes";
+import { carregarBaseDePessoas, carregarContribuicoes, carregarNomes, registrarAcessoNominal, type AcaoDoRegistro } from "@/services/contribuicoesService";
+import { downloadCSV } from "@/services/finService";
+import { PainelDeContribuicoes } from "@/components/contribuicoes/PainelDeContribuicoes";
+import { ListaDePessoas, type GrupoDePessoas, type PessoaDaLista } from "@/components/contribuicoes/ListaDePessoas";
+import { SemContribuicao, type FiltrosDosSem } from "@/components/contribuicoes/SemContribuicao";
+import { useRegistroDeAcesso } from "@/components/contribuicoes/useRegistroDeAcesso";
+import { abaDePessoas, abasDoPainel, abasDosSemContribuicao, paraCSV, textoDoPeriodo } from "@/components/contribuicoes/exportacoes";
 
-function dataBr(s: string) {
-  return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
+type Aba = "painel" | "pessoas" | "sem";
+const ABAS: { id: Aba; rotulo: string }[] = [{ id: "painel", rotulo: "Painel" }, { id: "pessoas", rotulo: "Pessoas" }, { id: "sem", rotulo: "Sem contribuição" }];
+const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+const ultimoDia = (ano: number, mes: number) => `${ano}-${String(mes).padStart(2, "0")}-${String(new Date(ano, mes, 0).getDate()).padStart(2, "0")}`;
 
-// Sem isto, "Ana Lúcia" (digitado com acento, do jeito natural de
-// escrever) não batia com "ANA LUCIA GOMES DA SILVA" (gravado sem
-// acento) — achado ao vivo pela Telma em 15/09/2026: a busca sempre
-// devolvia "sem doadores", mesmo com gente na lista. Mesmo padrão de
-// normalização já usado em `omieImportService.ts` (aposentado em 14/10/2026; ver histórico do git) (casar categoria/
-// fornecedor ignorando acento e maiúscula).
-function normalizar(s: string): string {
-  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-}
-
-type Ordenacao = "nome" | "valor";
-
-const MESES = [
-  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
-];
+const PADRAO = {
+  aba: "painel", p: "6m", de: "", ate: "", q: "", ordem: "nome", grupo: "todos",
+  considerar: "qualquer", menores: "", tipo: "todos", classe: "todos", faixa: "", familia: "",
+  ano: "", mes: "",   // só os links antigos (?ano=2026&mes=3)
+};
 
 export default function FinancasDoadores() {
-  // O que se estava vendo mora na URL: abrir um item e voltar devolve a lista como estava (22/10/2026) — ver `useEstadoNaUrl`.
-  const anoAtual = new Date().getFullYear();
-  const [naUrl, mudarNaUrl] = useEstadoNaUrl({ ano: String(anoAtual), mes: "", q: "", ordem: "nome" });
-  const ano = numeroDe(naUrl.ano, anoAtual, 1900);
-  const setAno = (f: number | ((a: number) => number)) => mudarNaUrl({ ano: String(typeof f === "function" ? f(ano) : f) });
-  // `null` = ano inteiro (comportamento de sempre). Pedido da Telma
-  // (15/09/2026): poder estreitar pra um mês só.
-  const mes: number | null = naUrl.mes ? numeroDe(naUrl.mes, 0, 1) || null : null;
-  const setMes = (v: number | null) => mudarNaUrl({ mes: v ? String(v) : "" });
-  const [doadores, setDoadores] = useState<DoadorResumo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const busca = naUrl.q; const setBusca = (v: string) => mudarNaUrl({ q: v });
-  const ordenacao = (naUrl.ordem === "valor" ? "valor" : "nome") as Ordenacao; const setOrdenacao = (v: Ordenacao) => mudarNaUrl({ ordem: v });
+  const hoje = hojeLocal();
+  const [url, mudar] = useEstadoNaUrl(PADRAO);
+  const aba: Aba = ABAS.some(a => a.id === url.aba) ? (url.aba as Aba) : "painel";
 
-  useEffect(() => { carregar(); }, [ano, mes]);
+  // ── o período pedido (atalho, personalizado ou link antigo) e o período EFETIVO (ajustado ao piso) ──
+  const pedido = useMemo(() => {
+    if (url.ano && /^\d{4}$/.test(url.ano)) {
+      const ano = Number(url.ano), mes = /^\d{1,2}$/.test(url.mes) ? Number(url.mes) : 0;
+      return mes >= 1 && mes <= 12 ? { ini: `${ano}-${String(mes).padStart(2, "0")}-01`, fim: ultimoDia(ano, mes) } : { ini: `${ano}-01-01`, fim: `${ano}-12-31` };
+    }
+    if (url.p === "personalizado") return { ini: /^\d{4}-\d{2}-\d{2}$/.test(url.de) ? url.de : PISO_DE_IDENTIFICACAO, fim: /^\d{4}-\d{2}-\d{2}$/.test(url.ate) ? url.ate : hoje };
+    const id = PRESETS_DE_PERIODO.some(x => x.id === url.p && x.id !== "personalizado") ? (url.p as Exclude<PresetDePeriodo, "personalizado">) : "6m";
+    return intervaloDoPreset(id, hoje);
+  }, [url.ano, url.mes, url.p, url.de, url.ate, hoje]);
+  const periodo = useMemo(() => ajustarAoPiso(pedido.ini, pedido.fim), [pedido]);
+  const presetAtivo = url.ano ? "personalizado" : PRESETS_DE_PERIODO.some(x => x.id === url.p) ? url.p : "6m";
 
-  async function carregar() {
-    setLoading(true);
+  // ── os dados ──
+  const [linhas, setLinhas] = useState<LinhaDeContribuicao[] | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    try { setLinhas(await carregarContribuicoes(hoje)); } catch (e) { toast.error(e instanceof Error ? e.message : "Erro ao carregar as contribuições"); } finally { setCarregando(false); }
+  }, [hoje]);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const analise = useMemo(() => (linhas && !periodo.vazio ? analisarContribuicoes(linhas, periodo) : null), [linhas, periodo]);
+
+  // ── Pessoas ──
+  const resumos = useMemo(() => (linhas && !periodo.vazio ? resumirPessoas(linhas, periodo) : []), [linhas, periodo]);
+  const nomes = useRef(new Map<string, string>());
+  const [nomesProntos, setNomesProntos] = useState(0);   // muda quando chegam nomes novos
+  useEffect(() => {
+    if (aba !== "pessoas") return;
+    const faltam = resumos.map(r => r.pessoaId).filter(id => !nomes.current.has(id));
+    if (faltam.length === 0) { setNomesProntos(n => n + 1); return; }
+    let vivo = true;
+    carregarNomes(faltam).then(m => { if (!vivo) return; m.forEach((v, k) => nomes.current.set(k, v)); setNomesProntos(n => n + 1); }).catch(e => toast.error(e instanceof Error ? e.message : "Erro ao carregar os nomes"));
+    return () => { vivo = false; };
+  }, [aba, resumos]);
+  const pessoasDaLista = useMemo<PessoaDaLista[]>(() => resumos.map(r => ({ ...r, nome: nomes.current.get(r.pessoaId) ?? "—" })), [resumos, nomesProntos]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const nomesCompletos = aba === "pessoas" && resumos.every(r => nomes.current.has(r.pessoaId));
+  const registroPessoas = useRegistroDeAcesso("ver_pessoas", { ini: periodo.ini, fim: periodo.fim }, resumos.length, aba === "pessoas" && !!linhas && nomesCompletos);
+
+  // ── Sem contribuição ──
+  const [base, setBase] = useState<PessoaDaBase[] | null>(null);
+  useEffect(() => {
+    if (aba !== "sem" || base) return;
+    carregarBaseDePessoas().then(setBase).catch(e => toast.error(e instanceof Error ? e.message : "Erro ao carregar os membros"));
+  }, [aba, base]);
+  const filtrosSem: FiltrosDosSem = {
+    considerar: url.considerar === "dizimo" ? "dizimo" : "qualquer", incluirMenores: url.menores === "1",
+    tipo: url.tipo === "membro" || url.tipo === "congregado" ? url.tipo : "todos", classe: url.classe === "nunca" || url.classe === "antes" ? url.classe : "todos",
+    faixa: (["ate30", "de31a60", "de61a90", "de91a180", "mais180"] as const).find(f => f === url.faixa) ?? "", semFamilia: url.familia === "1",
+  };
+  const semAnalise = useMemo(
+    () => (linhas && base && !periodo.vazio ? analisarSemContribuicao(linhas, base, periodo, { considerar: filtrosSem.considerar, incluirMenores: filtrosSem.incluirMenores }) : null),
+    [linhas, base, periodo, filtrosSem.considerar, filtrosSem.incluirMenores],
+  );
+  const registroSem = useRegistroDeAcesso("ver_nao_contribuiram", { ini: periodo.ini, fim: periodo.fim, considerar: filtrosSem.considerar, menores: filtrosSem.incluirMenores }, semAnalise?.naoContribuiram ?? null, aba === "sem" && !!semAnalise);
+
+  // ── exportar: nominal só depois de gravar o registro ──
+  const [exportando, setExportando] = useState(false);
+  async function registrarOuAvisar(acao: AcaoDoRegistro, recorte: Record<string, unknown>, total: number): Promise<boolean> {
+    const r = await registrarAcessoNominal(acao, recorte, total);
+    if (r.ok || r.indisponivel) return true;
+    toast.error(`Não foi possível registrar a exportação, então o arquivo não foi gerado. ${r.erro}`);
+    return false;
+  }
+  const nomeDoArquivo = (base: string, ext: string) => `${base}_${periodo.ini}_a_${periodo.fim}.${ext}`;
+
+  async function exportarPainel() {
+    if (!analise) return;
+    setExportando(true);
+    try { saveAs(await gerarXlsx(abasDoPainel(analise, "", hoje)), nomeDoArquivo("contribuicoes_resumo", "xlsx")); toast.success("Excel exportado"); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível gerar o Excel."); }
+    finally { setExportando(false); }
+  }
+  async function exportarPessoas(formato: "xlsx" | "csv", visiveis: PessoaDaLista[]) {
+    setExportando(true);
     try {
-      setDoadores(await listarDoadoresComResumo(ano, mes ?? undefined));
-    } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao carregar doadores");
-    } finally { setLoading(false); }
+      if (!(await registrarOuAvisar("exportar_pessoas", { ini: periodo.ini, fim: periodo.fim, formato }, visiveis.length))) return;
+      const linhasP = visiveis.map(p => ({ nome: p.nome, quantidade: p.quantidade, ultima: p.ultima, total: p.total, dizimista: p.dizimista, recorrente: p.recorrente, nova: p.nova }));
+      if (formato === "xlsx") saveAs(await gerarXlsx([abaDePessoas(linhasP, periodo)]), nomeDoArquivo("contribuicoes_pessoas", "xlsx"));
+      else downloadCSV(nomeDoArquivo("contribuicoes_pessoas", "csv"), paraCSV([["Nome", "Contribuições", "Última", "Total", "Dizimista", "Recorrente", "Novo"], ...linhasP.map(p => [p.nome, p.quantidade, dataBr(p.ultima), p.total, p.dizimista ? "Sim" : "Não", p.recorrente === null ? "—" : p.recorrente ? "Sim" : "Não", p.nova === null ? "—" : p.nova ? "Sim" : "Não"])]));
+      toast.success("Arquivo exportado");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível gerar o arquivo."); } finally { setExportando(false); }
+  }
+  async function exportarSem(formato: "xlsx" | "csv", visiveis: import("@/lib/contribuicoes").PessoaSemContribuicao[]) {
+    if (!semAnalise) return;
+    setExportando(true);
+    try {
+      if (!(await registrarOuAvisar("exportar_nao_contribuiram", { ini: periodo.ini, fim: periodo.fim, considerar: filtrosSem.considerar, menores: filtrosSem.incluirMenores, formato }, visiveis.length))) return;
+      const quemEntra = filtrosSem.considerar === "dizimo" ? "considerando só dízimo" : "considerando dízimo, oferta ou missões";
+      if (formato === "xlsx") saveAs(await gerarXlsx(abasDosSemContribuicao({ ...semAnalise, lista: visiveis }, periodo, quemEntra)), nomeDoArquivo("sem_contribuicao", "xlsx"));
+      else downloadCSV(nomeDoArquivo("sem_contribuicao", "csv"), paraCSV([["Nome", "Tipo", "Situação", "Última contribuição", "Dias", "Família contribuiu", "Menor de 18", "Sem nascimento"], ...visiveis.map(p => [p.nome, p.tipo === "membro" ? "Membro" : "Congregado", p.classificacao === "nunca" ? "Nenhuma desde 01/01/2026" : "Contribuiu antes do período", p.ultima ? dataBr(p.ultima) : "", p.dias, p.familiaContribui ? "Sim" : "Não", p.menor ? "Sim" : "Não", p.semNascimento ? "Sim" : "Não"])]));
+      toast.success("Arquivo exportado");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível gerar o arquivo."); } finally { setExportando(false); }
   }
 
-  const filtrados = useMemo(() => {
-    let lista = doadores;
-    if (busca.length >= 2) {
-      const buscaNorm = normalizar(busca);
-      lista = lista.filter(d => normalizar(d.nome).includes(buscaNorm));
-    }
-    if (ordenacao === "valor") {
-      lista = [...lista].sort((a, b) => b.totalAno - a.totalAno);
-    }
-    return lista;
-  }, [doadores, busca, ordenacao]);
-
-  const totalGeral = doadores.reduce((s, d) => s + d.totalAno, 0);
-  const periodoLabel = mes === null ? String(ano) : `${MESES[mes - 1]}/${ano}`;
-
-  if (loading) return <PaginaSkeleton />;
+  if (carregando && !linhas) return <PaginaSkeleton />;
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
-      {/* Título e controles em linhas separadas — mesmo ajuste feito em
-          FinancasDoacoes.tsx (17/09/2026) pra não espremer o título numa
-          coluna estreita quando a linha de controles fica longa. */}
-      <div className="flex items-center gap-2">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
+      <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <h1 className="font-serif text-xl flex items-center gap-2">
-            <Users className="w-5 h-5 text-gold" /> Doadores
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Histórico de contribuição por pessoa — visível só para tesouraria e administração.
-          </p>
+          <h1 className="font-serif text-xl flex items-center gap-2"><Users className="w-5 h-5 text-gold" /> Doadores</h1>
+          <p className="text-xs text-muted-foreground">Contribuições por período, dizimistas e quem ainda não contribuiu — visível só para tesouraria e administração.</p>
         </div>
-      </div>
-      <div className="flex items-center gap-1 flex-wrap">
-        <Select value={mes === null ? "__ano__" : String(mes)}
-          onValueChange={(v) => setMes(v === "__ano__" ? null : Number(v))}>
-          <SelectTrigger className="h-8 text-xs w-[7.5rem]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__ano__">Ano inteiro</SelectItem>
-            {MESES.map((nome, i) => (
-              <SelectItem key={i} value={String(i + 1)}>{nome}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button size="sm" variant="outline" onClick={() => setAno(a => a - 1)}>
-          <ChevronLeft className="w-3.5 h-3.5" />
-        </Button>
-        <span className="text-sm font-medium px-2">{ano}</span>
-        <Button size="sm" variant="outline" onClick={() => setAno(a => a + 1)}>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Button>
-        {/* Pedido da Telma (17/09/2026): recarregar sem trocar de mês/ano. */}
-        <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="gap-1.5 ml-1">
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
-        </Button>
+        <Button size="sm" variant="outline" onClick={carregar} disabled={carregando} className="gap-1.5 shrink-0"><RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} /> Atualizar</Button>
+        {aba === "painel" && <Button size="sm" variant="outline" onClick={exportarPainel} disabled={exportando || !analise} className="gap-1.5 shrink-0"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel</Button>}
       </div>
 
-      <Card>
-        <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-3 gap-2 items-end">
-          <div className="md:col-span-2 relative">
-            <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
-            <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-              className="h-8 text-base md:text-xs pl-6" placeholder="Buscar nome..." />
-          </div>
-          <Select value={ordenacao} onValueChange={(v) => setOrdenacao(v as Ordenacao)}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nome">Ordenar por nome</SelectItem>
-              <SelectItem value="valor">Ordenar por valor</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      <p className="text-xs text-muted-foreground">
-        {doadores.length} pessoa{doadores.length !== 1 ? "s" : ""} contribuiu{doadores.length !== 1 ? "ram" : ""} em {periodoLabel} · total {brl(totalGeral)}
-      </p>
-
-      {filtrados.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            {doadores.length === 0 ? `Nenhuma contribuição vinculada a pessoa em ${periodoLabel}.` : "Sem doadores com esse filtro."}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-1">
-          {filtrados.map(d => (
-            <Link key={d.pessoaId} to={`/financas/doadores/${d.pessoaId}`}
-              className="flex items-center justify-between gap-2 border rounded-md px-3 py-2 hover:bg-muted/30">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-sm truncate">{d.nome}</p>
-                <p className="text-xs text-muted-foreground">
-                  {d.qtdContribuicoesAno} {d.qtdContribuicoesAno === 1 ? "contribuição" : "contribuições"}
-                  {d.ultimaContribuicao && ` · última em ${dataBr(d.ultimaContribuicao)}`}
-                </p>
-              </div>
-              <span className="text-sm font-semibold tabular-nums text-success-text shrink-0">{brl(d.totalAno)}</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-            </Link>
+      {/* ── o período ── */}
+      <Card><CardContent className="py-2.5 px-3 space-y-2" data-periodo>
+        <div className="flex flex-wrap gap-1.5" data-presets>
+          {PRESETS_DE_PERIODO.map(p => (
+            <button key={p.id} type="button" data-preset={p.id} aria-pressed={presetAtivo === p.id}
+              onClick={() => mudar({ p: p.id, ano: "", mes: "", de: p.id === "personalizado" ? periodo.ini : "", ate: p.id === "personalizado" ? periodo.fim : "" })}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${presetAtivo === p.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"}`}>{p.rotulo}</button>
           ))}
         </div>
+        {presetAtivo === "personalizado" && (
+          <div className="flex flex-wrap items-center gap-2 text-xs" data-personalizado>
+            <label className="flex items-center gap-1.5">De <Input type="date" value={url.de || periodo.ini} min={PISO_DE_IDENTIFICACAO} max={hoje} onChange={e => mudar({ p: "personalizado", ano: "", mes: "", de: e.target.value })} className="h-8 w-[9.5rem] text-xs" /></label>
+            <label className="flex items-center gap-1.5">até <Input type="date" value={url.ate || periodo.fim} min={PISO_DE_IDENTIFICACAO} max={hoje} onChange={e => mudar({ p: "personalizado", ano: "", mes: "", ate: e.target.value })} className="h-8 w-[9.5rem] text-xs" /></label>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground" data-periodo-efetivo>Período analisado: <strong>{textoDoPeriodo(periodo.ini, periodo.fim)}</strong></p>
+        {periodo.ajustado && (
+          <p className="flex items-start gap-1.5 text-xs text-warning-text" data-aviso="piso"><Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            O período pedido começa antes de {dataBr(PISO_DE_IDENTIFICACAO)}. Antes dessa data só cerca de um terço dos dízimos tem a pessoa identificada, então a análise começa em {dataBr(PISO_DE_IDENTIFICACAO)}.</p>
+        )}
+      </CardContent></Card>
+
+      {periodo.vazio ? (
+        <Card className="border-dashed"><CardContent className="py-8 text-center text-sm text-muted-foreground" data-vazio-piso>Este período termina antes de {dataBr(PISO_DE_IDENTIFICACAO)}, início da análise. Escolha um período a partir dessa data.</CardContent></Card>
+      ) : (
+        <Tabs value={aba} onValueChange={v => mudar({ aba: v })}>
+          <TabsList className="w-full justify-start overflow-x-auto" data-abas="doadores">
+            {ABAS.map(a => (<TabsTrigger key={a.id} value={a.id}>{a.rotulo}</TabsTrigger>))}
+          </TabsList>
+          <TabsContent value="painel" className="mt-4">{analise && <PainelDeContribuicoes analise={analise} />}</TabsContent>
+          <TabsContent value="pessoas" className="mt-4">
+            <ListaDePessoas pessoas={pessoasDaLista} grupo={(["dizimistas", "recorrentes", "novos"].includes(url.grupo) ? url.grupo : "todos") as GrupoDePessoas}
+              aoMudarGrupo={g => mudar({ grupo: g })} busca={url.q} aoMudarBusca={v => mudar({ q: v })} ordem={url.ordem === "valor" ? "valor" : "nome"} aoMudarOrdem={o => mudar({ ordem: o })}
+              registro={registroPessoas} aoExportar={exportarPessoas} exportando={exportando}
+              novosDisponivel={resumos.some(r => r.nova !== null)} recorrentesDisponivel={resumos.some(r => r.recorrente !== null)} />
+          </TabsContent>
+          <TabsContent value="sem" className="mt-4">
+            {!semAnalise ? <PaginaSkeleton linhas={3} comCabecalho={false} /> : (
+              <SemContribuicao analise={semAnalise} filtros={filtrosSem}
+                aoMudarFiltros={p => mudar({
+                  ...(p.considerar !== undefined && { considerar: p.considerar }), ...(p.incluirMenores !== undefined && { menores: p.incluirMenores ? "1" : "" }),
+                  ...(p.tipo !== undefined && { tipo: p.tipo }), ...(p.classe !== undefined && { classe: p.classe }), ...(p.faixa !== undefined && { faixa: p.faixa }), ...(p.semFamilia !== undefined && { familia: p.semFamilia ? "1" : "" }),
+                })}
+                registro={registroSem} aoExportar={exportarSem} exportando={exportando} coberturaDoPeriodo={analise?.cobertura.pctDoValor ?? null} />
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
