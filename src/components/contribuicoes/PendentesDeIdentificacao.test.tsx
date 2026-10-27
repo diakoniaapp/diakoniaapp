@@ -8,11 +8,21 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const auth = vi.hoisted(() => ({ pode: false }));
 const registrar = vi.hoisted(() => vi.fn(async () => ({ ok: true } as { ok: boolean; indisponivel?: boolean; erro?: string })));
 vi.mock("sonner", () => ({ toast }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/services/finService", () => ({ brl: (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, buscarPessoasParaLancamento: vi.fn() }));
 vi.mock("@/services/contribuicoesService", () => ({ registrarAcessoNominal: registrar }));
+vi.mock("@/hooks/useAuth", () => ({ useAuthOpcional: () => (auth.pode ? { podeEditarPessoas: true } : undefined) }));
+// o formulário de pessoa é grande e tem as suas provas: aqui só importa com que nome e tipo ele abre e o que acontece quando cria
+vi.mock("@/components/membros/MembroForm", () => ({
+  MembroForm: (p: { nomeInicial?: string; tipoInicial?: string; onCreated?: (id: string, nome: string) => void; onOpenChange: (v: boolean) => void }) => (
+    <div data-membro-form data-nome={p.nomeInicial ?? ""} data-tipo={p.tipoInicial ?? ""}>
+      <button type="button" data-criar onClick={() => { p.onCreated?.("novo-id", "Pessoa Nova"); p.onOpenChange(false); }}>criar</button>
+    </div>
+  ),
+}));
 
 import { PendentesDeIdentificacao, type ServicoDePendentes } from "./PendentesDeIdentificacao";
 import { esquecerRegistrosDaSessao } from "./useRegistroDeAcesso";
@@ -21,7 +31,7 @@ import type { ContribuicaoParaTriagem } from "@/lib/identificacaoDeContribuicoes
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let raiz: Root | null = null;
 beforeAll(() => { (Element.prototype as unknown as { hasPointerCapture?: () => boolean }).hasPointerCapture ??= () => false; });
-afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; vi.clearAllMocks(); esquecerRegistrosDaSessao(); registrar.mockResolvedValue({ ok: true }); });
+afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; vi.clearAllMocks(); auth.pode = false; esquecerRegistrosDaSessao(); registrar.mockResolvedValue({ ok: true }); });
 
 const C = (id: string, o: Partial<ContribuicaoParaTriagem> = {}): ContribuicaoParaTriagem => ({
   id, data: "2026-09-10", valor: 100, categoria: "Dizimos", descricao: null, observacoes: null, origem: "importado_omie", forma_pagamento: "pix", pessoa_id: null, familia_id: null, ...o,
@@ -84,6 +94,44 @@ describe("a taxa de identificação em quatro partes e a meta", () => {
   });
 });
 
+describe("cadastrar pessoa a partir da fila (quem contribuiu e ainda não está no cadastro)", () => {
+  it("sem permissão para editar pessoas, nenhum botão de cadastro aparece", async () => {
+    await abrir();
+    expect(q('[data-acao="cadastrar-pessoa"]')).toBeNull();
+    expect(q('[data-acao="cadastrar-pessoa-avulso"]')).toBeNull();
+  });
+  it("cada pendente tem 'Cadastrar pessoa': abre o formulário como VISITANTE, com o nome do extrato já preenchido", async () => {
+    auth.pode = true;
+    await abrir();
+    const linha = q('[data-pendente="c1"]')!;
+    await clicar(linha.querySelector('[data-acao="cadastrar-pessoa"]') as HTMLElement);
+    const form = q("[data-membro-form]")!;
+    expect(form).not.toBeNull();
+    expect(form.getAttribute("data-nome")).toBe("Sandra Maria Silva");
+    expect(form.getAttribute("data-tipo")).toBe("visitante");
+  });
+  it("ao salvar a pessoa, a contribuição é vinculada a ela na hora (e a pessoa entra nas sugestões)", async () => {
+    auth.pode = true;
+    const s = servico();
+    await abrir(s);
+    await clicar((q('[data-pendente="c2"]')!).querySelector('[data-acao="cadastrar-pessoa"]') as HTMLElement);
+    expect(q("[data-membro-form]")!.getAttribute("data-nome")).toBe("Estudio Matilha");
+    await clicar(q("[data-criar]"));
+    expect(s.vincular).toHaveBeenCalledWith("c2", "novo-id", "f9");
+    expect(naFila()).not.toContain("c2");
+  });
+  it("o botão avulso abre o formulário sem nome e, ao salvar, só avisa (nada é vinculado)", async () => {
+    auth.pode = true;
+    const s = servico();
+    await abrir(s);
+    await clicar(q('[data-acao="cadastrar-pessoa-avulso"]'));
+    expect(q("[data-membro-form]")!.getAttribute("data-nome")).toBe("");
+    await clicar(q("[data-criar]"));
+    expect(s.vincular).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("cadastrada"));
+  });
+});
+
 describe("possível movimentação interna", () => {
   it("avisa (sem alterar nada) a contribuição que caiu numa conta de aplicação, mesmo com pessoa vinculada", async () => {
     const s = servico({ carregarContribuicoes: vi.fn(async () => [...structuredClone(CONTRIBUICOES), C("c9", { valor: 9108.1, pessoa_id: "p-y", conta_nome: "Poupança", conta_tipo: "aplicacao", origem: "manual" })]) as never });
@@ -96,6 +144,18 @@ describe("possível movimentação interna", () => {
     expect(qa("[data-conferir-item]").length).toBe(1);
     expect(s.vincular).not.toHaveBeenCalled();
     expect(s.triar).not.toHaveBeenCalled();
+  });
+  it("'É contribuição — não avisar mais': confirma no banco e o aviso some (a nota de conferência grava a decisão)", async () => {
+    const s = servico({ carregarContribuicoes: vi.fn(async () => [...structuredClone(CONTRIBUICOES), C("c9", { valor: 9108.1, pessoa_id: "p-y", conta_nome: "Poupança", conta_tipo: "aplicacao", origem: "manual" })]) as never, confirmarContribuicao: vi.fn(async () => ({ ok: true })) as never });
+    await abrir(s);
+    await clicar(q('[data-acao="confirmar-contribuicao"]'));
+    expect(s.confirmarContribuicao).toHaveBeenCalledWith("c9");
+    expect(q('[data-card="movimentacao-interna"]')).toBeNull();
+  });
+  it("uma contribuição que já foi confirmada não volta a avisar", async () => {
+    const s = servico({ carregarContribuicoes: vi.fn(async () => [C("c9", { valor: 9108.1, pessoa_id: "p-y", conta_nome: "Poupança", conta_tipo: "aplicacao", conferencia_nota: "Confirmado como contribuição (Central de Doadores)" })]) as never });
+    await abrir(s);
+    expect(q('[data-card="movimentacao-interna"]')).toBeNull();
   });
   it("sem nenhuma suspeita, o aviso não aparece", async () => {
     await abrir();

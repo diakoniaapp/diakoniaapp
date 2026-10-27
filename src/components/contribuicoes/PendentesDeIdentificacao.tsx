@@ -3,22 +3,26 @@
 // ações Aceitar sugestão, Vincular pessoa, Vincular família, Marcar como anônimo, Ignorar — todas com Desfazer. Vincular grava `pessoa_id` (e `familia_id`) no próprio lançamento: o painel, o Excel, os
 // relatórios e os envios passam a contar a pessoa sozinhos (um só cálculo). Anônimo e ignorado ficam na trilha de triagem (migration 20261027220000).
 // A fila mostra NOME (do extrato) e VALOR: é dado nominal; só aparece depois de registrar o acesso (`ver_pendentes`), como as outras listas com nomes.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, EyeOff, Info, Loader2, Search, Target, UserCheck, UserX, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, EyeOff, Info, Loader2, Search, Target, UserCheck, UserPlus, UserX, Users } from "lucide-react";
 import { brl } from "@/services/finService";
 import { PISO_DE_IDENTIFICACAO } from "@/lib/contribuicoes";
 import {
-  META_DE_IDENTIFICACAO_PCT, motivoDePossivelMovimentacaoInterna, prepararPendentes, taxaDeIdentificacao, type ContribuicaoParaTriagem, type DecisaoDeTriagem, type Dificuldade, type PendenteComSugestao,
+  META_DE_IDENTIFICACAO_PCT, NOTA_DE_CONTRIBUICAO_CONFIRMADA, motivoDePossivelMovimentacaoInterna, nomeProprio, prepararPendentes, taxaDeIdentificacao, type ContribuicaoParaTriagem, type DecisaoDeTriagem, type Dificuldade, type PendenteComSugestao,
 } from "@/lib/identificacaoDeContribuicoes";
 import type { CandidatoNome } from "@/lib/fuzzyNome";
 import * as servicoReal from "@/services/pendentesDeIdentificacaoService";
 import type { FamiliaParaVincular, PessoaParaVincular, ResultadoDaEscrita, TriagemCarregada, TriagemVigente } from "@/services/pendentesDeIdentificacaoService";
 import { textoDoRegistro, useRegistroDeAcesso } from "./useRegistroDeAcesso";
+import { useAuthOpcional } from "@/hooks/useAuth";
+
+/** O formulário de cadastro de pessoa, carregado só quando se abre (é grande e só quem pode cadastrar o usa). */
+const MembroForm = lazy(() => import("@/components/membros/MembroForm").then(m => ({ default: m.MembroForm })));
 
 export interface ServicoDePendentes {
   carregarContribuicoes: () => Promise<ContribuicaoParaTriagem[]>;
@@ -30,11 +34,13 @@ export interface ServicoDePendentes {
   buscarPessoas: (termo: string) => Promise<PessoaParaVincular[]>;
   buscarFamilias: (termo: string) => Promise<FamiliaParaVincular[]>;
   familiaDaPessoa: (pessoaId: string) => Promise<string | null>;
+  /** "É contribuição — não avisar mais" (possível movimentação interna) */
+  confirmarContribuicao?: (lancamentoId: string) => Promise<ResultadoDaEscrita>;
 }
 const SERVICO_REAL: ServicoDePendentes = {
   carregarContribuicoes: servicoReal.carregarContribuicoesParaTriagem, carregarTriagem: servicoReal.carregarTriagem, carregarCandidatos: servicoReal.carregarCandidatosDeNome,
   vincular: servicoReal.vincularContribuicao, desvincular: servicoReal.desvincularContribuicao, triar: (id, d) => servicoReal.triarContribuicao(id, d),
-  buscarPessoas: servicoReal.buscarPessoas, buscarFamilias: servicoReal.buscarFamilias, familiaDaPessoa: servicoReal.familiaDaPessoa,
+  buscarPessoas: servicoReal.buscarPessoas, buscarFamilias: servicoReal.buscarFamilias, familiaDaPessoa: servicoReal.familiaDaPessoa, confirmarContribuicao: servicoReal.confirmarComoContribuicao,
 };
 
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(2, 4)}`;
@@ -44,6 +50,8 @@ const ROTULO_ORIGEM: Record<string, string> = { importado_omie: "Omie", importad
 const POR_PAGINA = 50;
 
 type Alvo = { pendente: PendenteComSugestao; modo: "pessoa" | "familia" } | null;
+/** Cadastro de pessoa aberto a partir da fila: `pendente` = a contribuição a vincular à pessoa assim que for criada (ausente = cadastro avulso). */
+type Cadastro = { pendente: PendenteComSugestao | null; nome: string } | null;
 
 export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { servico?: ServicoDePendentes; aoMudar?: () => void }) {
   const [contribuicoes, setContribuicoes] = useState<ContribuicaoParaTriagem[] | null>(null);
@@ -57,6 +65,8 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
   const [mostrar, setMostrar] = useState(POR_PAGINA);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<Alvo>(null);
+  const [cadastro, setCadastro] = useState<Cadastro>(null);
+  const podeCadastrar = !!useAuthOpcional()?.podeEditarPessoas;
 
   const carregar = useCallback(async () => {
     try {
@@ -102,6 +112,20 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
       aposMudar();
       toast.success(`Vinculada a ${pessoa.nome}`, { action: { label: "Desfazer", onClick: () => desfazerVinculo(p.contribuicao.id, pessoa.id, !!familia) } });
     } finally { setOcupado(null); }
+  }
+  /** A pessoa foi cadastrada: entra nos candidatos (as próximas sugestões já a enxergam) e, se o cadastro veio de uma contribuição, ela é vinculada na hora. */
+  async function aoCadastrarPessoa(id: string, nome: string) {
+    const origemDoCadastro = cadastro;
+    setCandidatos(c => (c.some(x => x.id === id) ? c : [...c, { id, nome }]));
+    if (origemDoCadastro?.pendente) await vincular(origemDoCadastro.pendente, { id, nome }, null);
+    else toast.success(`${nome} cadastrada. Já aparece nas sugestões.`);
+  }
+  async function confirmarComoContribuicao(id: string) {
+    if (!servico.confirmarContribuicao) return;
+    const r = await servico.confirmarContribuicao(id);
+    if (!r.ok) { toast.error(r.erro ?? "Não foi possível confirmar."); return; }
+    setContribuicoes(lista => (lista ?? []).map(c => (c.id === id ? { ...c, conferencia_nota: NOTA_DE_CONTRIBUICAO_CONFIRMADA } : c)));
+    toast.success("Confirmada como contribuição. O aviso não aparece mais para ela.");
   }
   async function desfazerVinculo(id: string, pessoaId: string, tinhaFamilia: boolean) {
     const r = await servico.desvincular(id, pessoaId, tinhaFamilia);
@@ -192,7 +216,8 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
               {paraConferir.map(({ c, motivo }) => (
                 <li key={c.id} data-conferir-item={c.id} className="flex items-center justify-between gap-2 text-sm min-w-0">
                   <span className="min-w-0 truncate"><span className="text-muted-foreground">{dataBr(c.data)}</span> · {c.categoria ?? "—"} · {motivo}{c.pessoa_id ? " · com pessoa vinculada" : ""}</span>
-                  <span className="font-semibold tabular-nums shrink-0">{brl(c.valor)}</span>
+                  <span className="flex shrink-0 items-center gap-2"><span className="font-semibold tabular-nums">{brl(c.valor)}</span>
+                    {servico.confirmarContribuicao && <Button size="sm" variant="outline" className="h-7 text-xs" data-acao="confirmar-contribuicao" onClick={() => confirmarComoContribuicao(c.id)}>É contribuição — não avisar mais</Button>}</span>
                 </li>
               ))}
             </ul>
@@ -207,6 +232,13 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
         <button type="button" data-vista="classificadas" aria-pressed={vista === "classificadas"} onClick={() => setVista("classificadas")}
           className={`rounded-full border px-3 py-1 text-xs ${vista === "classificadas" ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"}`}>Classificadas {classificadas.length}</button>
       </div>
+
+      {podeCadastrar && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-cadastro-avulso>
+          <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" data-acao="cadastrar-pessoa-avulso" onClick={() => setCadastro({ pendente: null, nome: "" })}><UserPlus className="w-3.5 h-3.5" /> Cadastrar pessoa</Button>
+          <span>Quem contribuiu e ainda não está no cadastro (um visitante, por exemplo): cadastre aqui e a sugestão já passa a enxergá-la.</span>
+        </div>
+      )}
 
       {vista === "pendentes" ? (
         <>
@@ -250,6 +282,7 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
                       {p.sugestao && <Button size="sm" className="h-7 gap-1 text-xs" disabled={trabalhando} data-acao="aceitar" onClick={() => vincular(p, { id: p.sugestao!.pessoaId, nome: p.sugestao!.nome }, null)}><UserCheck className="w-3.5 h-3.5" /> Aceitar sugestão</Button>}
                       <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={trabalhando} data-acao="pessoa" onClick={() => setAlvo({ pendente: p, modo: "pessoa" })}><Search className="w-3.5 h-3.5" /> Vincular pessoa</Button>
                       <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={trabalhando} data-acao="familia" onClick={() => setAlvo({ pendente: p, modo: "familia" })}><Users className="w-3.5 h-3.5" /> Vincular família</Button>
+                      {podeCadastrar && <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={trabalhando} data-acao="cadastrar-pessoa" onClick={() => setCadastro({ pendente: p, nome: nomeProprio(p.remetente) })}><UserPlus className="w-3.5 h-3.5" /> Cadastrar pessoa</Button>}
                       <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={trabalhando || triagemIndisponivel} data-acao="anonimo" onClick={() => triar(p, "anonimo")}><UserX className="w-3.5 h-3.5" /> Anônimo</Button>
                       <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={trabalhando || triagemIndisponivel} data-acao="ignorar" onClick={() => triar(p, "ignorado")}><EyeOff className="w-3.5 h-3.5" /> Ignorar</Button>
                     </div>
@@ -280,6 +313,13 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
       )}
 
       {alvo && <DialogoDeVinculo alvo={alvo} servico={servico} aoFechar={() => setAlvo(null)} aoEscolher={async (pessoa, familiaId) => { const p = alvo.pendente; setAlvo(null); await vincular(p, pessoa, familiaId); }} />}
+
+      {cadastro && podeCadastrar && (
+        <Suspense fallback={null}>
+          {/* o mesmo formulário de pessoa do resto do sistema, aberto como visitante e com o nome do extrato; ao salvar, a contribuição já é vinculada */}
+          <MembroForm open onOpenChange={v => { if (!v) setCadastro(null); }} membro={null} tipoInicial="visitante" nomeInicial={cadastro.nome} onSaved={() => undefined} onCreated={aoCadastrarPessoa} />
+        </Suspense>
+      )}
     </div>
   );
 }

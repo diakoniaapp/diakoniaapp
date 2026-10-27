@@ -6,8 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { PISO_DE_IDENTIFICACAO, tipoDaContribuicao } from "@/lib/contribuicoes";
 import type { CandidatoNome } from "@/lib/fuzzyNome";
-import type { ContribuicaoParaTriagem, DecisaoDeTriagem } from "@/lib/identificacaoDeContribuicoes";
-import { buscarPessoasParaLancamento } from "@/services/finService";
+import { NOTA_DE_CONTRIBUICAO_CONFIRMADA, type ContribuicaoParaTriagem, type DecisaoDeTriagem } from "@/lib/identificacaoDeContribuicoes";
+import { buscarPessoasParaLancamento, carimboDeConferencia } from "@/services/finService";
 
 const PAGINA = 1000;
 async function paginar<T>(consulta: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
@@ -28,10 +28,10 @@ export async function carregarContribuicoesParaTriagem(): Promise<ContribuicaoPa
   const nomePorId = new Map<string, string>();
   for (const c of cats ?? []) if (tipoDaContribuicao(c.nome) !== null) nomePorId.set(c.id, c.nome);
   if (nomePorId.size === 0) return [];
-  const brutas = await paginar<{ id: string; data: string; valor: number; categoria_id: string; descricao: string | null; observacoes: string | null; origem: string | null; forma_pagamento: string | null; pessoa_id: string | null; familia_id: string | null; fornecedor_id: string | null; conta_id: string | null }>((de, ate) =>
-    supabase.from("fin_lancamentos").select("id, data, valor, categoria_id, descricao, observacoes, origem, forma_pagamento, pessoa_id, familia_id, fornecedor_id, conta_id")
+  const brutas = await paginar<{ id: string; data: string; valor: number; categoria_id: string; descricao: string | null; observacoes: string | null; origem: string | null; forma_pagamento: string | null; pessoa_id: string | null; familia_id: string | null; fornecedor_id: string | null; conta_id: string | null; conferencia_nota: string | null }>((de, ate) =>
+    supabase.from("fin_lancamentos").select("id, data, valor, categoria_id, descricao, observacoes, origem, forma_pagamento, pessoa_id, familia_id, fornecedor_id, conta_id, conferencia_nota")
       .eq("tipo", "entrada").in("status", ["realizado", "conciliado"]).in("categoria_id", [...nomePorId.keys()]).gte("data", PISO_DE_IDENTIFICACAO)
-      .order("data", { ascending: false }).order("id", { ascending: true }).range(de, ate));
+      .order("data", { ascending: false }).order("id", { ascending: true }).range(de, ate) as never);   // `conferencia_nota` ainda não está no types.ts gerado
   // a conta de cada lançamento (nome e tipo), para o aviso de possível movimentação interna
   const { data: contas, error: eContas } = await supabase.from("fin_contas").select("id, nome, tipo");
   if (eContas) throw new Error(eContas.message);
@@ -45,7 +45,7 @@ export async function carregarContribuicoesParaTriagem(): Promise<ContribuicaoPa
     if (r.error) throw new Error(r.error.message);
     for (const f of r.data ?? []) if (f.pessoa_id) pessoaDoFavorecido.set(f.id, f.pessoa_id);
   }
-  return brutas.map(l => ({ id: l.id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null, descricao: l.descricao, observacoes: l.observacoes, origem: l.origem, forma_pagamento: l.forma_pagamento, pessoa_id: l.pessoa_id, familia_id: l.familia_id, conta_nome: l.conta_id ? contaPorId.get(l.conta_id)?.nome ?? null : null, conta_tipo: l.conta_id ? (contaPorId.get(l.conta_id)?.tipo as string | undefined) ?? null : null, fornecedor_pessoa_id: l.fornecedor_id ? pessoaDoFavorecido.get(l.fornecedor_id) ?? null : null }));
+  return brutas.map(l => ({ id: l.id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null, descricao: l.descricao, observacoes: l.observacoes, origem: l.origem, forma_pagamento: l.forma_pagamento, pessoa_id: l.pessoa_id, familia_id: l.familia_id, conferencia_nota: l.conferencia_nota, conta_nome: l.conta_id ? contaPorId.get(l.conta_id)?.nome ?? null : null, conta_tipo: l.conta_id ? (contaPorId.get(l.conta_id)?.tipo as string | undefined) ?? null : null, fornecedor_pessoa_id: l.fornecedor_id ? pessoaDoFavorecido.get(l.fornecedor_id) ?? null : null }));
 }
 
 export interface TriagemVigente { lancamento_id: string; decisao: DecisaoDeTriagem; motivo: string | null; por_nome: string | null; em: string }
@@ -75,6 +75,19 @@ export async function vincularContribuicao(lancamentoId: string, pessoaId: strin
   const r = conferir(
     await supabase.from("fin_lancamentos").update({ pessoa_id: pessoaId, ...(familiaId ? { familia_id: familiaId } : {}) }).eq("id", lancamentoId).is("pessoa_id", null).select("id"),
     "O vínculo da contribuição",
+  );
+  return r.ok ? { ok: true } : { ok: false, erro: r.erro };
+}
+
+/**
+ * "É contribuição — não avisar mais": a Tesouraria conferiu um lançamento que parecia movimentação interna e confirmou que é contribuição. Grava o carimbo de conferência (quem e quando) e a nota;
+ * não muda valor, categoria, conta nem status.
+ */
+export async function confirmarComoContribuicao(lancamentoId: string): Promise<ResultadoDaEscrita> {
+  const carimbo = await carimboDeConferencia();
+  const r = conferir(
+    await supabase.from("fin_lancamentos").update({ ...carimbo, conferencia_nota: NOTA_DE_CONTRIBUICAO_CONFIRMADA } as never).eq("id", lancamentoId).select("id"),
+    "A confirmação da contribuição",
   );
   return r.ok ? { ok: true } : { ok: false, erro: r.erro };
 }

@@ -253,6 +253,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** Como `useAuth`, mas sem lançar erro fora do provedor (devolve `undefined`): para componentes que só mostram um atalho a quem pode e precisam renderizar em testes isolados. */
+export function useAuthOpcional() {
+  return useContext(AuthContext);
+}
+
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");

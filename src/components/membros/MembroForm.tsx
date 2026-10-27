@@ -242,6 +242,8 @@ interface Props {
    *  precisa fazer algo específico com ela na sequência, como a Chamada da
    *  EBD marcando presença na aula. Roda antes de `onSaved`. */
   onCreated?: (id: string, nomeCompleto: string) => void;
+  /** Nome com que o formulário abre num cadastro NOVO (ignorado ao editar). Usado ao cadastrar, a partir do extrato bancário, quem contribuiu e ainda não está no cadastro. */
+  nomeInicial?: string;
 }
 
 
@@ -277,7 +279,7 @@ async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────
-export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, onCreated }: Props) {
+export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, onCreated, nomeInicial }: Props) {
   const { hasRole } = useAuth();
   // FASE D: helper unificado — "editando" vs "criando".
   const isEditing = Boolean(membro);
@@ -477,7 +479,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
       setNascDia(diaDeMeiaData(meia));
       setNascMes(mesDeMeiaData(meia));
     } else {
-      setForm(tipoInicial ? { ...empty, tipo_pessoa: tipoInicial } : empty);
+      setForm({ ...empty, ...(tipoInicial ? { tipo_pessoa: tipoInicial } : {}), ...(nomeInicial ? { nome_completo: nomeInicial } : {}) });
       setSemAnoNasc(false);
       setNascDia("");
       setNascMes("");

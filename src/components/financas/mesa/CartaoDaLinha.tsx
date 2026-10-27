@@ -13,6 +13,7 @@ import { alvoDaTransferencia, ehDepositoEmDinheiro, type OutraPonta } from "@/li
 import { montarHipotese, nomeCurtoDaCategoria } from "@/lib/hipoteseOfx";
 import { resolverMovimento } from "@/lib/resolverMovimento";
 import { EscolhaDeFavorecido } from "./EscolhaDeFavorecido";
+import { extrairNome } from "@/lib/identificacao";
 import { HipoteseDaLinha } from "./HipoteseDaLinha";
 import { AcaoDoPainel, CabecalhoDoPainel, CaixaDeResposta, ListaDeAcoes } from "./PainelDeDecisao";
 
@@ -147,7 +148,7 @@ export function CartaoDaLinha(p: Props) {
           <HipoteseDaLinha h={hipotese} />
 
           <div className="flex flex-wrap items-center gap-2">
-            <EscolhaDeFavorecido atual={atual} sugerido={!!atual && !favorecidoTrocado} disabled={ocupado}
+            <EscolhaDeFavorecido atual={atual} sugerido={!!atual && !favorecidoTrocado} disabled={ocupado} nomeDoExtrato={extrairNome(l.tx.memo).nome}
               onChange={(f: FavorecidoEscolhido | null) => p.onEditar({ favorecido: f })} />
           </div>
         </>

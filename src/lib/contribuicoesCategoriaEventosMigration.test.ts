@@ -1,5 +1,5 @@
 // ─── Migration da categoria "Eventos e Vendas" (27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────
-// Trava as garantias da migration (leitura do texto: ela não foi ensaiada contra o banco): cria a categoria uma vez só, move SÓ Ofertas sem pessoa do favorecido Cielo com palavra de venda, fora de período
+// Trava as garantias da migration (leitura do texto: ela não foi ensaiada contra o banco): cria a categoria uma vez só, move SÓ Ofertas sem pessoa do favorecido Cielo (sempre venda), fora de período
 // fechado/aprovado, não toca nas ofertas para Missões nem em lançamentos com pessoa, e tem rollback. Também prova que a categoria nova sai sozinha dos indicadores da Central de Doadores.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -10,19 +10,20 @@ const comentarios = (sql.match(/^--.*$/gm) ?? []).join("\n");
 const codigo = sql.split("\n").filter(l => !l.trim().startsWith("--")).join("\n");
 
 describe("a migration da categoria Eventos e Vendas", () => {
-  it("cria a categoria de entrada nas receitas regulares, uma única vez (idempotente)", () => {
-    expect(codigo).toMatch(/INSERT INTO public\.fin_categorias[\s\S]*'Eventos e Vendas', 'entrada', 'receitas_regulares'/);
+  it("cria a categoria de entrada em Outras Receitas (decisão dela), uma única vez (idempotente)", () => {
+    expect(codigo).toMatch(/INSERT INTO public\.fin_categorias[\s\S]*'Eventos e Vendas', 'entrada', 'outras_receitas'/);
     expect(codigo).toMatch(/WHERE NOT EXISTS \(SELECT 1 FROM public\.fin_categorias WHERE nome = 'Eventos e Vendas' AND tipo = 'entrada'\)/);
   });
-  it("move só: Ofertas, sem pessoa, do favorecido Cielo, desde 2026, com palavra de venda — e fora de período fechado ou aprovado", () => {
-    for (const parte of ["oferta.nome = 'Ofertas'", "l.pessoa_id IS NULL", "f.nome ILIKE '%cielo%'", "l.data >= DATE '2026-01-01'", "bazar|venda|almo", "'fechado', 'aprovado'"]) expect(codigo).toContain(parte);
+  it("move só: Ofertas, sem pessoa, do favorecido Cielo (sempre venda), desde 2026 — e fora de período fechado ou aprovado", () => {
+    for (const parte of ["oferta.nome = 'Ofertas'", "l.pessoa_id IS NULL", "f.nome ILIKE '%cielo%'", "l.data >= DATE '2026-01-01'", "'fechado', 'aprovado'"]) expect(codigo).toContain(parte);
+    expect(codigo).not.toContain("~*");   // não depende mais de palavra de venda no texto
   });
   it("não toca em Ofertas para Missões nem em dízimos (a categoria de origem é só 'Ofertas')", () => {
     expect(codigo).not.toMatch(/Ofertas para Miss/);
     expect(codigo).not.toMatch(/Dizimos/);
   });
   it("diz no cabeçalho o defeito, a medição, a alternativa descartada, o ensaio e o rollback", () => {
-    for (const t of ["DEFEITO", "MEDIÇÃO", "ALTERNATIVA DESCARTADA", "ENSAIO", "ROLLBACK", "62", "R$ 7.845,79"]) expect(comentarios).toContain(t);
+    for (const t of ["DEFEITO", "MEDIÇÃO", "ALTERNATIVA DESCARTADA", "ENSAIO", "ROLLBACK", "65", "R$ 7.982,34", "Outras Receitas"]) expect(comentarios).toContain(t);
   });
   it("o rollback existe, devolve a Ofertas e só apaga a categoria se ficar vazia", () => {
     const rb = readFileSync("docs/CATEGORIA_EVENTOS_E_VENDAS_ROLLBACK.sql", "utf8");

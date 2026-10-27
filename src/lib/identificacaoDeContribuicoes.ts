@@ -26,6 +26,8 @@ export interface ContribuicaoParaTriagem {
   /** a conta financeira do lançamento (nome e tipo): uma contribuição numa conta de aplicação/poupança é, quase sempre, movimentação interna */
   conta_nome?: string | null;
   conta_tipo?: string | null;
+  /** a nota de conferência do lançamento: quando é `NOTA_DE_CONTRIBUICAO_CONFIRMADA`, alguém já decidiu que é contribuição */
+  conferencia_nota?: string | null;
   /** a pessoa a que o FAVORECIDO do lançamento está ligado (Favorecido → Pessoas), quando o lançamento tem favorecido ligado; nunca grava sozinho, só sugere */
   fornecedor_pessoa_id?: string | null;
 }
@@ -85,11 +87,22 @@ export function prepararPendentes(contribuicoes: ContribuicaoParaTriagem[], cand
   });
 }
 
+/** "ana paula souza d" → "Ana Paula Souza D": o nome do extrato (minúsculo, às vezes cortado) como ponto de partida do cadastro; a pessoa confere e corrige. Partículas (de, da, do, dos, das, e) ficam minúsculas. */
+const PARTICULAS_DE_NOME = new Set(["de", "da", "do", "das", "dos", "e"]);
+export function nomeProprio(s: string | null | undefined): string {
+  return (s ?? "").toLowerCase().replace(/\s+/g, " ").trim().split(" ").filter(Boolean)
+    .map((p, i) => (i > 0 && PARTICULAS_DE_NOME.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1))).join(" ");
+}
+
+/** A nota que a Tesouraria deixa ao confirmar que a contribuição é mesmo contribuição (Doadores): faz o aviso de movimentação interna parar de aparecer para esse lançamento. */
+export const NOTA_DE_CONTRIBUICAO_CONFIRMADA = "Confirmado como contribuição (Central de Doadores)";
+
 // ── (2b) "possível movimentação interna" (decisão dela, 27/10/2026) ──────────────────────────────────────────────────────────────────────────────────
 // Uma contribuição que caiu numa conta de aplicação/poupança, ou cujo texto fala de poupança, resgate ou aplicação, pode ser dinheiro da própria igreja mudando de conta: NÃO é dízimo nem oferta. O sistema só
 // AVISA (a pessoa confere e reclassifica); nada é alterado sozinho. Medido em 27/10/2026: pega 1 lançamento (R$ 9.108,10, dízimo na Poupança) e nenhum falso positivo em 1.686.
 const TEXTO_DE_MOVIMENTACAO_INTERNA = /poupan[cç]a|resgate|aplica[cç][aã]o|\baplic\b/i;
-export function motivoDePossivelMovimentacaoInterna(c: Pick<ContribuicaoParaTriagem, "conta_nome" | "conta_tipo" | "descricao" | "observacoes">): string | null {
+export function motivoDePossivelMovimentacaoInterna(c: Pick<ContribuicaoParaTriagem, "conta_nome" | "conta_tipo" | "descricao" | "observacoes"> & { conferencia_nota?: string | null }): string | null {
+  if (c.conferencia_nota === NOTA_DE_CONTRIBUICAO_CONFIRMADA) return null;   // já conferida por uma pessoa: é contribuição
   if (c.conta_tipo === "aplicacao" || /poupan[cç]a|aplica[cç][aã]o/i.test(c.conta_nome ?? "")) return `lançada na conta ${c.conta_nome ?? "de aplicação"}`;
   if (TEXTO_DE_MOVIMENTACAO_INTERNA.test(`${c.descricao ?? ""} ${(c.observacoes ?? "").replace(/\[LOTE:[^\]]*\]/, "")}`)) return "o texto fala de poupança, resgate ou aplicação";
   return null;

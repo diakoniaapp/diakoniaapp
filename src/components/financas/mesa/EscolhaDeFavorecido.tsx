@@ -4,12 +4,17 @@
 // (nome truncado pelo banco, duas pessoas parecidas) a correção tem de caber num clique e numa busca — não num formulário
 // de lançamento inteiro. Busca pessoas e favorecidos ao mesmo tempo, igual ao seletor das recorrências.
 
-import { useEffect, useRef, useState } from "react";
-import { Building2, Loader2, Search, UserRound, X } from "lucide-react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Building2, Loader2, Search, UserPlus, UserRound, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buscarPessoasParaLancamento, listarFornecedores } from "@/services/finService";
 import type { FavorecidoEscolhido } from "@/lib/gradeOfx";
+import { nomeProprio } from "@/lib/identificacaoDeContribuicoes";
+import { useAuthOpcional } from "@/hooks/useAuth";
+
+/** O formulário de cadastro de pessoa, carregado só quando se abre. */
+const MembroForm = lazy(() => import("@/components/membros/MembroForm").then(m => ({ default: m.MembroForm })));
 
 interface Props {
   /** quem está valendo agora (o sugerido ou o escolhido) */
@@ -18,10 +23,14 @@ interface Props {
   sugerido?: boolean;
   disabled?: boolean;
   onChange: (f: FavorecidoEscolhido | null) => void;
+  /** o nome que o extrato traz (já extraído do texto do banco): ponto de partida do cadastro de uma pessoa que contribuiu e ainda não está no cadastro */
+  nomeDoExtrato?: string | null;
 }
 
-export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange }: Props) {
+export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange, nomeDoExtrato }: Props) {
   const [aberto, setAberto] = useState(false);
+  const [cadastro, setCadastro] = useState<{ nome: string } | null>(null);
+  const podeCadastrar = !!useAuthOpcional()?.podeEditarPessoas;
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<FavorecidoEscolhido[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -51,6 +60,7 @@ export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange }: Pro
   const Icone = atual?.tipo === "fornecedor" ? Building2 : UserRound;
 
   return (
+    <>
     <Popover open={aberto} onOpenChange={v => { setAberto(v); if (!v) { setBusca(""); setAchados([]); } }}>
       <PopoverTrigger asChild>
         <button type="button" disabled={disabled} title={atual ? `${atual.nome} — clique para trocar` : "Escolher o favorecido"}
@@ -67,7 +77,7 @@ export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange }: Pro
         </div>
         <ul className="mt-2 max-h-56 overflow-y-auto" role="listbox" aria-label="Resultados">
           {buscando && <li className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando…</li>}
-          {!buscando && busca.trim().length >= 2 && achados.length === 0 && <li className="px-2 py-2 text-xs text-muted-foreground">Ninguém com esse nome. Cadastre antes, ou use "Editar".</li>}
+          {!buscando && busca.trim().length >= 2 && achados.length === 0 && <li className="px-2 py-2 text-xs text-muted-foreground">Ninguém com esse nome. Use "Cadastrar pessoa" abaixo, ou "Editar".</li>}
           {achados.map(f => (
             <li key={`${f.tipo}-${f.id}`}>
               <button type="button" role="option" aria-selected={false} onClick={() => escolher(f)}
@@ -79,6 +89,12 @@ export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange }: Pro
             </li>
           ))}
         </ul>
+        {podeCadastrar && (
+          <button type="button" data-acao="cadastrar-pessoa" onClick={() => { setCadastro({ nome: nomeProprio(busca.trim() || nomeDoExtrato) }); setAberto(false); setBusca(""); setAchados([]); }}
+            className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted">
+            <UserPlus className="h-3.5 w-3.5" aria-hidden /> Cadastrar pessoa{busca.trim() || nomeDoExtrato ? ` “${nomeProprio(busca.trim() || nomeDoExtrato)}”` : ""}
+          </button>
+        )}
         {atual && (
           <button type="button" onClick={() => escolher(null)} className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted">
             <X className="h-3.5 w-3.5" aria-hidden /> Sem favorecido (não ligar a ninguém)
@@ -86,5 +102,13 @@ export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange }: Pro
         )}
       </PopoverContent>
     </Popover>
+    {cadastro && podeCadastrar && (
+      <Suspense fallback={null}>
+        {/* a pessoa que contribuiu e não está no cadastro (um visitante, por exemplo): cadastra e já fica como favorecida da linha */}
+        <MembroForm open onOpenChange={v => { if (!v) setCadastro(null); }} membro={null} tipoInicial="visitante" nomeInicial={cadastro.nome} onSaved={() => undefined}
+          onCreated={(id, nome) => onChange({ tipo: "pessoa", id, nome })} />
+      </Suspense>
+    )}
+    </>
   );
 }

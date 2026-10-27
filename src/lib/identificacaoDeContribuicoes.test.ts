@@ -3,7 +3,7 @@
 // e a taxa em quatro partes (só "tem pessoa" é identificada; anônima e ignorada ficam à parte), com a meta de 95%.
 import { describe, expect, it } from "vitest";
 import {
-  META_DE_IDENTIFICACAO_PCT, dificuldadeDe, motivoDePossivelMovimentacaoInterna, prepararPendentes, remetenteDoLancamento, sugerirPessoa, taxaDeIdentificacao, type ContribuicaoParaTriagem,
+  META_DE_IDENTIFICACAO_PCT, NOTA_DE_CONTRIBUICAO_CONFIRMADA, dificuldadeDe, motivoDePossivelMovimentacaoInterna, nomeProprio, prepararPendentes, remetenteDoLancamento, sugerirPessoa, taxaDeIdentificacao, type ContribuicaoParaTriagem,
 } from "@/lib/identificacaoDeContribuicoes";
 
 describe("remetenteDoLancamento — o nome como o extrato escreveu", () => {
@@ -108,6 +108,27 @@ describe("possível movimentação interna — só avisa (decisão dela, 27/10/2
     expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Bradesco", conta_tipo: "banco", descricao: null, observacoes: "lote omie transferencia pix rem Fulano 0101" })).toBeNull();
     expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Caixa de Envelopes", conta_tipo: "envelope", descricao: null, observacoes: null })).toBeNull();
     expect(motivoDePossivelMovimentacaoInterna({ conta_nome: null, conta_tipo: null, descricao: null, observacoes: null })).toBeNull();
+  });
+});
+
+describe("nomeProprio — o nome do extrato como ponto de partida do cadastro", () => {
+  it("caixa de título, partículas em minúsculo, espaços limpos", () => {
+    expect(nomeProprio("sandra maria silva")).toBe("Sandra Maria Silva");
+    expect(nomeProprio("  MARIA  DA  SILVA E SOUZA ")).toBe("Maria da Silva e Souza");
+    expect(nomeProprio("joão dos santos")).toBe("João dos Santos");
+  });
+  it("vazio ou nulo dá texto vazio", () => {
+    expect(nomeProprio(null)).toBe("");
+    expect(nomeProprio("   ")).toBe("");
+  });
+});
+
+describe("movimentação interna já confirmada como contribuição", () => {
+  it("a nota de conferência da Central de Doadores faz o aviso parar", () => {
+    const c = { conta_nome: "Poupança", conta_tipo: "aplicacao", descricao: null, observacoes: null };
+    expect(motivoDePossivelMovimentacaoInterna(c)).not.toBeNull();
+    expect(motivoDePossivelMovimentacaoInterna({ ...c, conferencia_nota: NOTA_DE_CONTRIBUICAO_CONFIRMADA })).toBeNull();
+    expect(motivoDePossivelMovimentacaoInterna({ ...c, conferencia_nota: "outra nota qualquer" })).not.toBeNull();
   });
 });
 

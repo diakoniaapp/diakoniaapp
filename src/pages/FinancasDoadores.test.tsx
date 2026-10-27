@@ -13,7 +13,7 @@ const salvar = vi.hoisted(() => vi.fn());
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("file-saver", () => ({ saveAs: salvar }));
-vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: () => true }) }));
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: () => true }), useAuthOpcional: () => undefined }));
 vi.mock("@/lib/data", async orig => ({ ...(await orig<typeof import("@/lib/data")>()), hojeLocal: () => "2026-10-27" }));
 vi.mock("@/services/finService", () => ({ brl: (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, downloadCSV: baixarCsv }));
 vi.mock("@/lib/xlsxSimples", async orig => ({ ...(await orig<typeof import("@/lib/xlsxSimples")>()), gerarXlsx: async () => new Blob(["x"]) }));

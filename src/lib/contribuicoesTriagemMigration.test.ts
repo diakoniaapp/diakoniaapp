@@ -57,6 +57,6 @@ describe("o serviço de pendentes protege o vínculo", () => {
   });
   it("toda escrita é conferida (UPDATE barrado pela RLS devolve zero linhas, não erro)", () => {
     expect(servico).toContain('conferir(');
-    expect((servico.match(/conferir\(/g) ?? []).length).toBe(2);
+    expect((servico.match(/conferir\(/g) ?? []).length).toBe(3);   // vincular, desvincular e confirmar como contribuição
   });
 });
