@@ -300,7 +300,7 @@ describe("o piso de 01/01/2026 e os links antigos", () => {
 
 describe("filtros puros", () => {
   const P2 = (pessoaId: string, nome: string, total: number, quantidade: number, ultima: string, o: Partial<PessoaDaLista> = {}): PessoaDaLista => ({
-    pessoaId, nome, total, quantidade, ultima, dizimista: true, recorrente: false, nova: false, mediaMensal: total / 6, valorMedio: total / quantidade, diasSemContribuir: diasEntre(ultima, "2026-10-27"), ...o,
+    pessoaId, nome, total, quantidade, ultima, dizimista: true, recorrente: false, mesesComDizimo: 0, mesesCompletos: 6, nova: false, mediaMensal: total / 6, valorMedio: total / quantidade, diasSemContribuir: diasEntre(ultima, "2026-10-27"), ...o,
   });
   const pessoas = [
     P2("1", "Ana Lúcia", 100, 2, "2026-09-01", { recorrente: true }),

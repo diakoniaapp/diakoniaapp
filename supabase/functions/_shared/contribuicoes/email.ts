@@ -150,8 +150,9 @@ export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada):
     : `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado (${p}), sem nenhuma contribuição identificada antes de ${ddmmaaaa(ini)}.`;
   return [
     { titulo: "Recorrente", texto: recorrente },
-    { titulo: "Contribuiu no período", texto: `Pessoa que realizou uma ou mais contribuições ${entre}, mas não em todos os meses.` },
+    { titulo: "Parcial", texto: completos.length === 0 ? `Pessoa que contribuiu ${entre}. Sem mês completo no período, não há como separar recorrente de parcial; por isso aparece como "Contribuiu no período".` : `Pessoa que deu dízimo em alguns, mas não em todos, dos meses completos do período analisado. A coluna "Meses com dízimo" mostra quantos (por exemplo, 2/${completos.length}); a quantidade de contribuições não muda o perfil.` },
     { titulo: "Novo dizimista", texto: novo },
+    { titulo: "Só ofertas", texto: `Pessoa que contribuiu ${entre}, mas nunca com dízimo; por isso não entra na conta de meses com dízimo.` },
     { titulo: "Sem contribuições no período analisado", texto: `Pessoa da base analisada (${ROTULO_DA_BASE[base].toLowerCase()}, ativos) sem contribuições ${entre}. O complemento diz se também não há registro anterior ao período ou há quanto tempo foi a última contribuição (mais de 90 ou de 180 dias).` },
   ];
 }
@@ -169,8 +170,8 @@ function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[]
   if (linhas.length === 0) return h + D.blocoDeObservacao("Ninguém nesta situação no período.");
   // MARCAÇÃO ENXUTA DE PROPÓSITO: o Gmail CORTA o e-mail acima de ~102 KB ("[Mensagem cortada]") e a lista é a parte mais longa — com 268 nomes, 4 estilos por linha chegavam a 124 KB e a lista ficava
   // escondida. Aqui o estilo mora UMA vez na tabela; a linha leva só os dados (≈ 110 bytes), e o zebrado usa o atributo bgcolor.
-  const cab = `<tr>${["#", "Nome", ...(comQuantidade ? ["Contribuições"] : []), "Perfil de contribuição"].map(t => `<td style="font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
-  const corpo = linhas.map((l, k) => `<tr${k % 2 === 1 ? ` bgcolor="${D.COR.fundo}"` : ""}><td align="right" width="28">${n(l.posicao)}</td><td><b>${D.esc(l.nome)}</b></td>${comQuantidade ? `<td align="center">${l.contribuicoes === null ? "—" : n(l.contribuicoes)}</td>` : ""}<td>${D.esc(l.perfil)}</td></tr>`).join("");
+  const cab = `<tr>${["#", "Nome", ...(comQuantidade ? ["Contribuições", "Meses com dízimo"] : []), "Perfil de contribuição"].map(t => `<td style="font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
+  const corpo = linhas.map((l, k) => `<tr${k % 2 === 1 ? ` bgcolor="${D.COR.fundo}"` : ""}><td align="right" width="28">${n(l.posicao)}</td><td><b>${D.esc(l.nome)}</b></td>${comQuantidade ? `<td align="center">${l.contribuicoes === null ? "—" : n(l.contribuicoes)}</td><td align="center">${l.meses ?? "—"}</td>` : ""}<td>${D.esc(l.perfil)}</td></tr>`).join("");
   const aviso = totalReal !== undefined && totalReal > linhas.length
     ? D.blocoDeObservacao(`Mostrando os ${n(linhas.length)} primeiros de ${n(totalReal)}, para o e-mail caber no Gmail (que corta mensagens longas). A lista completa está no sistema (Doadores) e no Excel.`)
     : "";
@@ -273,7 +274,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
   if (tem("criterios")) corpo += blocoCriterios();
   if (comNomes) corpo += `<div id="lista-de-nomes"></div>` + blocoComoInterpretar(a, o.baseAnalisada ?? "membros_congregados");   // as definições vêm ANTES da primeira lista com nomes
-  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, quantidade de contribuições e perfil de contribuição. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.contribuiram);
+  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, quantidade de contribuições, meses com dízimo e perfil de contribuição. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.contribuiram);
   if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Pessoas da base analisada sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.semContribuicao);
   if (tem("cobertura") && a.arrecadado > 0) {
     const c = a.cobertura;
@@ -305,7 +306,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
     linhas.push("", "Não contribuíram no período", `Sem contribuição no período e sem registro anterior: ${n(b.nuncaDesdeOPiso)}`, `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
       `Sem contribuição há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
   }
-  const linhaNominal = (l: LinhaNominal) => `${l.posicao}. ${l.nome}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`} — ${l.perfil}`;
+  const linhaNominal = (l: LinhaNominal) => `${l.posicao}. ${l.nome}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`}${l.meses ? ` — ${l.meses} meses com dízimo` : ""} — ${l.perfil}`;
   if (tem("contribuintes_nominal")) linhas.push("", "Quem contribuiu (sem valores)", ...(o.nominal?.contribuiram ?? []).map(linhaNominal));
   if (tem("sem_contribuicao_nominal")) linhas.push("", "Quem não contribuiu", ...(o.nominal?.semContribuicao ?? []).map(linhaNominal));
   if (tem("cobertura") && a.arrecadado > 0) linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);

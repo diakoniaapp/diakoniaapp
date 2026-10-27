@@ -349,6 +349,9 @@ export interface ResumoDePessoa {
   dizimista: boolean;
   /** deu dízimo em todos os meses completos do período; `null` se o período não tem mês completo */
   recorrente: boolean | null;
+  /** em quantos dos meses completos do período deu dízimo (o numerador da regra de recorrente) e quantos meses completos o período tem (o denominador) */
+  mesesComDizimo: number;
+  mesesCompletos: number;
   /** primeira contribuição identificada desde o piso cai dentro do período; `null` se o período começa no piso */
   nova: boolean | null;
 }
@@ -370,6 +373,7 @@ export function resumirPessoas(linhas: LinhaDeContribuicao[], periodo: { ini: st
   return [...por.entries()].map(([pessoaId, e]) => ({
     pessoaId, total: arred(e.total), quantidade: e.quantidade, ultima: e.ultima, dizimista: e.dizimista,
     recorrente: completos.length > 0 ? completos.every(m => e.meses.has(m)) : null,
+    mesesComDizimo: completos.filter(m => e.meses.has(m)).length, mesesCompletos: completos.length,
     nova: ini > PISO_DE_IDENTIFICACAO ? !antes.has(pessoaId) : null,
   }));
 }

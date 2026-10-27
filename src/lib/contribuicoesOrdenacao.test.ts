@@ -60,7 +60,7 @@ describe("as seis ordenações", () => {
     const { contribuiram, l } = ordem("valor_total");
     expect(contribuiram).toEqual(["Carla", "Bruno", "Amanda", "Davi", "Elisa"]);   // valor; depois quantidade, última, nome
     expect(JSON.stringify(l)).not.toMatch(/9000|9\.000|4500|40|"total"|valor/);
-    for (const x of [...l.contribuiram, ...l.semContribuicao]) expect(Object.keys(x).sort()).toEqual(["contribuicoes", "nome", "perfil", "posicao"]);
+    for (const x of [...l.contribuiram, ...l.semContribuicao]) expect(Object.keys(x).sort()).toEqual(["contribuicoes", "meses", "nome", "perfil", "posicao"]);
   });
   it("última contribuição: a mais recente primeiro; desempate por quantidade e nome", () => {
     expect(ordem("ultima_contribuicao").contribuiram).toEqual(["Davi", "Elisa", "Bruno", "Amanda", "Carla"]);
@@ -99,7 +99,7 @@ describe("o e-mail mostra a classificação (#) e diz a ordem", () => {
     expect(email("nome_za").html).toContain("Ordem: nome z–a.");
   });
   it("na versão em texto a linha começa pela posição", () => {
-    expect(email().texto).toContain("1. Bruno — 4 contribuições — Recorrente");   // contribuiu em julho, agosto e setembro
+    expect(email().texto).toMatch(/1\. Bruno — 4 contribuições — (\d)\/\1 meses com dízimo — Recorrente/);   // contribuiu em julho, agosto e setembro
   });
   it("mesmo ordenando por valor, nenhum valor individual aparece no e-mail", () => {
     const h = email("valor_total");

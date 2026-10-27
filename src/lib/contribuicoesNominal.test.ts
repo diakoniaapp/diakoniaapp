@@ -45,7 +45,7 @@ describe("as linhas com nomes não têm valor", () => {
     expect(listas.semContribuicao.every(l => l.contribuicoes === null)).toBe(true);
   });
   it("NENHUM campo de valor, total ou média em nenhuma linha (garantia de tipo e de dado)", () => {
-    for (const l of [...listas.contribuiram, ...listas.semContribuicao]) expect(Object.keys(l).sort()).toEqual(["contribuicoes", "nome", "perfil", "posicao"]);   // sem valor e SEM data da última contribuição
+    for (const l of [...listas.contribuiram, ...listas.semContribuicao]) expect(Object.keys(l).sort()).toEqual(["contribuicoes", "meses", "nome", "perfil", "posicao"]);   // sem valor e SEM data da última contribuição
     expect(JSON.stringify(listas)).not.toMatch(/9451|7777|1234|4321|55\.55|valor|total|media/i);
   });
   it("conta quantos nomes saem (vai para o registro de acesso)", () => {
@@ -70,7 +70,7 @@ describe("o e-mail com nomes", () => {
   });
   it("a versão em texto também leva os nomes, sem valores", () => {
     expect(email.texto).toContain("Quem contribuiu (sem valores)");
-    expect(email.texto).toContain("1. Zeca Teste — 3 contribuições — Recorrente");
+    expect(email.texto).toMatch(/1\. Zeca Teste — 3 contribuições — (\d)\/\1 meses com dízimo — Recorrente/);   // recorrente = todos os meses: N/N
     expect(email.texto).not.toContain("última:");
     expect(email.texto).toContain("Não encaminhe");
   });

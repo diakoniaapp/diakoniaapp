@@ -147,7 +147,7 @@ export function ListaDePessoas({ pessoas, grupo, aoMudarGrupo, busca, aoMudarBus
               <span className="w-7 shrink-0 text-right text-xs tabular-nums text-muted-foreground" data-posicao>{i + 1}</span>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm truncate">{p.nome}</p>
-                <p className="text-xs text-muted-foreground">{p.quantidade} {p.quantidade === 1 ? "contribuição" : "contribuições"} · última em {dataBr(p.ultima)}{p.recorrente ? " · recorrente" : ""}{p.nova ? " · nova" : ""}</p>
+                <p className="text-xs text-muted-foreground">{p.quantidade} {p.quantidade === 1 ? "contribuição" : "contribuições"} · última em {dataBr(p.ultima)}{p.recorrente ? " · recorrente" : p.dizimista && p.mesesCompletos > 0 ? ` · parcial (${p.mesesComDizimo}/${p.mesesCompletos} meses com dízimo)` : ""}{p.nova ? " · nova" : ""}</p>
                 <p className="text-xs text-muted-foreground" data-medias>Média mensal {brl(p.mediaMensal)} · valor médio {brl(p.valorMedio)}</p>
               </div>
               <span className="text-sm font-semibold tabular-nums text-success-text shrink-0">{brl(p.total)}</span>
