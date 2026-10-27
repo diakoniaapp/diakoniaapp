@@ -13,7 +13,7 @@ vi.mock("@/lib/data", async orig => ({ ...(await orig<typeof import("@/lib/data"
 
 import { EnviarRelatorioDeContribuicoes, type ServicoDoEnvio } from "./EnviarRelatorioDeContribuicoes";
 import { HistoricoDeEnvios } from "./HistoricoDeEnvios";
-import { blocosDoModelo, IDS_DOS_BLOCOS } from "@/lib/contribuicoesBlocos";
+import { blocosDoModelo, IDS_AGREGADOS, IDS_DOS_BLOCOS, IDS_NOMINAIS } from "@/lib/contribuicoesBlocos";
 import { CatalogoDeRelatorios } from "./CatalogoDeRelatorios";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -58,7 +58,7 @@ describe("a gaveta de envio", () => {
   it("abre com 6 meses, diz que só vão números agregados e traz os atalhos de período", async () => {
     await abrirGaveta(servico());
     expect(q("[data-periodo]")?.textContent).toContain("28/04/2026 a 27/10/2026");
-    expect(q('[data-gaveta="relatorio-contribuicoes"]')?.textContent).toContain("nenhum nome e nenhum valor individual");
+    expect(q('[data-gaveta="relatorio-contribuicoes"]')?.textContent).toContain("nomes só nos blocos marcados com ⚠");
     expect(qa("[data-preset]").map(b => b.getAttribute("data-preset"))).toEqual(["90d", "6m", "12m", "ano", "desde_piso", "personalizado"]);
   });
   it("o período vindo da tela Doadores abre como personalizado", async () => {
@@ -106,16 +106,19 @@ describe("o que mostrar: modelos e blocos", () => {
     expect(q('[data-modelo="pastor"]')?.getAttribute("aria-pressed")).toBe("true");
     expect(marcados()).toEqual(IDS_DOS_BLOCOS.filter(id => PASTOR.includes(id)));
     expect(marcados()).toContain("saude_da_base");
-    expect(q('[data-aviso="so-agregado"]')?.textContent).toContain("Nomes, valores individuais, telefone e e-mail não são blocos do e-mail");
+    expect(q('[data-aviso="so-agregado"]')?.textContent).toContain("Valor individual, média individual, telefone e e-mail nunca vão por e-mail");
+    expect(q('[data-aviso="nominal"]')?.textContent).toContain("sem valores");   // o Pastor leva nomes: o aviso aparece de saída
   });
-  it("os três modelos: Pastor, Diretoria e Tesouraria; Diretoria não leva a saúde da base, Tesouraria leva tudo", async () => {
+  it("os três modelos: Pastor, Diretoria e Tesouraria; Diretoria não leva a saúde da base, Tesouraria leva todos os agregados e nenhum nome", async () => {
     await abrirGaveta(servico());
     expect(qa("[data-modelo]").map(b => b.getAttribute("data-modelo"))).toEqual(["pastor", "diretoria", "tesouraria", "personalizado"]);
     await clicar(q('[data-modelo="diretoria"]'));
     expect(marcados()).toContain("categorias");
     expect(marcados()).not.toContain("saude_da_base");
+    expect(q('[data-aviso="nominal"]')).toBeNull();   // sem nomes, sem o aviso de dados individuais
     await clicar(q('[data-modelo="tesouraria"]'));
-    expect(marcados()).toEqual(IDS_DOS_BLOCOS);
+    expect(marcados()).toEqual(IDS_AGREGADOS);
+    expect(q('[data-aviso="nominal"]')).toBeNull();
   });
   it("desmarcar um bloco vira 'Personalizado'; e voltar à seleção de um modelo o reconhece", async () => {
     await abrirGaveta(servico());
@@ -151,11 +154,24 @@ describe("o que mostrar: modelos e blocos", () => {
     expect((q('[data-acao="visualizar"]') as HTMLButtonElement).disabled).toBe(true);
     expect((q('[data-acao="teste"]') as HTMLButtonElement).disabled).toBe(true);
   });
-  it("não existe bloco com nome, valor individual, telefone ou e-mail de pessoa no construtor", async () => {
+  it("os dois blocos com nomes vêm marcados com ⚠; não existe bloco de valor individual, telefone ou e-mail de pessoa", async () => {
     await abrirGaveta(servico());
+    for (const id of IDS_NOMINAIS) expect(q(`[data-bloco="${id}"]`)?.parentElement?.textContent).toContain("⚠");
     const texto = qa("[data-bloco]").map(c => c.parentElement?.textContent ?? "").join(" ").toLowerCase();
-    expect(texto).not.toMatch(/telefone|lista nominal|valor individual/);
-    expect(IDS_DOS_BLOCOS).not.toContain("nomes" as never);
+    expect(texto).not.toMatch(/telefone|valor individual|total contribu|e-mail de pessoa/);
+    expect(qa("[data-bloco]").length).toBe(IDS_DOS_BLOCOS.length);
+  });
+  it("a confirmação de envio com nomes diz ATENÇÃO: contém nomes; sem nomes, diz que leva só números", async () => {
+    await abrirGaveta(servico());
+    await digitar("pastor@qibrj.org.br");
+    await clicar(q('[data-acao="visualizar"]'));
+    await clicar(botaoEnviar());
+    expect(q('[data-confirmacao="envio"]')?.textContent).toContain("ATENÇÃO: o e-mail contém NOMES de pessoas (sem valores)");
+    await clicar([...q('[data-confirmacao="envio"]')!.querySelectorAll("button")].find(b => b.textContent === "Cancelar"));
+    await clicar(q('[data-modelo="diretoria"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    await clicar(botaoEnviar());
+    expect(q('[data-confirmacao="envio"]')?.textContent).toContain("só números agregados, sem nomes");
   });
 });
 
@@ -195,7 +211,7 @@ describe("enviar", () => {
     const confirmacao = q('[data-confirmacao="envio"]')!;
     expect(confirmacao.textContent).toContain("28/04/2026 a 27/10/2026");
     expect(confirmacao.textContent).toContain("pastor@qibrj.org.br");
-    expect(confirmacao.textContent).toContain("sem nomes");
+    expect(confirmacao.textContent).toContain("NOMES de pessoas (sem valores)");   // o padrão (Pastor) leva nomes: a confirmação avisa
     expect(s.enviar).not.toHaveBeenCalled();
     await clicar([...confirmacao.querySelectorAll("button")].find(b => b.textContent === "Enviar"));
     expect(s.enviar).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, ["pastor@qibrj.org.br"]);

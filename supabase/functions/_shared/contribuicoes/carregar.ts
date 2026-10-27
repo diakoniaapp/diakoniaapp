@@ -47,3 +47,14 @@ export async function lerBaseDePessoas(cliente: { from: (tabela: string) => any 
   const familiaDe = new Map(vinculos.map(v => [v.membro_id, v.familia_id]));
   return pessoas.map(p => ({ id: p.id, nome: p.nome_completo, tipo_pessoa: p.tipo_pessoa, status: p.status, data_nascimento: p.data_nascimento, familia_id: familiaDe.get(p.id) ?? null }));
 }
+
+/** O nome de cada pessoa pedida (quem contribuiu mas não está na base: inativo, ex-membro). Só para o relatório nominal do pastor; em blocos de 200 para a URL não estourar. */
+export async function lerNomesDePessoas(cliente: { from: (tabela: string) => any }, ids: string[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const r = await cliente.from("membros").select("id, nome_completo").in("id", ids.slice(i, i + 200));
+    if (r.error) throw new Error(r.error.message);
+    for (const p of (r.data ?? []) as { id: string; nome_completo: string }[]) mapa.set(p.id, p.nome_completo);
+  }
+  return mapa;
+}

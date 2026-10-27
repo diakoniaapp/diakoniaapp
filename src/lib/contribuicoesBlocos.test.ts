@@ -4,23 +4,31 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, validarBlocos,
+  BLOCOS_DE_CONTRIBUICOES, IDS_AGREGADOS, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, temBlocoNominal, validarBlocos,
 } from "../../supabase/functions/_shared/contribuicoes/blocos";
 import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type LinhaDeContribuicao, type PessoaDaBase } from "../../supabase/functions/_shared/contribuicoes/analise";
 import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
 
 describe("o registro de blocos e os modelos", () => {
-  it("todos os blocos são agregados; cada modelo só usa blocos que existem", () => {
-    expect(IDS_DOS_BLOCOS).toEqual(["resumo", "indicadores", "categorias", "curva_adesao", "distribuicao_mensal", "destaques", "saude_da_base", "cobertura"]);
+  it("oito blocos agregados e DOIS com nomes; cada modelo só usa blocos que existem; nenhum bloco de valor, telefone ou contato", () => {
+    expect(IDS_AGREGADOS).toEqual(["resumo", "indicadores", "categorias", "curva_adesao", "distribuicao_mensal", "destaques", "saude_da_base", "cobertura"]);
+    expect(IDS_NOMINAIS).toEqual(["contribuintes_nominal", "sem_contribuicao_nominal"]);
+    expect(IDS_DOS_BLOCOS).toEqual([...IDS_AGREGADOS, ...IDS_NOMINAIS]);
     for (const m of MODELOS_DE_RELATORIO) for (const b of m.blocos) expect(IDS_DOS_BLOCOS).toContain(b);
-    expect(BLOCOS_DE_CONTRIBUICOES.map(b => b.titulo).join(" ")).not.toMatch(/nome|telefone|contato|individual/i);
+    const titulos = BLOCOS_DE_CONTRIBUICOES.map(b => `${b.titulo} ${b.descricao}`).join(" ");
+    expect(titulos).not.toMatch(/telefone|contato|e-mail de |média individual|total contribu/i);
+    expect(BLOCOS_DE_CONTRIBUICOES.filter(b => /nome/i.test(b.titulo)).map(b => b.id)).toEqual(IDS_NOMINAIS);
+    expect(temBlocoNominal(["resumo"])).toBe(false);
+    expect(temBlocoNominal(["resumo", "sem_contribuicao_nominal"])).toBe(true);
   });
-  it("Pastor leva a saúde da base e não as categorias; Diretoria leva categorias e não a saúde da base; Tesouraria leva tudo", () => {
+  it("Pastor leva a saúde da base e os dois blocos com nomes, sem categorias; Diretoria e Tesouraria NÃO levam nomes (Tesouraria = todos os agregados)", () => {
     expect(blocosDoModelo("pastor")).toContain("saude_da_base");
+    expect(blocosDoModelo("pastor")).toEqual(expect.arrayContaining(IDS_NOMINAIS));
     expect(blocosDoModelo("pastor")).not.toContain("categorias");
     expect(blocosDoModelo("diretoria")).toContain("categorias");
     expect(blocosDoModelo("diretoria")).not.toContain("saude_da_base");
-    expect(blocosDoModelo("tesouraria")).toEqual(IDS_DOS_BLOCOS);
+    expect(temBlocoNominal(blocosDoModelo("diretoria"))).toBe(false);
+    expect(blocosDoModelo("tesouraria")).toEqual(IDS_AGREGADOS);
   });
   it("modeloDaSelecao reconhece o modelo pela seleção (em qualquer ordem) ou devolve null", () => {
     expect(modeloDaSelecao([...blocosDoModelo("pastor")].reverse())).toBe("pastor");
@@ -28,17 +36,20 @@ describe("o registro de blocos e os modelos", () => {
   });
 });
 
-describe("validarBlocos — a função não aceita bloco que não seja agregado", () => {
+describe("validarBlocos — só os blocos do registro; nada de valor, telefone ou contato", () => {
   it("ausente = o modelo padrão (Pastor)", () => {
     expect(validarBlocos(undefined)).toEqual({ ok: true, blocos: blocosDoModelo("pastor") });
   });
   it("normaliza: tira repetição e põe na ordem canônica", () => {
     expect(validarBlocos(["cobertura", "resumo", "resumo"])).toEqual({ ok: true, blocos: ["resumo", "cobertura"] });
   });
-  it.each([["nomes"], ["lista_nominal"], ["valores_individuais"], ["telefone"], ["contato"], [42], [null]])("recusa o bloco %p (nenhum dado de pessoa vai por e-mail)", id => {
+  it.each([["nomes"], ["lista_nominal"], ["valores_individuais"], ["total_contribuido"], ["telefone"], ["contato"], [42], [null]])("recusa o bloco %p (valor individual, telefone e contato não existem como bloco)", id => {
     const r = validarBlocos(["resumo", id]);
     expect(r.ok).toBe(false);
-    expect(r.erro).toContain("só números agregados");
+    expect(r.erro).toContain("Bloco não permitido");
+  });
+  it("aceita os dois blocos com nomes, que são os únicos", () => {
+    expect(validarBlocos(["contribuintes_nominal", "sem_contribuicao_nominal"])).toEqual({ ok: true, blocos: IDS_NOMINAIS });
   });
   it("lista vazia e valor que não é lista são recusados", () => {
     expect(validarBlocos([]).ok).toBe(false);
@@ -71,10 +82,11 @@ describe("o e-mail monta só o que foi escolhido", () => {
     expect(html(["indicadores"])).not.toContain("dizimista identificado");
     expect(html(["resumo"])).toContain("dizimista identificado");
   });
-  it("sem 'blocos' (compatibilidade) vale tudo, menos a saúde da base sem os números dela (dizemos que não pôde ser calculada)", () => {
+  it("sem 'blocos' (compatibilidade) vale todos os AGREGADOS (nomes nunca por omissão), e a saúde da base sem os números dela diz que não pôde ser calculada", () => {
     const h = montarEmailDeContribuicoes(a).html;
     for (const dentro of ["Em números", "Por categoria", "Curva de adesão", "Distribuição mensal"]) expect(h).toContain(dentro);
     expect(h).toContain("não pôde ser calculada");
+    expect(h).not.toContain("Contém dados individuais");
   });
   it("nunca leva identificador de pessoa, com qualquer seleção", () => {
     expect(montarEmailDeContribuicoes(a).html).not.toMatch(/pessoa-secreta/);
@@ -123,8 +135,8 @@ describe("a Edge Function usa os blocos sem expor a lista", () => {
   it("valida os blocos pelo pedido, calcula a base só quando o bloco é pedido e entrega ao e-mail apenas o resumo", () => {
     expect(fn).toContain("validarPedido(corpo, hoje");
     expect(fn).toContain('pedido.blocos.includes("saude_da_base")');
-    expect(fn).toContain("resumirBase(analisarSemContribuicao(");
-    expect(fn).toMatch(/montarEmailDeContribuicoes\(analise, \{ igreja, aviso, blocos: pedido\.blocos, base \}\)/);
+    expect(fn).toContain("resumirBase(semContribuicaoAnalisada)");
+    expect(fn).toMatch(/montarEmailDeContribuicoes\(analise, \{ igreja, aviso, blocos: pedido\.blocos, base, nominal \}\)/);
     expect(fn).not.toMatch(/\.lista\b/);   // a lista nominal (propriedade `lista` da análise) nunca é lida pela função
   });
   it("registra no histórico quais blocos foram", () => {

@@ -14,7 +14,7 @@ import { Eye, Loader2, Send, X } from "lucide-react";
 import { hojeLocal } from "@/lib/data";
 import { PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ajustarAoPiso, intervaloDoPreset, type PresetDePeriodo } from "@/lib/contribuicoes";
 import { emailDeRespostaValido } from "@/lib/comunicacao";
-import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, modeloPadrao, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
+import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, modeloPadrao, temBlocoNominal, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
 import {
   enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
   type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
@@ -56,6 +56,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   }, [preset, de, ate, hoje]);
   const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}`;   // período E blocos: mudou qualquer um, a prévia perde a validade
   const modeloAtual = modeloDaSelecao(blocos);
+  const comNomes = temBlocoNominal(blocos);
   const previaValida = previa?.chave === chave;
 
   /** os blocos na ordem canônica (a mesma que o servidor usa) */
@@ -106,7 +107,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-gaveta="relatorio-contribuicoes">
           <DialogHeader>
             <DialogTitle className="font-serif">Enviar o relatório de contribuições por e-mail</DialogTitle>
-            <DialogDescription>O e-mail leva só números agregados (dizimistas, total, médias, adesão): nenhum nome e nenhum valor individual.</DialogDescription>
+            <DialogDescription>Escolha o modelo e os blocos. Valor individual, telefone e e-mail nunca vão por e-mail; nomes só nos blocos marcados com ⚠.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -142,12 +143,13 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                 {BLOCOS_DE_CONTRIBUICOES.map(b => (
                   <label key={b.id} className="flex items-start gap-2 text-xs cursor-pointer" title={b.descricao}>
                     <input type="checkbox" className="mt-0.5" checked={blocos.includes(b.id)} onChange={() => alternar(b.id)} data-bloco={b.id} />
-                    <span><strong className="font-medium">{b.titulo}</strong><span className="block text-muted-foreground">{b.descricao}</span></span>
+                    <span><strong className="font-medium">{IDS_NOMINAIS.includes(b.id) ? "⚠ " : ""}{b.titulo}</strong><span className="block text-muted-foreground">{b.descricao}</span></span>
                   </label>
                 ))}
               </div>
               {blocos.length === 0 && <p className="text-xs text-warning-text" data-aviso="sem-blocos">Escolha ao menos um bloco.</p>}
-              <p className="text-xs text-muted-foreground" data-aviso="so-agregado">O e-mail leva só números agregados. Nomes, valores individuais, telefone e e-mail não são blocos do e-mail: ficam dentro do sistema, com registro de quem consulta.</p>
+              {comNomes && <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-text" data-aviso="nominal">⚠ Este relatório contém dados individuais: nomes, última contribuição e situação, sem valores. Cada prévia, teste e envio com nomes fica registrado (quem, quando, quais blocos). Não encaminhe o e-mail.</p>}
+              <p className="text-xs text-muted-foreground" data-aviso="so-agregado">Valor individual, média individual, telefone e e-mail nunca vão por e-mail. Os blocos sem ⚠ levam só números.</p>
             </div>
 
             <div className="space-y-1.5">
@@ -203,7 +205,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
           <AlertDialogHeader>
             <AlertDialogTitle>Enviar o relatório agora?</AlertDialogTitle>
             <AlertDialogDescription>
-              Período {dataBr(pedido.ini)} a {dataBr(pedido.fim)}, {ordenados.length} {ordenados.length === 1 ? "bloco" : "blocos"}, para {destinatarios.join(", ")}. O e-mail leva só números agregados, sem nomes. O envio fica registrado no Histórico e não dá para desfazer.
+              Período {dataBr(pedido.ini)} a {dataBr(pedido.fim)}, {ordenados.length} {ordenados.length === 1 ? "bloco" : "blocos"}, para {destinatarios.join(", ")}. {comNomes ? "ATENÇÃO: o e-mail contém NOMES de pessoas (sem valores)." : "O e-mail leva só números agregados, sem nomes."} O envio fica registrado no Histórico e não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

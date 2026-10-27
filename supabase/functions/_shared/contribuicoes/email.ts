@@ -1,11 +1,13 @@
 // ─── email — o relatório de contribuições AGREGADO, para o pastor (27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 //
-// Decisão dela: o pastor recebe por e-mail só o relatório AGREGADO — período, dizimistas identificados, total, média mensal, semana de maior adesão, novos, recorrentes — e a lista com NOMES fica só
-// dentro do sistema. Por isso ESTE módulo recebe apenas números (`AnaliseDoPeriodo` e `ResumoDaBase`) e nunca uma lista de pessoas: não há como um nome entrar no e-mail. Os gráficos são barras em tabela
+// Decisão dela: o pastor recebe por e-mail o relatório AGREGADO — período, dizimistas identificados, total, média mensal, semana de maior adesão, novos, recorrentes — e, no modelo Pastor (decisão de
+// 27/10/2026), também NOMES, sem valores: só quando um dos dois blocos nominais é pedido, e a lista chega pronta em `ListasNominais`, cujo tipo NÃO tem campo de valor. Sem esses blocos este módulo só recebe
+// números (`AnaliseDoPeriodo` e `ResumoDaBase`): não há como um nome entrar no e-mail. Os gráficos são barras em tabela
 // HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
 import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ResumoDaBase } from "./analise.ts";
-import { IDS_DOS_BLOCOS, type IdDoBloco } from "./blocos.ts";
+import { IDS_AGREGADOS, temBlocoNominal, type IdDoBloco } from "./blocos.ts";
+import type { LinhaNominal, ListasNominais } from "./nominal.ts";
 
 const ddmmaaaa = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const ddmm = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
@@ -79,17 +81,29 @@ function blocoSaudeDaBase(a: AnaliseDoPeriodo, b: ResumoDaBase | null): string {
   return h;
 }
 
+/** Uma lista com nomes: nome, última contribuição, quantidade (só de quem contribuiu) e situação. Nenhum valor. */
+function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[], comQuantidade: boolean): string {
+  let h = D.secao(titulo, subtitulo);
+  if (linhas.length === 0) return h + D.blocoDeObservacao("Ninguém nesta situação no período.");
+  const cel = (t: string, extra = "") => `<td style="padding:5px 6px;font-size:12px;border-bottom:1px solid ${D.COR.linha};${extra}">${t}</td>`;
+  const cab = `<tr>${["Nome", "Última", ...(comQuantidade ? ["Contribuições"] : []), "Situação"].map(t => `<td style="padding:5px 6px;font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
+  const corpo = linhas.map(l => `<tr>${cel(`<strong>${D.esc(l.nome)}</strong>`)}${cel(l.ultima ? ddmmaaaa(l.ultima) : "—", "white-space:nowrap")}${comQuantidade ? cel(l.contribuicoes === null ? "—" : n(l.contribuicoes), "text-align:center") : ""}${cel(D.esc(l.situacao), `color:${D.COR.suave}`)}</tr>`).join("");
+  return h + D.cartao(null, `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cab}${corpo}</table>`);
+}
+
 export interface OpcoesDoEmailDeContribuicoes {
   igreja?: string | null;
   aviso?: string;
-  /** os blocos escolhidos; ausente = todos */
+  /** os blocos escolhidos; ausente = todos os AGREGADOS (nomes só entram se o bloco nominal for pedido) */
   blocos?: IdDoBloco[];
   /** o resumo da base (SÓ números), necessário ao bloco "Saúde da base contribuinte" */
   base?: ResumoDaBase | null;
+  /** as listas com nomes (sem valores), necessárias aos blocos nominais; só vão se o bloco foi escolhido */
+  nominal?: ListasNominais | null;
 }
 
 export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = {}): EmailDeContribuicoes {
-  const escolhidos = new Set<IdDoBloco>(o.blocos ?? IDS_DOS_BLOCOS);
+  const escolhidos = new Set<IdDoBloco>(o.blocos ?? IDS_AGREGADOS);   // sem escolha explícita, só os agregados: nomes nunca entram por omissão
   const tem = (id: IdDoBloco) => escolhidos.has(id);
   const periodo = `${ddmmaaaa(a.periodo.ini)} a ${ddmmaaaa(a.periodo.fim)}`;
   const assunto = `Relatório de contribuições — ${periodo}`;
@@ -97,7 +111,9 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   const preheader = a.arrecadado === 0 ? "Sem contribuições no período." : `${plural(a.dizimistas, "dizimista", "dizimistas")} · ${brl(a.arrecadado)} arrecadados`;
   const d = a.destaques;
 
+  const comNomes = temBlocoNominal([...escolhidos]);
   let corpo = D.saudacao("Relatório de contribuições") + D.paragrafo(`Período analisado: ${periodo}.`);
+  if (comNomes) corpo += D.cartaoDeAlerta({ titulo: "Contém dados individuais", linhas: ["Este relatório traz nomes de pessoas e a data da última contribuição, sem valores. Não encaminhe nem imprima sem necessidade."], tom: "aviso" });
   if (tem("resumo")) corpo += D.paragrafo(resumo);
 
   if (a.arrecadado > 0) {
@@ -140,6 +156,8 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   }
   // a saúde da base independe de haver arrecadação no período: "ninguém contribuiu" também é informação
   if (tem("saude_da_base")) corpo += blocoSaudeDaBase(a, o.base ?? null);
+  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, última contribuição no período, quantidade de contribuições e situação. Sem valores.", o.nominal?.contribuiram ?? [], true);
+  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Membros e congregados ativos sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false);
   if (tem("cobertura") && a.arrecadado > 0) {
     const c = a.cobertura;
     corpo += D.blocoDeObservacao(
@@ -147,7 +165,9 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
       + `A análise começa em ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}, quando a identificação das contribuições passou a ser confiável.`,
     );
   }
-  corpo += D.blocoDeObservacao("Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema, para quem tem acesso autorizado, com registro de quem consulta.");
+  corpo += D.blocoDeObservacao(comNomes
+    ? "Este relatório traz nomes, mas nenhum valor individual. Cada visualização e cada envio ficam registrados no sistema."
+    : "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema, para quem tem acesso autorizado, com registro de quem consulta.");
 
   const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
@@ -164,7 +184,10 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
       `Adesão da base: ${b.adesaoPct === null ? "—" : n(b.adesaoPct, 1) + "%"}`,
       `Sem contribuir há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
   }
+  const linhaNominal = (l: LinhaNominal) => `- ${l.nome} — última: ${l.ultima ? ddmmaaaa(l.ultima) : "—"}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`} — ${l.situacao}`;
+  if (tem("contribuintes_nominal")) linhas.push("", "Quem contribuiu (sem valores)", ...(o.nominal?.contribuiram ?? []).map(linhaNominal));
+  if (tem("sem_contribuicao_nominal")) linhas.push("", "Quem não contribuiu", ...(o.nominal?.semContribuicao ?? []).map(linhaNominal));
   if (tem("cobertura") && a.arrecadado > 0) linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);
-  linhas.push("", "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema.");
+  linhas.push("", comNomes ? "Este relatório traz nomes, mas nenhum valor individual. Não encaminhe." : "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema.");
   return { assunto, preheader, html, texto: linhas.join("\n"), resumo };
 }

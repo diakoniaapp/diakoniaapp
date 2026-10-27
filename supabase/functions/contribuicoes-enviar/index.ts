@@ -7,14 +7,18 @@
 //   { acao: "teste",   periodo }                                         → manda o e-mail marcado "[TESTE]" SÓ para o e-mail cadastrado de quem pediu (nunca um endereço vindo da chamada). Registra origem "teste".
 //   { acao: "enviar",  periodo, destinatarios: ["a@b.com", …] }          → envia UM e-mail para cada destinatário (ninguém vê os outros), registra no histórico (`comunicacao_envios`).
 //
+// NOMES (modelo Pastor, decisão dela de 27/10/2026): só nos dois blocos nominais, sem nenhum valor; cada prévia, teste e envio com nomes é gravado em `contribuicoes_acessos` ANTES de gerar o e-mail, e se a
+// gravação falhar o relatório com nomes NÃO é gerado (o agregado segue normalmente).
 // Os NÚMEROS não vêm da chamada: a função os calcula do banco com o MESMO código da tela Doadores (`_shared/contribuicoes/*`). O período é conferido e ajustado ao piso de 01/01/2026.
 // Quem chama: sessão válida E papel de admin ou diakonia (o gateway só confere o token, e o token público também é um JWT válido — por isso o papel é conferido aqui dentro).
 // Recusa o MESMO envio (período + destinatários) repetido em menos de 10 minutos. Sem a tabela do histórico (migration 20261027180000) envia mesmo assim e avisa que não registrou.
 // Implantação: `supabase functions deploy contribuicoes-enviar` (com verificação de JWT, o padrão). Ver docs/CONTRIBUICOES_EMAIL_IMPLANTACAO.md.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type ResumoDaBase } from "../_shared/contribuicoes/analise.ts";
-import { lerBaseDePessoas, lerContribuicoesDoPiso } from "../_shared/contribuicoes/carregar.ts";
+import { analisarContribuicoes, analisarSemContribuicao, resumirBase, resumirPessoas, type ResumoDaBase } from "../_shared/contribuicoes/analise.ts";
+import { lerBaseDePessoas, lerContribuicoesDoPiso, lerNomesDePessoas } from "../_shared/contribuicoes/carregar.ts";
+import { temBlocoNominal } from "../_shared/contribuicoes/blocos.ts";
+import { listasNominaisDoEmail, totalDeNomes, type ListasNominais } from "../_shared/contribuicoes/nominal.ts";
 import { montarEmailDeContribuicoes } from "../_shared/contribuicoes/email.ts";
 import { chaveDoEnvio, validarPedido } from "../_shared/contribuicoes/pedido.ts";
 import { aplicarNotaDeResposta, aplicarNotaDeRespostaNoTexto } from "../_shared/email/desenho.ts";
@@ -58,18 +62,34 @@ Deno.serve(async (req) => {
   try {
     const linhas = await lerContribuicoesDoPiso(supabase, pedido.periodo.fim);
     const analise = analisarContribuicoes(linhas, pedido.periodo);
-    // a saúde da base usa a lista de pessoas SÓ para contar: o módulo do e-mail recebe o resumo (números), nunca a lista
-    let base: ResumoDaBase | null = null;
-    if (pedido.blocos.includes("saude_da_base")) {
-      base = resumirBase(analisarSemContribuicao(linhas, await lerBaseDePessoas(supabase), pedido.periodo, { considerar: "qualquer", incluirMenores: false }));
+    const { data: nomeDoUsuario } = await supabase.rpc("fin_nome_do_usuario", { p_id: usuario.id });   // para o histórico e o registro de acessos
+    const comNomes = temBlocoNominal(pedido.blocos);
+    const acaoDoRegistro = corpo.acao === "previa" ? "previa_relatorio" : corpo.acao === "teste" ? "teste_relatorio" : "enviar_relatorio";
+    // a lista de pessoas existe só aqui dentro; o e-mail recebe os resumos (números) e, se pedido, as linhas nominais SEM valor
+    let nominal: ListasNominais | null = null;
+    let semContribuicaoAnalisada: ReturnType<typeof analisarSemContribuicao> | null = null;
+    if (comNomes || pedido.blocos.includes("saude_da_base")) {
+      semContribuicaoAnalisada = analisarSemContribuicao(linhas, await lerBaseDePessoas(supabase), pedido.periodo, { considerar: "qualquer", incluirMenores: false });
     }
+    if (comNomes && semContribuicaoAnalisada) {
+      const nomes = await lerNomesDePessoas(supabase, resumirPessoas(linhas, pedido.periodo).map(r => r.pessoaId));
+      nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada);
+      // sem registro, sem nomes: grava ANTES de seguir; qualquer falha recusa o relatório com nomes
+      const reg = await supabase.from("contribuicoes_acessos").insert({
+        por: usuario.id, por_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null, acao: acaoDoRegistro,
+        filtros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos }, total: totalDeNomes(nominal),
+      });
+      if (reg.error) return resposta({ erro: "O registro de acessos não está disponível (migration 20261027200000 pendente): o relatório com nomes não foi gerado. Tire os blocos com nomes para enviar só os números." }, 503);
+    }
+    // a saúde da base usa a lista de pessoas SÓ para contar: o módulo do e-mail recebe o resumo (números), nunca a lista
+    const base: ResumoDaBase | null = pedido.blocos.includes("saude_da_base") && semContribuicaoAnalisada ? resumirBase(semContribuicaoAnalisada) : null;
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const base = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base });
+    const base = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base, nominal });
     const email = { ...base, html: aplicarNotaDeResposta(base.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(base.texto, replyTo) };
     // o que vai para o histórico: só números agregados
-    const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null };
+    const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
     const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos };
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, ...informacoes });
@@ -77,8 +97,6 @@ Deno.serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) return resposta({ erro: "RESEND_API_KEY não configurada — ver Project Settings → Edge Functions → Secrets" }, 500);
 
-    // nome de quem pede, para o histórico (a tabela de perfis só deixa cada um ler o próprio)
-    const { data: nomeDoUsuario } = await supabase.rpc("fin_nome_do_usuario", { p_id: usuario.id });
     const registrar = async (origem: "sob_demanda" | "teste", destinos: { email: string; ok: boolean; erro: string | null }[], ids: string[]) => {
       const ok = destinos.filter(d => d.ok).length;
       const r = await supabase.from("comunicacao_envios").insert({
