@@ -131,12 +131,18 @@ describe("os blocos como texto", () => {
     expect(b.tom).toBe("atencao");
     expect(b.itens).toEqual(["17/10 · Net · R$ 300,00"]);
   });
-  it("Saldo das contas mostra o total, o aviso de negativo e cada conta", () => {
-    const b = montarBloco("saldo_contas", digest())!;
+  it("Saldo das contas com extrato em dia mostra o total, o aviso de negativo e cada conta", () => {
+    const d = digest();
+    d.tesouraria.saldo_contas!.contas[0] = { nome: "Bradesco", saldo: -8000, ultimo_movimento: "2026-10-24", ultima_conciliacao: null };   // gerado em 25/10: 1 dia
+    const b = montarBloco("saldo_contas", d)!;
     expect(b.frase).toBe("Saldo nas contas: -R$ 8.403,19 — negativo.");
     expect(b.tom).toBe("atencao");
-    // sem a data do extrato (não veio no digest), só as contas e a nota geral de que o saldo pode não refletir o banco
-    expect(b.itens).toEqual(["Bradesco: -R$ 8.000,00", "Caixinha: -R$ 403,19", "Saldo do DiakoniaApp: acompanha o banco só até a data do último extrato importado e conciliado — pode não ser o saldo real da conta."]);
+    expect(b.itens).toEqual(["Bradesco: -R$ 8.000,00 — extrato do banco até 24/10 (ontem)", "Caixinha: -R$ 403,19", "Saldo do DiakoniaApp: acompanha o banco só até a data do último extrato importado e conciliado — pode não ser o saldo real da conta."]);
+  });
+  it("sem como conferir a data do extrato (não veio no digest), o saldo da conta de banco é ocultado — o caixa físico continua", () => {
+    const b = montarBloco("saldo_contas", digest())!;
+    expect(b.frase).toBe("Saldo das contas parcialmente ocultado: o extrato de Bradesco está desatualizado.");
+    expect(b.itens).toEqual(["Caixinha: -R$ 403,19", "Bradesco: saldo ocultado — não foi possível conferir a data do último extrato", "Os saldos foram ocultados para evitar interpretações baseadas em dados desatualizados."]);
   });
   it("Reembolsos e Vencimentos usam singular e plural", () => {
     expect(montarBloco("reembolsos", digest())!.frase).toBe("1 reembolso a pagar, somando R$ 1.500,00.");

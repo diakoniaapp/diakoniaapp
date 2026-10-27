@@ -78,7 +78,7 @@ export function moldura(o: OpcoesDaMoldura): string {
     + `<body style="margin:0;padding:0;background:${COR.fundo}">${pre}`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${COR.fundo}"><tr><td align="center" style="padding:24px 12px;font-family:${FONTE}">`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${LARGURA}px"><tr><td style="background:${COR.cartao};border-radius:12px;padding:28px 26px;color:${COR.texto};font-size:15px;line-height:1.55;font-family:${FONTE}">`
-    + faixa + cabecalho(o.igreja) + o.corpo + (o.versiculo ? versiculo(o.versiculo) : "") + rodape()
+    + faixa + cabecalho(o.igreja) + o.corpo + (o.versiculo ? versiculo(o.versiculo) : "") + MARCA_DA_NOTA_DE_RESPOSTA + rodape()
     + `</td></tr></table></td></tr></table></body></html>`;
 }
 
@@ -93,6 +93,29 @@ export function versiculo(v: { texto: string; ref: string }): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:26px"><tr><td align="center" style="padding:14px 8px 0;font-family:Georgia,'Times New Roman',serif">`
     + `<p style="margin:0;font-size:14px;font-style:italic;line-height:1.5;color:${COR.suave}">“${esc(v.texto)}”</p>`
     + `<p style="margin:4px 0 0;font-size:12px;letter-spacing:.06em;color:${COR.link}">${esc(v.ref)}</p></td></tr></table>`;
+}
+
+// ── a nota de resposta (27/10/2026) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Quem monta o e-mail não sabe para onde vai a resposta (isso vem da Identidade da Igreja, lida pela Edge Function). Por isso a moldura deixa uma MARCA no lugar e quem ENVIA a troca pela nota certa
+// (`aplicarNotaDeResposta`): com endereço de resposta, convida a responder; sem ele, pede para não responder. Sem a troca, a marca (um comentário HTML) some sozinha na tela do leitor.
+export const MARCA_DA_NOTA_DE_RESPOSTA = "<!--nota-de-resposta-->";
+
+/** O texto da nota: igual em todo e-mail automático (dois jeitos, conforme haja ou não Reply-To). */
+export function textoDaNotaDeResposta(respondeA: string | null | undefined): string {
+  return respondeA
+    ? "Este é um e-mail automático do DiakoniaApp. Em caso de dúvidas, responda a esta mensagem: a resposta chega à equipe administrativa da igreja."
+    : "Este é um e-mail automático do DiakoniaApp. Por favor, não responda diretamente a esta mensagem. Em caso de dúvidas, entre em contato com a equipe administrativa da igreja.";
+}
+
+/** Troca a marca da moldura pela nota. Chamar uma vez, na hora de enviar (não na prévia da tela, que não envia). */
+export function aplicarNotaDeResposta(html: string, respondeA: string | null | undefined): string {
+  const nota = `<p style="margin:18px 0 0;font-size:12px;line-height:1.5;color:${COR.suave}">${esc(textoDaNotaDeResposta(respondeA))}</p>`;
+  return html.includes(MARCA_DA_NOTA_DE_RESPOSTA) ? html.replace(MARCA_DA_NOTA_DE_RESPOSTA, nota) : html;
+}
+
+/** A mesma nota na versão em texto (vai ao fim do texto simples). */
+export function aplicarNotaDeRespostaNoTexto(texto: string, respondeA: string | null | undefined): string {
+  return `${texto}\n\n${textoDaNotaDeResposta(respondeA)}`;
 }
 
 /** O rodapé institucional: os mesmos quatro textos, na mesma ordem, em todo e-mail. */

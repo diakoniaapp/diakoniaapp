@@ -27,13 +27,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ASSUNTO, montarBlocos, montarHtml, type Digest } from "../_shared/resumoSemanal/blocos.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
+import { aplicarNotaDeResposta } from "../_shared/email/desenho.ts";
+import { REMETENTE_AUTOMATICO, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
 import { juntarExtrato, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { blocosDaPessoa, mesclarConfig, type PerfilConfigurado } from "../_shared/resumoSemanal/catalogo.ts";
 
 const EMAIL_PADRAO = "telma@diakoniaapp.com.br";
 // `diakoniaapp.com.br` verificado no Resend em 09/09/2026 (DKIM + SPF, "Domain verified").
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+const REMETENTE = REMETENTE_AUTOMATICO;   // o mesmo endereço em todas as funções (_shared/email/remetente.ts); a RESPOSTA vai para o Reply-To da Identidade da Igreja
 
 // CORS: a tela "Disparar agora" chama esta função do navegador
 const CORS = {
@@ -60,11 +62,12 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  let replyTo: string | null = null;   // lido da Identidade antes dos envios (abaixo)
   async function enviar(destino: string, html: string) {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: REMETENTE, to: [destino], subject: ASSUNTO, html }),
+      body: JSON.stringify(comReplyTo({ from: REMETENTE, to: [destino], subject: ASSUNTO, html: aplicarNotaDeResposta(html, replyTo) }, replyTo)),
     });
     if (!r.ok) return { destino, ok: false as const, detalhe: await r.text() };
     return { destino, ok: true as const };
@@ -92,6 +95,7 @@ Deno.serve(async (req) => {
     return resposta({ erro: e instanceof Error ? e.message : "Erro ao ler a configuração" }, 500);
   }
   const nomeDaIgreja = await lerNomeDaIgreja(supabase);   // cabeçalho do e-mail (Identidade da Igreja)
+  replyTo = await lerEnderecoDeResposta(supabase);
   const { data: destinatarios, error: errDest } = await supabase.rpc("resumo_semanal_destinatarios_v2");
   if (errDest) return resposta({ erro: errDest.message }, 500);
 

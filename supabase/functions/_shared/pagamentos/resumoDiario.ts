@@ -7,7 +7,9 @@ import { montarItensDoDia, type CandidataDoDia, type ItemDoDia } from "./itensDo
 import type { ExtratoDaConta } from "../saldos/extratoDasContas.ts";
 import type { ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
 
-export interface ConfigDoDiario { ativo: boolean; dias_semana: number[]; hora: number; minuto: number; janela_dias: number; enviar_sem_pagamentos: boolean; incluir_sigilosos?: boolean }
+export interface ConfigDoDiario { ativo: boolean; dias_semana: number[]; hora: number; minuto: number; janela_dias: number; enviar_sem_pagamentos: boolean; incluir_sigilosos?: boolean;
+  /** o saldo das contas NÃO vai no resumo diário (decisão dela, 27/10/2026: o diário é o que exige ação); só vai se isto for `true` — o que a configuração de hoje não oferece */
+  incluir_saldos?: boolean }
 /** O que `resumo_diario_dados()` devolve. */
 export interface DadosDoDiario {
   /** AAAA-MM-DD de Brasília */
@@ -41,7 +43,7 @@ export interface PreparoDoDiario { itens: ItemDoDia[]; email: EmailDoDiario }
  */
 export function prepararDiario(d: DadosDoDiario, aviso?: string, incluirSigilosos?: boolean): PreparoDoDiario {
   const itens = montarItensDoDia(d.itens);
-  return { itens, email: montarEmailDiario(itens, { igreja: d.igreja_nome, hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.contas_extrato, reembolsos: d.reembolsos_a_pagar, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
+  return { itens, email: montarEmailDiario(itens, { igreja: d.igreja_nome, hojeYmd: d.hoje, hora: d.config.hora, aviso, contas: d.config.incluir_saldos === true ? d.contas_extrato : undefined, reembolsos: d.reembolsos_a_pagar, incluirSigilosos: incluirSigilosos ?? d.config.incluir_sigilosos !== false }) };
 }
 
 /**

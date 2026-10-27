@@ -31,8 +31,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { assuntoDosVisitantes, htmlDosVisitantes, type VisitanteEsfriando } from "../_shared/email/alertas.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
+import { aplicarNotaDeResposta } from "../_shared/email/desenho.ts";
+import { REMETENTE_AUTOMATICO, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
 
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+const REMETENTE = REMETENTE_AUTOMATICO;   // o mesmo endereço em todas as funções (_shared/email/remetente.ts); a RESPOSTA vai para o Reply-To da Identidade da Igreja
 const EMAIL_ADMIN = "telma@diakoniaapp.com.br";
 
 Deno.serve(async (_req) => {
@@ -75,18 +77,19 @@ Deno.serve(async (_req) => {
   const emailPastoral = (destinatarios ?? []).find((d: { papel: string }) => d.papel === "pastoral")?.email as string | undefined;
   const destinos = Array.from(new Set([EMAIL_ADMIN, ...(emailPastoral ? [emailPastoral] : [])]));
 
-  const html = htmlDosVisitantes(lista, await lerNomeDaIgreja(supabase));
+  const replyTo = await lerEnderecoDeResposta(supabase);
+  const html = aplicarNotaDeResposta(htmlDosVisitantes(lista, await lerNomeDaIgreja(supabase)), replyTo);
   const falhas: string[] = [];
   for (const destino of destinos) {
     const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: JSON.stringify(comReplyTo({
         from: REMETENTE,
         to: [destino],
         subject: assuntoDosVisitantes(lista.length),
         html,
-      }),
+      }, replyTo)),
     });
     if (!resp.ok) falhas.push(destino);
   }

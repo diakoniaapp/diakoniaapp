@@ -85,3 +85,41 @@ export async function lerExtratoDasContas(cliente: { rpc: (nome: string) => Prom
     return [];
   }
 }
+
+// ─── A REGRA DO SALDO (decisão dela, 27/10/2026) ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// O saldo do DiakoniaApp só acompanha o banco até o último extrato importado; um saldo desatualizado, num e-mail, parece o saldo real da conta da igreja. Por isso:
+//   · o RESUMO DIÁRIO não mostra saldo (não é um item de ação);
+//   · o RESUMO SEMANAL mostra o saldo de uma conta de banco SÓ SE o extrato dela tem no máximo `DIAS_ATE_AVISAR` (3) dias; senão o saldo daquela conta é OCULTADO e o e-mail diz até quando vai o extrato.
+// A regra é por conta (o Bradesco pode estar em dia e o Investimento não) e vale também quando a data não veio (migration ausente): sem como conferir, não se mostra.
+
+export interface SaldoOculto { nome: string; /** "extrato do banco até 15/10 (há 7 dias)" · "nenhum extrato do banco importado" */ motivo: string }
+export interface DecisaoDosSaldos<T extends { nome: string; saldo: number }> {
+  /** as contas cujo saldo pode ir no e-mail (caixas físicos e contas de banco com extrato em dia) */
+  visiveis: T[];
+  ocultas: SaldoOculto[];
+  /** AAAA-MM-DD do extrato mais recente entre as contas de banco; `null` = nenhuma recebeu extrato (ou a data não veio) */
+  ultimaAtualizacaoBancaria: string | null;
+}
+
+/** A frase que acompanha todo saldo ocultado. */
+export const EXPLICACAO_DO_SALDO_OCULTO = "Os saldos foram ocultados para evitar interpretações baseadas em dados desatualizados.";
+
+/** AAAA-MM-DD → dd/mm/aaaa. */
+export const ddmmaaaa = (ymd: string): string => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+
+/** `ultimo_movimento` `undefined` = a data não veio (migration não aplicada); `null` = a conta nunca recebeu extrato. */
+export function decidirSaldos<T extends { nome: string; saldo: number; ultimo_movimento?: string | null; ultima_conciliacao?: string | null }>(contas: readonly T[], hojeYmd: string): DecisaoDosSaldos<T> {
+  const visiveis: T[] = [];
+  const ocultas: SaldoOculto[] = [];
+  let maisRecente: string | null = null;
+  for (const c of contas) {
+    if (!ehContaDeBanco({ nome: c.nome, ultimo_movimento: c.ultimo_movimento })) { visiveis.push(c); continue; }   // caixa físico: não tem extrato
+    if (c.ultimo_movimento === undefined) { ocultas.push({ nome: c.nome, motivo: "não foi possível conferir a data do último extrato" }); continue; }
+    const ate = c.ultimo_movimento ? String(c.ultimo_movimento).slice(0, 10) : null;
+    if (ate && (!maisRecente || ate > maisRecente)) maisRecente = ate;
+    const sit = situacaoDoExtrato({ ultimo_movimento: ate, ultima_conciliacao: c.ultima_conciliacao ?? null }, hojeYmd);
+    if (sit.defasado) ocultas.push({ nome: c.nome, motivo: sit.texto.replace(/ · conciliado em \d{2}\/\d{2}$/, "") });
+    else visiveis.push(c);
+  }
+  return { visiveis, ocultas, ultimaAtualizacaoBancaria: maisRecente };
+}

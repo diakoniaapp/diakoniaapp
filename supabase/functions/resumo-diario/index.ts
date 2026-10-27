@@ -24,8 +24,9 @@ import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 import { enviarDiarioAosDestinatarios } from "../_shared/pagamentos/enviarDiario.ts";
+import { REMETENTE_AUTOMATICO, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
 
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+const REMETENTE = REMETENTE_AUTOMATICO;   // o mesmo endereço em todas as funções (_shared/email/remetente.ts); a RESPOSTA vai para o Reply-To da Identidade da Igreja
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -46,7 +47,8 @@ Deno.serve(async (req) => {
   const { data, error } = await supabase.rpc("resumo_diario_dados");
   if (error) return resposta({ erro: error.message }, 500);   // sem a migration: erro claro, nunca um e-mail
   const dados = data as DadosDoDiario;
-  dados.contas_extrato = await lerExtratoDasContas(supabase);   // sem a migration 20261022220000 vem vazio: o e-mail sai sem o bloco de saldo
+  // o saldo das contas NÃO vai no resumo diário (decisão dela, 27/10/2026): só se a configuração mandar (`incluir_saldos`, que hoje nenhuma tela oferece) lê-se o extrato
+  if (dados.config.incluir_saldos === true) dados.contas_extrato = await lerExtratoDasContas(supabase);
   dados.reembolsos_a_pagar = await lerReembolsosAPagar(supabase);
   dados.igreja_nome = await lerNomeDaIgreja(supabase);   // cabeçalho do e-mail (Identidade da Igreja)
 
@@ -58,7 +60,7 @@ Deno.serve(async (req) => {
     return resposta({ ok: true, enviados: 0, motivo });
   }
 
-  const r = await enviarDiarioAosDestinatarios(supabase, resendApiKey, REMETENTE, dados, preparo);
+  const r = await enviarDiarioAosDestinatarios(supabase, resendApiKey, REMETENTE, dados, preparo, await lerEnderecoDeResposta(supabase));
   if (!r.ok) return resposta({ erro: r.erro, detalhe: r.detalhe }, 502);
 
   // Resposta enxuta: esta função é alcançável sem login. Contagens, nunca destinatário nem conteúdo.

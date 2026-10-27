@@ -44,6 +44,8 @@ interface Identidade {
   endereco?: string | null;
   telefone?: string | null;
   email_contato?: string | null;
+  // Reply-To dos e-mails automáticos (migration 20261027120000) — ausente enquanto ela não for aplicada
+  email_resposta?: string | null;
 }
 
 interface ValorItem {
@@ -212,12 +214,15 @@ export default function IdentidadeAdmin() {
     endereco: "",
     telefone: "",
     email_contato: "",
+    // Para onde vai a RESPOSTA dos e-mails automáticos (migration 20261027120000)
+    email_resposta: "",
     // Camada 2: referências documentais
     origem_missao_ref: "",
     origem_visao_ref: "",
   });
   // As 3 colunas de contato só existem depois da migration: sem elas a tela nem as mostra nem as envia (um update com coluna desconhecida falharia e travaria o salvamento de TUDO).
   const [contatoDisponivel, setContatoDisponivel] = useState(false);
+  const [respostaDisponivel, setRespostaDisponivel] = useState(false);
 
   // Pastor
   const [pastorId, setPastorId] = useState<string>("");
@@ -326,6 +331,7 @@ export default function IdentidadeAdmin() {
       const ident = id as any;
       setIdentidade(ident);
       setContatoDisponivel("endereco" in ident);
+      setRespostaDisponivel("email_resposta" in ident);
       setForm({
         nome_igreja:       ident.nome_igreja        ?? "",
         cnpj:              ident.cnpj               ?? "",
@@ -339,6 +345,7 @@ export default function IdentidadeAdmin() {
         endereco:          ident.endereco           ?? "",
         telefone:          ident.telefone           ?? "",
         email_contato:     ident.email_contato      ?? "",
+        email_resposta:    ident.email_resposta     ?? "",
         origem_missao_ref: ident.origem_missao_ref  ?? "",
         origem_visao_ref:  ident.origem_visao_ref   ?? "",
       });
@@ -561,6 +568,7 @@ export default function IdentidadeAdmin() {
   const salvar = async () => {
     if (!form.nome_igreja.trim()) { toast.error("Nome da igreja é obrigatório"); return; }
     if (contatoDisponivel && form.email_contato.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email_contato.trim())) { toast.error("O e-mail de contato parece incompleto"); return; }
+    if (respostaDisponivel && form.email_resposta.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email_resposta.trim())) { toast.error("O e-mail de resposta parece incompleto"); return; }
     setSaving(true);
 
     const redesAtivas = redes.filter((r) => !r._delete && r.url.trim());
@@ -569,6 +577,7 @@ export default function IdentidadeAdmin() {
     payload.redes_sociais = redesAtivas.map(({ plataforma, url }) => ({ plataforma, url }));
     payload.pastor_id = pastorId || null;
     if (!contatoDisponivel) { delete payload.endereco; delete payload.telefone; delete payload.email_contato; }
+    if (!respostaDisponivel) delete payload.email_resposta;
 
     let igrejId = identidade?.id ?? null;
 
@@ -1099,6 +1108,15 @@ export default function IdentidadeAdmin() {
                   <Input id="ident-email" type="email" value={form.email_contato} maxLength={160} onChange={(e) => setForm({ ...form, email_contato: e.target.value })} placeholder="acolhimento@suaigreja.com.br" />
                 </div>
                 <p className="sm:col-span-2 text-xs text-muted-foreground">Usados nas mensagens ao visitante. O WhatsApp da igreja entra como uma rede social abaixo.</p>
+              </div>
+            )}
+
+            {/* Reply-To dos e-mails automáticos (resumos e alertas): quem responder a um resumo escreve para este endereço. Vazio = usa o e-mail de contato acima; sem nenhum dos dois, o e-mail pede para não responder. */}
+            {respostaDisponivel && (
+              <div data-email-de-resposta>
+                <Label htmlFor="ident-email-resposta">Responder para (e-mails automáticos)</Label>
+                <Input id="ident-email-resposta" type="email" value={form.email_resposta} maxLength={160} onChange={(e) => setForm({ ...form, email_resposta: e.target.value })} placeholder="tesouraria@suaigreja.com.br" />
+                <p className="mt-1 text-xs text-muted-foreground">Os resumos e alertas saem de resumo@diakoniaapp.com.br. Quando alguém responde, a resposta chega a este endereço — uma caixa que a equipe lê. Em branco, vale o e-mail de contato; sem nenhum, o rodapé pede para não responder.</p>
               </div>
             )}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisoDeExtratoDefasado, DIAS_ATE_AVISAR, ehContaDeBanco, juntarExtrato, lerExtratoDasContas, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../../supabase/functions/_shared/saldos/extratoDasContas";
+import { avisoDeExtratoDefasado, DIAS_ATE_AVISAR, ddmmaaaa, decidirSaldos, ehContaDeBanco, EXPLICACAO_DO_SALDO_OCULTO, juntarExtrato, lerExtratoDasContas, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../../supabase/functions/_shared/saldos/extratoDasContas";
 import { montarEmailDiario } from "../../supabase/functions/_shared/pagamentos/emailDiario";
 import { montarBloco, type Digest } from "../../supabase/functions/_shared/resumoSemanal/blocos";
 import { prepararDiario, type DadosDoDiario } from "../../supabase/functions/_shared/pagamentos/resumoDiario";
@@ -94,10 +94,16 @@ describe("e-mail diário", () => {
   it("o saldo não faz o resumo sair sozinho: sem pagamento, `listados` continua vazio", () => {
     expect(email([bradesco()]).listados).toHaveLength(0);
   });
-  it("prepararDiario repassa as contas do pacote", () => {
-    const d: DadosDoDiario = { hoje: HOJE, dow: 4, gerado_em: "2026-10-22T10:00:00Z", ultimo_envio_geral: null, destinatarios: [], itens: [], contas_extrato: [bradesco()],
-      config: { ativo: true, dias_semana: [4], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: true } };
-    expect(prepararDiario(d).email.html).toContain("extrato do banco até 21/10");
+  const pacote = (config: Partial<DadosDoDiario["config"]> = {}): DadosDoDiario => ({ hoje: HOJE, dow: 4, gerado_em: "2026-10-22T10:00:00Z", ultimo_envio_geral: null, destinatarios: [], itens: [], contas_extrato: [bradesco()],
+    config: { ativo: true, dias_semana: [4], hora: 7, minuto: 0, janela_dias: 0, enviar_sem_pagamentos: true, ...config } });
+  it("o RESUMO DIÁRIO NÃO leva saldo (decisão de 27/10/2026): mesmo com as contas no pacote, o e-mail sai sem o bloco", () => {
+    const e = prepararDiario(pacote()).email;
+    expect(e.html).not.toContain("Saldo das contas");
+    expect(e.texto).not.toContain("SALDO DAS CONTAS");
+    expect(e.html).not.toContain("Extrato desatualizado");   // sem saldo, sem aviso de extrato velho no topo
+  });
+  it("só com incluir_saldos ligado (que nenhuma tela oferece hoje) o diário repassa as contas do pacote", () => {
+    expect(prepararDiario(pacote({ incluir_saldos: true })).email.html).toContain("extrato do banco até 21/10");
   });
 });
 
@@ -117,21 +123,52 @@ describe("e-mail semanal — bloco Saldo das contas", () => {
     expect(b.itens.at(-1)).toBe(NOTA_DO_SALDO);
     expect(b.tom).toBe("info");
   });
-  it("extrato velho muda o tom para atenção e a frase cita a conta", () => {
+  // A REGRA DO SALDO (27/10/2026): conta de banco com extrato de mais de 3 dias tem o saldo OCULTADO, e o e-mail diz até quando vai o extrato
+  it("extrato velho em UMA conta: o saldo dela é ocultado, o da outra segue, e NÃO há total (seria uma soma parcial)", () => {
     const b = montarBloco("saldo_contas", digest([bradesco({ ultimo_movimento: "2026-10-10" }), invest()]))!;
     expect(b.tom).toBe("atencao");
-    expect(b.frase).toContain("Extrato desatualizado");
-    expect(b.itens[0]).toContain("⚠");
+    expect(b.frase).toBe("Saldo das contas parcialmente ocultado: o extrato de Bradesco está desatualizado.");
+    expect(b.itens).toEqual([
+      expect.stringContaining("Bradesco Investimento: R$"),
+      "Bradesco: saldo ocultado — extrato do banco até 10/10 (há 12 dias)",
+      EXPLICACAO_DO_SALDO_OCULTO,
+    ]);
+    expect(b.itens.join(" ")).not.toContain("2.058,01");   // o saldo velho do Bradesco não aparece em lugar nenhum
+    expect(b.frase).not.toContain("Saldo nas contas:");
   });
-  it("sem a data (migration não aplicada) o bloco traz a nota geral e NÃO afirma que falta extrato", () => {
-    const b = montarBloco("saldo_contas", digest([{ nome: "Bradesco", saldo: 10 }]))!;
-    expect(b.itens.at(-1)).toBe(NOTA_DO_SALDO);
-    expect(b.itens[0]).not.toContain("extrato do banco");
-    expect(b.tom).toBe("info");
+  it("todas as contas de banco velhas: 'Saldo das contas ocultado' com a ÚLTIMA ATUALIZAÇÃO BANCÁRIA e a explicação", () => {
+    const b = montarBloco("saldo_contas", digest([bradesco({ ultimo_movimento: "2026-10-10" }), invest({ ultimo_movimento: "2026-10-12" })]))!;
+    expect(b.frase).toBe("Saldo das contas ocultado. Última atualização bancária: 12/10/2026.");
+    expect(b.itens.at(-1)).toBe("Os saldos foram ocultados para evitar interpretações baseadas em dados desatualizados.");
+    expect(b.itens.join(" ")).not.toMatch(/R\$ \d/);   // nenhum valor de saldo
   });
-  it("conta de banco com data nula (nunca recebeu extrato) é dita sem extrato e chama atenção", () => {
+  it("exatamente 3 dias ainda mostra; 4 oculta (a regra dos 3 dias)", () => {
+    expect(montarBloco("saldo_contas", digest([bradesco({ ultimo_movimento: "2026-10-19" })]))!.frase).toContain("Saldo nas contas:");
+    expect(montarBloco("saldo_contas", digest([bradesco({ ultimo_movimento: "2026-10-18" })]))!.frase).toContain("ocultado");
+  });
+  it("conta de banco que nunca recebeu extrato tem o saldo ocultado e o bloco diz que não há extrato importado", () => {
     const b = montarBloco("saldo_contas", digest([{ nome: "Bradesco", saldo: 10, ultimo_movimento: null, ultima_conciliacao: null }]))!;
-    expect(b.itens[0]).toContain("nenhum extrato do banco importado ⚠");
+    expect(b.frase).toBe("Saldo das contas ocultado. Última atualização bancária: nenhum extrato importado.");
+    expect(b.itens[0]).toBe("Bradesco: saldo ocultado — nenhum extrato do banco importado");
     expect(b.tom).toBe("atencao");
   });
+  it("sem a data (migration não aplicada) não há como conferir: o saldo da conta de banco também é ocultado", () => {
+    const b = montarBloco("saldo_contas", digest([{ nome: "Bradesco", saldo: 10 }]))!;
+    expect(b.itens[0]).toBe("Bradesco: saldo ocultado — não foi possível conferir a data do último extrato");
+    expect(b.frase).toContain("ocultado");
+  });
+  it("o caixa físico (sem extrato) nunca é ocultado", () => {
+    const b = montarBloco("saldo_contas", digest([bradesco({ ultimo_movimento: "2026-10-01" }), caixa]))!;
+    expect(b.itens[0]).toContain("Caixa da Secretaria: R$ 50,00");
+  });
+});
+
+describe("decidirSaldos — a regra pura", () => {
+  it("separa visíveis e ocultas e guarda a data do extrato mais recente entre as contas de banco", () => {
+    const d = decidirSaldos([bradesco({ ultimo_movimento: "2026-10-12" }), invest({ ultimo_movimento: "2026-10-14" }), caixa], HOJE);
+    expect(d.visiveis.map(c => c.nome)).toEqual(["Caixa da Secretaria"]);
+    expect(d.ocultas.map(o => o.nome)).toEqual(["Bradesco", "Bradesco Investimento"]);
+    expect(d.ultimaAtualizacaoBancaria).toBe("2026-10-14");
+  });
+  it("a data sai em dd/mm/aaaa", () => { expect(ddmmaaaa("2026-10-05")).toBe("05/10/2026"); });
 });

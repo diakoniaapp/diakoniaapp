@@ -11,8 +11,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { montarMensagem } from "../_shared/mensagensVisitante/montar.ts";
 import { sanearConfig, sanearIdentidade, sanearModelo } from "../_shared/mensagensVisitante/sanear.ts";
+import { REMETENTE_AUTOMATICO, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
 
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+const REMETENTE = REMETENTE_AUTOMATICO;   // o mesmo endereço em todas as funções (_shared/email/remetente.ts); a RESPOSTA vai para o Reply-To da Identidade da Igreja
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const resposta = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: REMETENTE, to: [para], subject: `[TESTE] ${m.assunto}`, html: m.html, text: m.texto }),
+      body: JSON.stringify(comReplyTo({ from: REMETENTE, to: [para], subject: `[TESTE] ${m.assunto}`, html: m.html, text: m.texto }, await lerEnderecoDeResposta(supabase))),
     });
     if (!r.ok) return resposta({ erro: "Falha ao enviar pelo Resend", detalhe: await r.text() }, 502);
     return resposta({ ok: true, enviadoPara: para });

@@ -13,11 +13,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { motivoDeNaoEnviarAgora, prepararDiario, type DadosDoDiario } from "../_shared/pagamentos/resumoDiario.ts";
 import { enviarDiarioAosDestinatarios } from "../_shared/pagamentos/enviarDiario.ts";
+import { aplicarNotaDeResposta, aplicarNotaDeRespostaNoTexto } from "../_shared/email/desenho.ts";
+import { REMETENTE_AUTOMATICO, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
 import { lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+const REMETENTE = REMETENTE_AUTOMATICO;   // o mesmo endereço em todas as funções (_shared/email/remetente.ts); a RESPOSTA vai para o Reply-To da Identidade da Igreja
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -48,11 +50,13 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase.rpc("resumo_diario_dados");
     if (error) throw new Error(error.message);
     const dados = data as DadosDoDiario;
-    dados.contas_extrato = await lerExtratoDasContas(supabase);
+    if (dados.config.incluir_saldos === true) dados.contas_extrato = await lerExtratoDasContas(supabase);   // o diário não leva saldo (27/10/2026)
     dados.reembolsos_a_pagar = await lerReembolsosAPagar(supabase);
   dados.igreja_nome = await lerNomeDaIgreja(supabase);   // cabeçalho do e-mail (Identidade da Igreja)
     const preparo = prepararDiario(dados, corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo diário" : "PRÉVIA — nada foi enviado", typeof corpo.incluir_sigilosos === "boolean" ? corpo.incluir_sigilosos : undefined);
-    const { email } = preparo;
+    const replyTo = await lerEnderecoDeResposta(supabase);
+    // a prévia e o teste mostram o e-mail COMO SAIRIA: com a nota de resposta do rodapé
+    const email = { ...preparo.email, html: aplicarNotaDeResposta(preparo.email.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(preparo.email.texto, replyTo) };
 
     if (corpo.acao === "agora") {
       // sem o aviso de "PRÉVIA/TESTE": é o e-mail de verdade, igual ao do agendamento. Nenhuma escolha vinda da chamada vale aqui — o que sai é o que a configuração salva manda.
@@ -61,7 +65,7 @@ Deno.serve(async (req) => {
       if (motivo) return resposta({ ok: true, enviados: 0, motivo, destinatarios: dados.destinatarios.length });
       const resendApiKey = Deno.env.get("RESEND_API_KEY");
       if (!resendApiKey) return resposta({ erro: "RESEND_API_KEY não configurada — ver Project Settings → Edge Functions → Secrets" }, 500);
-      const r = await enviarDiarioAosDestinatarios(supabase, resendApiKey, REMETENTE, dados, real);
+      const r = await enviarDiarioAosDestinatarios(supabase, resendApiKey, REMETENTE, dados, real, await lerEnderecoDeResposta(supabase));
       if (!r.ok) return resposta({ erro: r.erro, detalhe: r.detalhe }, 502);
       return resposta({ ok: true, enviados: r.enviados, falharam: r.falharam, itens: r.itens, reembolsos: r.reembolsos, registrados: r.registrados });
     }
@@ -78,7 +82,7 @@ Deno.serve(async (req) => {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: REMETENTE, to: [para], subject: `[TESTE] ${email.assunto}`, html: email.html, text: email.texto }),
+      body: JSON.stringify(comReplyTo({ from: REMETENTE, to: [para], subject: `[TESTE] ${email.assunto}`, html: email.html, text: email.texto }, replyTo)),
     });
     if (!r.ok) return resposta({ erro: "Falha ao enviar pelo Resend", detalhe: await r.text() }, 502);
     return resposta({ ok: true, enviadoPara: para, itens: email.listados.length });

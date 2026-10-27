@@ -7378,6 +7378,7 @@ export type Database = {
           endereco: string | null
           telefone: string | null
           email_contato: string | null
+          email_resposta: string | null
           ativa: boolean
           cnpj: string | null
           created_at: string
@@ -7402,6 +7403,7 @@ export type Database = {
           endereco?: string | null
           telefone?: string | null
           email_contato?: string | null
+          email_resposta?: string | null
           ativa?: boolean
           cnpj?: string | null
           created_at?: string
@@ -7426,6 +7428,7 @@ export type Database = {
           endereco?: string | null
           telefone?: string | null
           email_contato?: string | null
+          email_resposta?: string | null
           ativa?: boolean
           cnpj?: string | null
           created_at?: string

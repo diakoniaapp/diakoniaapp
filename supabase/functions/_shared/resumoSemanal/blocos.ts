@@ -3,7 +3,7 @@
 // `resumo_semanal_digest()` (SQL) devolve os NÚMEROS; aqui cada bloco do catálogo vira um título, uma frase e, quando ajuda, uma lista curta. Sem lógica de negócio nova: nada é somado aqui.
 // Um bloco sempre diz alguma coisa — "Nenhuma conta atrasada." — nunca uma linha muda. Se o banco ainda não foi atualizado e o número do bloco não veio, o bloco diz isso em vez de sumir.
 
-import { avisoDeExtratoDefasado, ehContaDeBanco, hojeEmBrasilia, NOTA_DO_SALDO, situacaoDoExtrato, type ExtratoDaConta } from "../saldos/extratoDasContas.ts";
+import { ddmmaaaa, decidirSaldos, ehContaDeBanco, EXPLICACAO_DO_SALDO_OCULTO, hojeEmBrasilia, NOTA_DO_SALDO, situacaoDoExtrato } from "../saldos/extratoDasContas.ts";
 
 import { textoCurtoDoReembolso, type ReembolsoParaExibir } from "../reembolsos/apresentacao.ts";
 import * as D from "../email/desenho.ts";
@@ -119,17 +119,23 @@ export function montarBloco(id: string, d: Digest): BlocoPronto | null {
     }
     case "saldo_contas": {
       const sc = t.saldo_contas; if (!sc) return semDado(id, "Saldo das contas");
-      // até quando cada saldo de banco reflete o extrato: o saldo do app só acompanha o banco até a última importação conciliada (pedido dela, 22/10/2026)
+      // REGRA DO SALDO (27/10/2026): o saldo de uma conta de banco só vai se o extrato dela tem até 3 dias; senão é ocultado e o e-mail diz até quando vai o extrato (ver `decidirSaldos`)
       const hoje = hojeEmBrasilia(d.gerado_em);
-      // `undefined` = a data não veio (migration 20261022220000 ainda não aplicada): não se afirma "sem extrato", só vai a nota geral; `null` = a conta nunca recebeu extrato
-      const conhecidas = sc.contas.filter(c => c.ultimo_movimento !== undefined);
-      const aviso = avisoDeExtratoDefasado(conhecidas.map(c => ({ nome: c.nome, saldo: c.saldo, ultimo_movimento: c.ultimo_movimento ?? null, ultima_conciliacao: c.ultima_conciliacao ?? null })) as ExtratoDaConta[], hoje);
-      const linhas = sc.contas.map(c => {
+      const dec = decidirSaldos(sc.contas, hoje);
+      const linhaDe = (c: (typeof sc.contas)[number]) => {
         const ext = c.ultimo_movimento !== undefined && ehContaDeBanco({ nome: c.nome, ultimo_movimento: c.ultimo_movimento })
           ? situacaoDoExtrato({ ultimo_movimento: c.ultimo_movimento ?? null, ultima_conciliacao: c.ultima_conciliacao ?? null }, hoje) : null;
-        return `${c.nome}: ${brl(c.saldo)}${ext ? ` — ${ext.texto}${ext.defasado ? " ⚠" : ""}` : ""}`;
-      });
-      return bloco(id, "Saldo das contas", `Saldo nas contas: ${brl(sc.total)}${sc.total < 0 ? " — negativo" : ""}.${aviso ? ` ${aviso}` : ""}`, sc.total < 0 || aviso ? "atencao" : "info", [...linhas, NOTA_DO_SALDO]);
+        return `${c.nome}: ${brl(c.saldo)}${ext ? ` — ${ext.texto}` : ""}`;
+      };
+      if (dec.ocultas.length === 0) {
+        return bloco(id, "Saldo das contas", `Saldo nas contas: ${brl(sc.total)}${sc.total < 0 ? " — negativo" : ""}.`, sc.total < 0 ? "atencao" : "info", [...dec.visiveis.map(linhaDe), NOTA_DO_SALDO]);
+      }
+      // algum saldo foi ocultado: NÃO se mostra o total (seria uma soma parcial)
+      const quando = dec.ultimaAtualizacaoBancaria ? ddmmaaaa(dec.ultimaAtualizacaoBancaria) : "nenhum extrato importado";
+      const frase = dec.visiveis.length === 0
+        ? `Saldo das contas ocultado. Última atualização bancária: ${quando}.`
+        : `Saldo das contas parcialmente ocultado: o extrato de ${dec.ocultas.map(o => o.nome).join(", ")} está desatualizado.`;
+      return bloco(id, "Saldo das contas", frase, "atencao", [...dec.visiveis.map(linhaDe), ...dec.ocultas.map(o => `${o.nome}: saldo ocultado — ${o.motivo}`), EXPLICACAO_DO_SALDO_OCULTO]);
     }
     case "centros_orcamento":
       return t.centros_criticos > 0

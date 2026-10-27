@@ -3,6 +3,8 @@
 // Antes este trecho morava inline em `resumo-diario/index.ts`. O botão "Enviar agora" (painel Resumo diário, 23/10/2026) precisa do MESMO envio e do MESMO registro — o registro é o que faz o
 // e-mail seguinte avisar "já enviado em 21/10 — confira se já foi pago" (o risco de pagamento em duplicidade enquanto a baixa não chega ao sistema), então não pode haver duas versões dele.
 import type { DadosDoDiario, PreparoDoDiario } from "./resumoDiario.ts";
+import { aplicarNotaDeResposta, aplicarNotaDeRespostaNoTexto } from "../email/desenho.ts";
+import { comReplyTo } from "../email/remetente.ts";
 
 // o cliente do Supabase só precisa de `from(...).insert(...)`; tipado à mão para o módulo não depender do pacote (roda em Deno e é lido pelos testes do app)
 interface ClienteQueGrava { from: (tabela: string) => { insert: (linhas: unknown[]) => PromiseLike<{ error: unknown }> } }
@@ -12,13 +14,16 @@ export type ResultadoDoEnvio =
   | { ok: false; erro: string; detalhe: unknown };
 
 export async function enviarDiarioAosDestinatarios(
-  supabase: ClienteQueGrava, resendApiKey: string, remetente: string, dados: DadosDoDiario, preparo: PreparoDoDiario,
+  supabase: ClienteQueGrava, resendApiKey: string, remetente: string, dados: DadosDoDiario, preparo: PreparoDoDiario, replyTo: string | null = null,
 ): Promise<ResultadoDoEnvio> {
+  // a nota do rodapé diz se se pode responder; o Reply-To leva a resposta à equipe da igreja (decisão dela, 27/10/2026)
+  const html = aplicarNotaDeResposta(preparo.email.html, replyTo);
+  const texto = aplicarNotaDeRespostaNoTexto(preparo.email.texto, replyTo);
   const envios = await Promise.all(dados.destinatarios.map(async d => {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: remetente, to: [d.email], subject: preparo.email.assunto, html: preparo.email.html, text: preparo.email.texto }),
+      body: JSON.stringify(comReplyTo({ from: remetente, to: [d.email], subject: preparo.email.assunto, html, text: texto }, replyTo)),
     });
     return r.ok ? { ok: true as const } : { ok: false as const, detalhe: await r.text() };
   }));

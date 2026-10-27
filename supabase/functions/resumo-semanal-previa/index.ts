@@ -13,11 +13,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { ASSUNTO, montarBlocos, montarHtml, type Digest } from "../_shared/resumoSemanal/blocos.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
+import { aplicarNotaDeResposta } from "../_shared/email/desenho.ts";
+import { REMETENTE_AUTOMATICO, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
 import { juntarExtrato, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
 import { lerReembolsosAPagar } from "../_shared/reembolsos/lerReembolsos.ts";
 import { PERFIS, blocosDaPessoa, mesclarConfig, paraSalvar, type Perfil } from "../_shared/resumoSemanal/catalogo.ts";
 
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+const REMETENTE = REMETENTE_AUTOMATICO;   // o mesmo endereço em todas as funções (_shared/email/remetente.ts); a RESPOSTA vai para o Reply-To da Identidade da Igreja
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -72,7 +74,8 @@ Deno.serve(async (req) => {
     const aviso = ids.length === 0
       ? "Nenhum bloco ativo neste perfil — nada seria enviado."
       : corpo.acao === "teste" ? "TESTE — e-mail de teste do resumo semanal" : "PRÉVIA — nada foi enviado";
-    const html = montarHtml(digest.gerado_em, montarBlocos(ids, digest), aviso, await lerNomeDaIgreja(supabase));
+    const replyTo = await lerEnderecoDeResposta(supabase);
+    const html = aplicarNotaDeResposta(montarHtml(digest.gerado_em, montarBlocos(ids, digest), aviso, await lerNomeDaIgreja(supabase)), replyTo);   // a prévia mostra o e-mail COMO SAIRIA
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: ASSUNTO, html, blocos: ids });
 
@@ -87,7 +90,7 @@ Deno.serve(async (req) => {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: REMETENTE, to: [para], subject: `[TESTE] ${ASSUNTO}`, html }),
+      body: JSON.stringify(comReplyTo({ from: REMETENTE, to: [para], subject: `[TESTE] ${ASSUNTO}`, html }, replyTo)),
     });
     if (!r.ok) return resposta({ erro: "Falha ao enviar pelo Resend", detalhe: await r.text() }, 502);
     return resposta({ ok: true, enviadoPara: para, blocos: ids });
