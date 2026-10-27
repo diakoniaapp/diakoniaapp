@@ -38,9 +38,10 @@ export const MODELOS_DE_RELATORIO: { id: IdDoModelo; rotulo: string; descricao: 
 // ── a ORDENAÇÃO das listas com nomes (27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Pedido dela: o padrão deixa de ser alfabético. Passa a ser a QUANTIDADE de contribuições no período (maior para menor), com a coluna "#" de classificação, e o construtor deixa escolher.
 // Desempate do padrão: quantidade → data da última contribuição (mais recente primeiro) → nome. "Valor total contribuído" só ORDENA: o valor nunca aparece na lista.
-export type OrdenacaoDasListas = "quantidade" | "valor_total" | "ultima_contribuicao" | "nome_az" | "nome_za" | "tempo_sem_contribuir";
+export type OrdenacaoDasListas = "quantidade" | "quantidade_asc" | "valor_total" | "ultima_contribuicao" | "nome_az" | "nome_za" | "tempo_sem_contribuir";
 export const ORDENACOES_DAS_LISTAS: { id: OrdenacaoDasListas; rotulo: string; descricao: string }[] = [
   { id: "quantidade", rotulo: "Quantidade de contribuições", descricao: "Maior para menor; desempate pela última contribuição e pelo nome" },
+  { id: "quantidade_asc", rotulo: "Quantidade de contribuições (menor para maior)", descricao: "Quem contribuiu MENOS vezes primeiro, mas pelo menos uma vez (quem não contribuiu fica na outra lista); desempate pela última contribuição mais antiga e pelo nome" },
   { id: "valor_total", rotulo: "Valor total contribuído", descricao: "Maior para menor; os valores não aparecem na lista, só ordenam; desempate pela quantidade, pela última contribuição e pelo nome" },
   { id: "ultima_contribuicao", rotulo: "Última contribuição", descricao: "Mais recente primeiro; desempate pela quantidade e pelo nome" },
   { id: "nome_az", rotulo: "Nome A–Z", descricao: "Ordem alfabética" },

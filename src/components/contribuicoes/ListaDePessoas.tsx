@@ -18,9 +18,9 @@ export const GRUPOS_DE_PESSOAS: { id: GrupoDePessoas; rotulo: string }[] = [
   { id: "todos", rotulo: "Todos" }, { id: "dizimistas", rotulo: "Dizimistas" }, { id: "recorrentes", rotulo: "Recorrentes" }, { id: "novos", rotulo: "Novos contribuintes" }, { id: "novosDizimistas", rotulo: "Novos dizimistas" },
 ];
 
-export type OrdemDaLista = "total_desc" | "total_asc" | "frequencia" | "ultima" | "nome_az" | "nome_za" | "tempo";
+export type OrdemDaLista = "total_desc" | "total_asc" | "frequencia" | "frequencia_asc" | "ultima" | "nome_az" | "nome_za" | "tempo";
 export const ORDENS_DA_LISTA: { id: OrdemDaLista; rotulo: string }[] = [
-  { id: "total_desc", rotulo: "Total contribuído (maior para menor)" }, { id: "total_asc", rotulo: "Total contribuído (menor para maior)" }, { id: "frequencia", rotulo: "Frequência" },
+  { id: "total_desc", rotulo: "Total contribuído (maior para menor)" }, { id: "total_asc", rotulo: "Total contribuído (menor para maior)" }, { id: "frequencia", rotulo: "Mais contribuições (quantidade)" }, { id: "frequencia_asc", rotulo: "Menos contribuições (quantidade)" },
   { id: "ultima", rotulo: "Última contribuição" }, { id: "nome_az", rotulo: "Nome A–Z" }, { id: "nome_za", rotulo: "Nome Z–A" }, { id: "tempo", rotulo: "Tempo sem contribuir" },
 ];
 export const ORDEM_PADRAO_DA_LISTA: OrdemDaLista = "total_desc";
@@ -54,6 +54,8 @@ const COMPARADORES: Record<OrdemDaLista, Comparador[]> = {
   total_desc: [(a, b) => b.total - a.total, (a, b) => b.quantidade - a.quantidade, (a, b) => b.ultima.localeCompare(a.ultima), porNome],
   total_asc: [(a, b) => a.total - b.total, (a, b) => a.quantidade - b.quantidade, porNome],
   frequencia: [(a, b) => b.quantidade - a.quantidade, (a, b) => b.total - a.total, porNome],
+  /** quem contribuiu MENOS vezes primeiro; a lista só tem quem contribuiu pelo menos uma vez, então nunca começa por zero; desempate: última contribuição mais antiga */
+  frequencia_asc: [(a, b) => a.quantidade - b.quantidade, (a, b) => a.ultima.localeCompare(b.ultima), porNome],
   ultima: [(a, b) => b.ultima.localeCompare(a.ultima), porNome],
   nome_az: [porNome],
   nome_za: [(a, b) => porNome(b, a)],

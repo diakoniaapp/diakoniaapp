@@ -50,14 +50,19 @@ interface ParaOrdenar { nome: string; ultima: string | null; quantidade: number;
 type Comparador = (a: ParaOrdenar, b: ParaOrdenar) => number;
 const porNome: Comparador = (a, b) => a.nome.localeCompare(b.nome, "pt-BR");
 const porQuantidade: Comparador = (a, b) => b.quantidade - a.quantidade;
+/** quem contribuiu MENOS vezes primeiro */
+const porMenorQuantidade: Comparador = (a, b) => a.quantidade - b.quantidade;
 /** última contribuição, a mais recente primeiro; quem não tem nenhuma (nulo) fica por último */
 const porUltima: Comparador = (a, b) => (b.ultima ?? "").localeCompare(a.ultima ?? "");
+/** última contribuição, a mais ANTIGA primeiro (quem está há mais tempo sem contribuir); quem não tem nenhuma (nulo) vem antes */
+const porUltimaMaisAntiga: Comparador = (a, b) => (a.ultima ?? "").localeCompare(b.ultima ?? "");
 const porValor: Comparador = (a, b) => b.total - a.total;
 /** há mais tempo sem contribuir primeiro; quem não tem registro anterior (nulo) vem antes de todos */
 const porTempoSemContribuir: Comparador = (a, b) => (b.dias ?? Number.MAX_SAFE_INTEGER) - (a.dias ?? Number.MAX_SAFE_INTEGER);
 
 const COMPARADORES: Record<OrdenacaoDasListas, Comparador[]> = {
   quantidade: [porQuantidade, porUltima, porNome],
+  quantidade_asc: [porMenorQuantidade, porUltimaMaisAntiga, porNome],
   valor_total: [porValor, porQuantidade, porUltima, porNome],
   ultima_contribuicao: [porUltima, porQuantidade, porNome],
   nome_az: [porNome],

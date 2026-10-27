@@ -266,11 +266,11 @@ describe("a ordenação das listas com nomes", () => {
     expect(q("[data-ordem-descricao]")?.textContent).toContain("desempate pela última contribuição e pelo nome");
     expect(q("[data-ordem-descricao]")?.textContent).toContain("classificação (#)");
   });
-  it("tem as seis opções pedidas, na ordem", async () => {
+  it("tem as sete opções pedidas, na ordem", async () => {
     await abrirGaveta(servico());
     await clicar(q('[data-acao="exibir-nomes"]'));
-    expect([...select()!.options].map(o => o.value)).toEqual(["quantidade", "valor_total", "ultima_contribuicao", "nome_az", "nome_za", "tempo_sem_contribuir"]);
-    expect([...select()!.options].map(o => o.textContent)).toEqual(["Quantidade de contribuições", "Valor total contribuído", "Última contribuição", "Nome A–Z", "Nome Z–A", "Tempo sem contribuir"]);
+    expect([...select()!.options].map(o => o.value)).toEqual(["quantidade", "quantidade_asc", "valor_total", "ultima_contribuicao", "nome_az", "nome_za", "tempo_sem_contribuir"]);
+    expect([...select()!.options].map(o => o.textContent)).toEqual(["Quantidade de contribuições", "Quantidade de contribuições (menor para maior)", "Valor total contribuído", "Última contribuição", "Nome A–Z", "Nome Z–A", "Tempo sem contribuir"]);
   });
   it("a escolha vai no pedido, e mudar a ordenação depois da prévia tira a validade dela", async () => {
     const s = servico();

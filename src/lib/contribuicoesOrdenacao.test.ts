@@ -55,7 +55,18 @@ describe("o PADRÃO: quantidade de contribuições, maior para menor", () => {
   });
 });
 
-describe("as seis ordenações", () => {
+describe("as sete ordenações", () => {
+  it("quantidade, MENOR para maior (quem contribuiu menos vezes, mas pelo menos uma): desempate pela última mais antiga e pelo nome", () => {
+    const o = ordem("quantidade_asc");
+    expect(o.contribuiram).toEqual(["Davi", "Elisa", "Carla", "Amanda", "Bruno"]);   // 1, 1 (nome), 2, 4 (última 20/09), 4 (última 25/09)
+    expect(o.l.contribuiram.every(x => (x.contribuicoes ?? 0) >= 1)).toBe(true);     // a lista de quem contribuiu nunca tem zero
+    expect(o.l.contribuiram.map(x => x.posicao)).toEqual([1, 2, 3, 4, 5]);
+    expect(o.sem).toEqual(["Hugo", "Gabi", "Fábio", "Iara"]);                         // quem não contribuiu: há mais tempo sem contribuir primeiro, 'nunca' antes de todos
+  });
+  it("o e-mail diz a ordem escolhida", () => {
+    const h = montarEmailDeContribuicoes(analisarContribuicoes(todas, periodo), { blocos: ["contribuintes_nominal"], nominal: listasNominaisDoEmail(todas, periodo, nomes, sem, "quantidade_asc"), ordenacao: "quantidade_asc", baseAnalisada: "membros_congregados" }).html;
+    expect(h).toContain("menor para maior");
+  });
   it("valor total contribuído: Carla (R$ 9.000) vem primeiro — e o valor NÃO aparece em nenhuma linha", () => {
     const { contribuiram, l } = ordem("valor_total");
     expect(contribuiram).toEqual(["Carla", "Bruno", "Amanda", "Davi", "Elisa"]);   // valor; depois quantidade, última, nome
@@ -78,8 +89,8 @@ describe("as seis ordenações", () => {
   it("a ordem da lista de quem não contribuiu por valor cai nos critérios seguintes (ninguém tem valor no período)", () => {
     expect(ordem("valor_total").sem).toEqual(["Fábio", "Iara", "Gabi", "Hugo"]);
   });
-  it("as seis opções existem, com rótulo e descrição do desempate", () => {
-    expect(ORDENACOES_DAS_LISTAS.map(o => o.id)).toEqual(["quantidade", "valor_total", "ultima_contribuicao", "nome_az", "nome_za", "tempo_sem_contribuir"]);
+  it("as sete opções existem, com rótulo e descrição do desempate", () => {
+    expect(ORDENACOES_DAS_LISTAS.map(o => o.id)).toEqual(["quantidade", "quantidade_asc", "valor_total", "ultima_contribuicao", "nome_az", "nome_za", "tempo_sem_contribuir"]);
     for (const o of ORDENACOES_DAS_LISTAS) { expect(o.rotulo.length).toBeGreaterThan(3); expect(o.descricao.length).toBeGreaterThan(3); }
     expect(ORDENACOES_DAS_LISTAS.find(o => o.id === "valor_total")!.descricao).toContain("os valores não aparecem na lista");
   });

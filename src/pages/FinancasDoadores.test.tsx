@@ -336,11 +336,12 @@ describe("filtros puros", () => {
   it("a busca ignora acento e maiúscula", () => {
     expect(filtrarPessoas(pessoas, "todos", "lucia", "nome_az").map(p => p.pessoaId)).toEqual(["1"]);
   });
-  it("as sete ordens: total (maior e menor), frequência, última, nome A–Z e Z–A, tempo sem contribuir", () => {
+  it("as oito ordens: total (maior e menor), quantidade (mais e menos), última, nome A–Z e Z–A, tempo sem contribuir", () => {
     const ids = (o: Parameters<typeof filtrarPessoas>[3]) => filtrarPessoas(pessoas, "todos", "", o).map(p => p.nome);
     expect(ids("total_desc")).toEqual(["Bruno", "Ana Lúcia", "Carla"]);
     expect(ids("total_asc")).toEqual(["Carla", "Ana Lúcia", "Bruno"]);
     expect(ids("frequencia")).toEqual(["Carla", "Ana Lúcia", "Bruno"]);
+    expect(ids("frequencia_asc")).toEqual(["Bruno", "Ana Lúcia", "Carla"]);   // menos contribuições primeiro (1, 2, 5): nunca começa por zero, a lista só tem quem contribuiu
     expect(ids("ultima")).toEqual(["Carla", "Ana Lúcia", "Bruno"]);
     expect(ids("nome_az")).toEqual(["Ana Lúcia", "Bruno", "Carla"]);
     expect(ids("nome_za")).toEqual(["Carla", "Bruno", "Ana Lúcia"]);
@@ -352,7 +353,7 @@ describe("filtros puros", () => {
     expect(ordemDaUrl("nome")).toBe("nome_az");
     expect(ordemDaUrl("valor")).toBe("total_desc");
     expect(ordemDaUrl("lixo")).toBe("total_desc");
-    expect(ORDENS_DA_LISTA.map(o => o.id)).toEqual(["total_desc", "total_asc", "frequencia", "ultima", "nome_az", "nome_za", "tempo"]);
+    expect(ORDENS_DA_LISTA.map(o => o.id)).toEqual(["total_desc", "total_asc", "frequencia", "frequencia_asc", "ultima", "nome_az", "nome_za", "tempo"]);
   });
   it("Top N: os N primeiros NA ORDEM escolhida; 'todos' não corta; valor desconhecido na URL vira 'todos'", () => {
     const muitos = Array.from({ length: 60 }, (_, i) => P2(String(i), `P${String(i).padStart(2, "0")}`, 1000 - i, 1, "2026-09-01"));
