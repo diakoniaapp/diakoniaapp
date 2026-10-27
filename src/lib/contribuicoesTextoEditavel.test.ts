@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { analisarContribuicoes } from "../../supabase/functions/_shared/contribuicoes/analise";
-import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
+import { montarEmailDeContribuicoes, textosParaInterpretar } from "../../supabase/functions/_shared/contribuicoes/email";
 import { LIMITE_DO_ASSUNTO, LIMITE_DO_TEXTO, chaveDoEnvio, validarPedido, type PedidoValidado } from "../../supabase/functions/_shared/contribuicoes/pedido";
 
 const hoje = "2026-10-27";
@@ -107,5 +107,48 @@ describe("a Edge Function passa os textos validados ao e-mail e registra que hou
   });
   it("no histórico fica só a marca 'texto_personalizado'", () => {
     expect(fn).toContain("texto_personalizado:");
+  });
+});
+
+// ─── "Sem dízimos", não "sem contribuições" (27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Ao validar a lista com os extratos, ela viu que o relatório dizia "Sem contribuições no período analisado" para gente que SÓ deu oferta: o filtro era só Dízimos (26 das 139 deram oferta ou missões).
+// O texto passou a dizer o que falta, conforme as categorias escolhidas.
+import { oQueFaltaAQuemNaoContribuiu, analisarSemContribuicao, type PessoaDaBase } from "../../supabase/functions/_shared/contribuicoes/analise";
+import { listasNominaisDoEmail } from "../../supabase/functions/_shared/contribuicoes/nominal";
+
+describe("o que falta a quem 'não contribuiu' diz as categorias escolhidas", () => {
+  it("as três categorias = 'contribuições'; só dízimo = 'dízimos'; dízimo e oferta = 'dízimos e ofertas'", () => {
+    expect(oQueFaltaAQuemNaoContribuiu(["dizimo", "oferta", "missoes"])).toBe("contribuições");
+    expect(oQueFaltaAQuemNaoContribuiu(undefined)).toBe("contribuições");
+    expect(oQueFaltaAQuemNaoContribuiu(["dizimo"])).toBe("dízimos");
+    expect(oQueFaltaAQuemNaoContribuiu(["dizimo", "oferta"])).toBe("dízimos e ofertas");
+  });
+  const pessoas: PessoaDaBase[] = ["a", "b"].map(id => ({ id, nome: "Pessoa " + id, tipo_pessoa: "membro", status: "ativo", data_nascimento: "1980-01-01", familia_id: null }));
+  const periodo = { ini: "2026-04-19", fim: "2026-10-19" };
+  const sem = analisarSemContribuicao([], pessoas, periodo, { considerar: "dizimo", incluirMenores: true });
+  const nomes = new Map<string, string>();
+  it("a lista com só dízimo escolhido diz 'Sem dízimos no período analisado' (e não 'contribuições')", () => {
+    const l = listasNominaisDoEmail([], periodo, nomes, sem, "quantidade", "dízimos");
+    expect(l.semContribuicao.length).toBe(2);
+    for (const x of l.semContribuicao) { expect(x.perfil).toContain("Sem dízimos no período analisado"); expect(x.perfil).not.toContain("contribuições"); }
+  });
+  it("sem o parâmetro (as três categorias), o texto é o de sempre", () => {
+    expect(listasNominaisDoEmail([], periodo, nomes, sem).semContribuicao[0].perfil).toContain("Sem contribuições no período analisado");
+  });
+  it("o 'Como interpretar' acompanha: o título e a explicação dizem 'dízimos' e avisam que pode ter contribuído de outra forma", () => {
+    const a = analisarContribuicoes([{ pessoa_id: "p", data: "2026-08-10", valor: 1, categoria: "Dizimos" }], periodo);
+    const t = Object.fromEntries(textosParaInterpretar(a, "membros", "dízimos").map(x => [x.titulo, x.texto]));
+    expect(t["Sem dízimos no período analisado"]).toContain("sem dízimos entre");
+    expect(t["Sem dízimos no período analisado"]).toContain("Pode ter contribuído de outra forma");
+    expect(textosParaInterpretar(a, "membros").map(x => x.titulo)).toContain("Sem contribuições no período analisado");
+  });
+  it("o e-mail com só dízimo escolhido leva o texto novo nas duas listas e na definição", () => {
+    const nomes2 = new Map([["p", "Fulana"]]);
+    const linhas = [{ pessoa_id: "p", data: "2026-08-10", valor: 1, categoria: "Ofertas" }];
+    const sem2 = analisarSemContribuicao(linhas.filter(l => l.categoria === "Dizimos"), pessoas, periodo, { considerar: "dizimo", incluirMenores: true });
+    const a = analisarContribuicoes([], periodo);
+    const e = montarEmailDeContribuicoes(a, { blocos: ["sem_contribuicao_nominal"], nominal: listasNominaisDoEmail([], periodo, nomes2, sem2, "quantidade", "dízimos"), baseAnalisada: "membros", categorias: ["dizimo"] });
+    expect(e.html).toContain("Sem dízimos no período analisado");
+    expect(e.html).not.toContain("Sem contribuições no período analisado");
   });
 });

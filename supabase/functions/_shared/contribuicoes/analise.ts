@@ -463,6 +463,15 @@ export const CATEGORIAS_DE_CONTRIBUICAO: { id: TipoDeContribuicao; rotulo: strin
 export interface FiltrosDeAnalise { base: BaseAnalisada; categorias: TipoDeContribuicao[] }
 export const FILTROS_PADRAO: FiltrosDeAnalise = { base: "membros_congregados", categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id) };
 
+/**
+ * O que falta a quem "não contribuiu", conforme as categorias escolhidas (decisão dela, 27/10/2026, ao validar a lista com os extratos): com as três categorias é "contribuições"; com só dízimo é "dízimos";
+ * com dízimo e oferta, "dízimos e ofertas". Assim "Sem dízimos no período analisado" não é lido como "não deu nada" — quem só deu oferta aparece nessa lista, e o texto precisa dizer isso.
+ */
+export function oQueFaltaAQuemNaoContribuiu(cats: TipoDeContribuicao[] | undefined): string {
+  if (!cats || cats.length === 0 || cats.length >= CATEGORIAS_DE_CONTRIBUICAO.length) return "contribuições";
+  return rotuloDasCategorias(cats).toLowerCase();
+}
+
 /** O texto das categorias escolhidas: "Dízimos, Ofertas e Ofertas para Missões". */
 export function rotuloDasCategorias(cats: TipoDeContribuicao[]): string {
   const nomes = CATEGORIAS_DE_CONTRIBUICAO.filter(c => cats.includes(c.id)).map(c => c.rotulo);

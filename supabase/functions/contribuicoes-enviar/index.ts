@@ -16,7 +16,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
-  VERSAO_DOS_CRITERIOS, VINCULOS_DA_BASE, aplicarFiltros, analisarContribuicoes, analisarSemContribuicao, analisarTendencia, idsDaBase, linhasDoCabecalho, resumirBase, resumirPessoas, type ResumoDaBase,
+  VERSAO_DOS_CRITERIOS, VINCULOS_DA_BASE, aplicarFiltros, analisarContribuicoes, analisarSemContribuicao, analisarTendencia, idsDaBase, oQueFaltaAQuemNaoContribuiu, linhasDoCabecalho, resumirBase, resumirPessoas, type ResumoDaBase,
 } from "../_shared/contribuicoes/analise.ts";
 import { lerBaseDePessoas, lerContribuicoesDoPiso, lerNomesDePessoas } from "../_shared/contribuicoes/carregar.ts";
 import { temBlocoNominal } from "../_shared/contribuicoes/blocos.ts";
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     semContribuicaoAnalisada = analisarSemContribuicao(linhas, pessoasDaBase, pedido.periodo, { considerar: "qualquer", incluirMenores: false, vinculos: VINCULOS_DA_BASE[pedido.base] });
     if (comNomes && semContribuicaoAnalisada) {
       const nomes = await lerNomesDePessoas(supabase, resumirPessoas(linhas, pedido.periodo).map(r => r.pessoaId));
-      nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada, pedido.ordenacao);
+      nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada, pedido.ordenacao, oQueFaltaAQuemNaoContribuiu(pedido.categorias));
       // sem registro, sem nomes: grava ANTES de seguir; qualquer falha recusa o relatório com nomes
       const reg = await supabase.from("contribuicoes_acessos").insert({
         por: usuario.id, por_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null, acao: acaoDoRegistro,
@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base, assunto: pedido.textos?.assunto, abertura: pedido.textos?.abertura, encerramento: pedido.textos?.encerramento });
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base, categorias: pedido.categorias, assunto: pedido.textos?.assunto, abertura: pedido.textos?.abertura, encerramento: pedido.textos?.encerramento });
     const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, novosDizimistas: analise.novosDizimistas, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };

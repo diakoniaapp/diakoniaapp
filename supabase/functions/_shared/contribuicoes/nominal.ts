@@ -38,11 +38,13 @@ const mesesDe = (r: ResumoDePessoa): string | null => (r.mesesCompletos > 0 && r
  * Todo mundo que não contribuiu é "Sem contribuições no período analisado"; o complemento diz se também não há registro anterior ou há quanto tempo foi a última contribuição. NUNCA uma data fixa:
  * o relatório pode ter qualquer período (decisão dela, 27/10/2026), e as datas que aparecem são sempre as do filtro escolhido.
  */
-function perfilDeQuemNaoContribuiu(p: PessoaSemContribuicao): string {
-  if (p.classificacao === "nunca") return "Sem contribuições no período analisado · sem registro anterior";
-  if (p.dias !== null && p.dias > 180) return "Sem contribuições no período analisado · última há mais de 180 dias";
-  if (p.dias !== null && p.dias > 90) return "Sem contribuições no período analisado · última há mais de 90 dias";
-  return "Sem contribuições no período analisado";
+/** `oque`: o que falta a essa gente, conforme as categorias escolhidas ("contribuições", "dízimos"…): com só dízimo escolhido, quem deu oferta aparece aqui e o texto não pode dizer que não deu nada. */
+function perfilDeQuemNaoContribuiu(p: PessoaSemContribuicao, oque = "contribuições"): string {
+  const base = `Sem ${oque} no período analisado`;
+  if (p.classificacao === "nunca") return `${base} · sem registro anterior`;
+  if (p.dias !== null && p.dias > 180) return `${base} · última há mais de 180 dias`;
+  if (p.dias !== null && p.dias > 90) return `${base} · última há mais de 90 dias`;
+  return base;
 }
 
 /** O que a ordenação enxerga de cada pessoa. O `total` SÓ ordena (opção "valor total contribuído"): nunca chega à linha que sai. */
@@ -82,12 +84,12 @@ function ordenarENumerar(itens: (ParaOrdenar & { perfil: string })[], ordenacao:
  * O `total` de cada pessoa só entra na ORDENAÇÃO (e só quando escolhida): a linha que sai não tem campo de valor.
  */
 export function listasNominaisDoEmail(
-  linhas: LinhaDeContribuicao[], periodo: { ini: string; fim: string }, nomes: Map<string, string>, semContribuicao: AnaliseDosSemContribuicao, ordenacao: OrdenacaoDasListas = ORDENACAO_PADRAO,
+  linhas: LinhaDeContribuicao[], periodo: { ini: string; fim: string }, nomes: Map<string, string>, semContribuicao: AnaliseDosSemContribuicao, ordenacao: OrdenacaoDasListas = ORDENACAO_PADRAO, oque = "contribuições",
 ): ListasNominais {
   const contribuiram = resumirPessoas(linhas, periodo).map(r => ({
     nome: nomes.get(r.pessoaId) ?? "(nome não encontrado)", ultima: r.ultima, quantidade: r.quantidade, total: r.total, dias: diasEntre(r.ultima, periodo.fim), meses: mesesDe(r), perfil: perfilDeQuemContribuiu(r),
   }));
-  const sem = semContribuicao.lista.map(p => ({ nome: p.nome, ultima: p.ultima, quantidade: 0, total: 0, dias: p.dias, perfil: perfilDeQuemNaoContribuiu(p) }));
+  const sem = semContribuicao.lista.map(p => ({ nome: p.nome, ultima: p.ultima, quantidade: 0, total: 0, dias: p.dias, perfil: perfilDeQuemNaoContribuiu(p, oque) }));
   return { contribuiram: ordenarENumerar(contribuiram, ordenacao), semContribuicao: ordenarENumerar(sem, ordenacao).map(l => ({ ...l, contribuicoes: null })) };
 }
 

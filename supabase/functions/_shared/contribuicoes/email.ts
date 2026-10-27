@@ -5,7 +5,7 @@
 // números (`AnaliseDoPeriodo` e `ResumoDaBase`): não há como um nome entrar no e-mail. Os gráficos são barras em tabela
 // HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
-import { PISO_DE_IDENTIFICACAO, ROTULO_DA_BASE, mesesCompletos, type AnaliseDoPeriodo, type BaseAnalisada, type ResumoDaBase, type SaudeDeUmTipo, type TendenciaDoPeriodo, type VinculoDaBase } from "./analise.ts";
+import { PISO_DE_IDENTIFICACAO, ROTULO_DA_BASE, mesesCompletos, oQueFaltaAQuemNaoContribuiu, type TipoDeContribuicao, type AnaliseDoPeriodo, type BaseAnalisada, type ResumoDaBase, type SaudeDeUmTipo, type TendenciaDoPeriodo, type VinculoDaBase } from "./analise.ts";
 import { IDS_AGREGADOS, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, temBlocoNominal, type IdDoBloco, type OrdenacaoDasListas } from "./blocos.ts";
 import type { LinhaNominal, ListasNominais } from "./nominal.ts";
 
@@ -158,7 +158,7 @@ const mesPorExtenso = (m: string) => `${MESES_POR_EXTENSO[Number(m.slice(5, 7)) 
  * O texto de "Como interpretar este relatório": as definições dos perfis, GERADAS conforme o período analisado — quantos meses completos tem, quais são, e se há histórico para dizer quem é novo.
  * Determinístico (sem IA): os mesmos números dão sempre o mesmo texto. As frases batem com o que o cálculo faz (`analisarContribuicoes`/`resumirPessoas`).
  */
-export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada): { titulo: string; texto: string }[] {
+export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada, oque = "contribuições"): { titulo: string; texto: string }[] {
   const { ini, fim } = a.periodo;
   const p = `${ddmmaaaa(ini)} a ${ddmmaaaa(fim)}`;
   const entre = `entre ${ddmmaaaa(ini)} e ${ddmmaaaa(fim)}`;   // SEMPRE as datas do filtro escolhido: nunca uma data fixa (decisão dela, 27/10/2026)
@@ -175,12 +175,12 @@ export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada):
     { titulo: "Parcial", texto: completos.length === 0 ? `Pessoa que contribuiu ${entre}. Sem mês completo no período, não há como separar recorrente de parcial; por isso aparece como "Contribuiu no período".` : `Pessoa que deu dízimo em alguns, mas não em todos, dos meses completos do período analisado. A coluna "Meses com dízimo" mostra quantos (por exemplo, 2/${completos.length}); a quantidade de contribuições não muda o perfil.` },
     { titulo: "Novo dizimista", texto: novo },
     { titulo: "Só ofertas", texto: `Pessoa que contribuiu ${entre}, mas nunca com dízimo; por isso não entra na conta de meses com dízimo.` },
-    { titulo: "Sem contribuições no período analisado", texto: `Pessoa da base analisada (${ROTULO_DA_BASE[base].toLowerCase()}, ativos) sem contribuições ${entre}. O complemento diz se também não há registro anterior ao período ou há quanto tempo foi a última contribuição (mais de 90 ou de 180 dias).` },
+    { titulo: `Sem ${oque} no período analisado`, texto: `Pessoa da base analisada (${ROTULO_DA_BASE[base].toLowerCase()}, ativos) sem ${oque} ${entre}${oque === "contribuições" ? "" : `. Pode ter contribuído de outra forma (as categorias escolhidas foram só estas)`}. O complemento diz se também não há registro anterior ao período ou há quanto tempo foi a última contribuição (mais de 90 ou de 180 dias).` },
   ];
 }
 
-function blocoComoInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada): string {
-  const itens = textosParaInterpretar(a, base);
+function blocoComoInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada, oque = "contribuições"): string {
+  const itens = textosParaInterpretar(a, base, oque);
   const linha = (i: { titulo: string; texto: string }) => `<p style="margin:0 0 7px;font-size:12px;line-height:1.5;color:${D.COR.texto}"><strong>${D.esc(i.titulo)}:</strong> ${D.esc(i.texto)}</p>`;
   return D.secao("Como interpretar este relatório", "Definições dos perfis usados nas listas com nomes, para o período analisado.") + D.cartao(null, itens.map(linha).join(""));
 }
@@ -204,6 +204,8 @@ export interface OpcoesDoEmailDeContribuicoes {
   igreja?: string | null;
   aviso?: string;
   /** os textos que quem envia editou antes de mandar (texto puro, escapado aqui): o assunto no lugar do padrão, uma abertura logo no começo e um encerramento no fim. Nunca números. */
+  /** as categorias escolhidas no pedido: a lista de quem "não contribuiu" diz o que falta (só dízimo? dízimo e oferta?) */
+  categorias?: TipoDeContribuicao[];
   assunto?: string;
   abertura?: string;
   encerramento?: string;
@@ -300,7 +302,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   if (tem("nao_contribuiram")) corpo += blocoNaoContribuiram(o.base ?? null);
   if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
   if (tem("criterios")) corpo += blocoCriterios();
-  if (comNomes) corpo += `<div id="lista-de-nomes"></div>` + blocoComoInterpretar(a, o.baseAnalisada ?? "membros_congregados");   // as definições vêm ANTES da primeira lista com nomes
+  if (comNomes) corpo += `<div id="lista-de-nomes"></div>` + blocoComoInterpretar(a, o.baseAnalisada ?? "membros_congregados", oQueFaltaAQuemNaoContribuiu(o.categorias));   // as definições vêm ANTES da primeira lista com nomes
   if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, quantidade de contribuições, meses com dízimo e perfil de contribuição. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.contribuiram);
   if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Pessoas da base analisada sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.semContribuicao);
   if (tem("cobertura") && a.arrecadado > 0) {

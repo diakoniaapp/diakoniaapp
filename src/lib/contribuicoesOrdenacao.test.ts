@@ -134,7 +134,7 @@ describe("validação e função", () => {
   });
   it("a função passa a ordenação às listas e ao e-mail e a registra (histórico e registro de acesso)", () => {
     const fn = readFileSync("supabase/functions/contribuicoes-enviar/index.ts", "utf8");
-    expect(fn).toContain("listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada, pedido.ordenacao)");
+    expect(fn).toContain("listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada, pedido.ordenacao, oQueFaltaAQuemNaoContribuiu(pedido.categorias))");
     expect(fn).toContain("ordenacao: pedido.ordenacao }, total: totalDeNomes(nominal)");
   });
   it("a chave do envio muda com a ordenação (outro critério = outro envio)", async () => {
