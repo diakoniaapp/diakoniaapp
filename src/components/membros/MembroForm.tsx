@@ -244,6 +244,8 @@ interface Props {
   onCreated?: (id: string, nomeCompleto: string) => void;
   /** Nome com que o formulário abre num cadastro NOVO (ignorado ao editar). Usado ao cadastrar, a partir do extrato bancário, quem contribuiu e ainda não está no cadastro. */
   nomeInicial?: string;
+  /** O telefone NÃO é obrigatório para visitante neste cadastro (decisão dela, 27/10/2026): quem contribuiu e aparece no extrato muitas vezes só tem o nome. Usado pelo cadastro aberto a partir de Doadores/extrato. */
+  telefoneOpcional?: boolean;
 }
 
 
@@ -279,7 +281,7 @@ async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────
-export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, onCreated, nomeInicial }: Props) {
+export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, onCreated, nomeInicial, telefoneOpcional }: Props) {
   const { hasRole } = useAuth();
   // FASE D: helper unificado — "editando" vs "criando".
   const isEditing = Boolean(membro);
@@ -630,7 +632,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
     }
 
     // Telefone obrigatorio para visitante
-    if (form.tipo_pessoa === "visitante" && !form.telefone_celular.trim()) {
+    if (!telefoneOpcional && form.tipo_pessoa === "visitante" && !form.telefone_celular.trim()) {
       return toast.error("Telefone é obrigatório para visitantes");
     }
 
@@ -2023,7 +2025,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                     // Contato, passo 2) — a checagem segue o campo, senão
                     // ninguém sairia do passo 1 sem um telefone que nem
                     // aparece mais nele.
-                    if (step === 2 && isVisitante && !form.telefone_celular.trim()) {
+                    if (step === 2 && isVisitante && !telefoneOpcional && !form.telefone_celular.trim()) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
@@ -2094,7 +2096,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       toast.error("Informe o nome completo");
                       return;
                     }
-                    if (!form.telefone_celular.trim()) {
+                    if (!telefoneOpcional && !form.telefone_celular.trim()) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }

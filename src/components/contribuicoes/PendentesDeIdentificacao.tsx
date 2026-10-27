@@ -317,7 +317,7 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
       {cadastro && podeCadastrar && (
         <Suspense fallback={null}>
           {/* o mesmo formulário de pessoa do resto do sistema, aberto como visitante e com o nome do extrato; ao salvar, a contribuição já é vinculada */}
-          <MembroForm open onOpenChange={v => { if (!v) setCadastro(null); }} membro={null} tipoInicial="visitante" nomeInicial={cadastro.nome} onSaved={() => undefined} onCreated={aoCadastrarPessoa} />
+          <MembroForm open onOpenChange={v => { if (!v) setCadastro(null); }} membro={null} tipoInicial="visitante" nomeInicial={cadastro.nome} telefoneOpcional onSaved={() => undefined} onCreated={aoCadastrarPessoa} />
         </Suspense>
       )}
     </div>

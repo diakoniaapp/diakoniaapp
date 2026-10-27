@@ -105,7 +105,7 @@ export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange, nomeD
     {cadastro && podeCadastrar && (
       <Suspense fallback={null}>
         {/* a pessoa que contribuiu e não está no cadastro (um visitante, por exemplo): cadastra e já fica como favorecida da linha */}
-        <MembroForm open onOpenChange={v => { if (!v) setCadastro(null); }} membro={null} tipoInicial="visitante" nomeInicial={cadastro.nome} onSaved={() => undefined}
+        <MembroForm open onOpenChange={v => { if (!v) setCadastro(null); }} membro={null} tipoInicial="visitante" nomeInicial={cadastro.nome} telefoneOpcional onSaved={() => undefined}
           onCreated={(id, nome) => onChange({ tipo: "pessoa", id, nome })} />
       </Suspense>
     )}

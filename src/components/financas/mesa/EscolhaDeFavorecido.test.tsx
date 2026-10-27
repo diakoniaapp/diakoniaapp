@@ -10,8 +10,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/hooks/useAuth", () => ({ useAuthOpcional: () => (auth.pode ? { podeEditarPessoas: true } : undefined) }));
 vi.mock("@/services/finService", () => ({ buscarPessoasParaLancamento: vi.fn(async () => []), listarFornecedores: vi.fn(async () => []) }));
 vi.mock("@/components/membros/MembroForm", () => ({
-  MembroForm: (p: { nomeInicial?: string; tipoInicial?: string; onCreated?: (id: string, nome: string) => void; onOpenChange: (v: boolean) => void }) => (
-    <div data-membro-form data-nome={p.nomeInicial ?? ""} data-tipo={p.tipoInicial ?? ""}>
+  MembroForm: (p: { nomeInicial?: string; tipoInicial?: string; telefoneOpcional?: boolean; onCreated?: (id: string, nome: string) => void; onOpenChange: (v: boolean) => void }) => (
+    <div data-membro-form data-nome={p.nomeInicial ?? ""} data-tipo={p.tipoInicial ?? ""} data-tel-opcional={String(!!p.telefoneOpcional)}>
       <button type="button" data-criar onClick={() => { p.onCreated?.("p-novo", "Maria Visitante"); p.onOpenChange(false); }}>criar</button>
     </div>
   ),
@@ -51,6 +51,7 @@ describe("EscolhaDeFavorecido — cadastrar pessoa", () => {
     const form = q("[data-membro-form]")!;
     expect(form.getAttribute("data-nome")).toBe("Maria Visitante");
     expect(form.getAttribute("data-tipo")).toBe("visitante");
+    expect(form.getAttribute("data-tel-opcional")).toBe("true");   // o telefone não é obrigatório aqui (decisão dela, 27/10/2026)
   });
   it("ao salvar, a pessoa nova vira o favorecido da linha", async () => {
     auth.pode = true;

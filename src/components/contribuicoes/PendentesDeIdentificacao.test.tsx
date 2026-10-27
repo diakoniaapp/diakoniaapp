@@ -17,8 +17,8 @@ vi.mock("@/services/contribuicoesService", () => ({ registrarAcessoNominal: regi
 vi.mock("@/hooks/useAuth", () => ({ useAuthOpcional: () => (auth.pode ? { podeEditarPessoas: true } : undefined) }));
 // o formulário de pessoa é grande e tem as suas provas: aqui só importa com que nome e tipo ele abre e o que acontece quando cria
 vi.mock("@/components/membros/MembroForm", () => ({
-  MembroForm: (p: { nomeInicial?: string; tipoInicial?: string; onCreated?: (id: string, nome: string) => void; onOpenChange: (v: boolean) => void }) => (
-    <div data-membro-form data-nome={p.nomeInicial ?? ""} data-tipo={p.tipoInicial ?? ""}>
+  MembroForm: (p: { nomeInicial?: string; tipoInicial?: string; telefoneOpcional?: boolean; onCreated?: (id: string, nome: string) => void; onOpenChange: (v: boolean) => void }) => (
+    <div data-membro-form data-nome={p.nomeInicial ?? ""} data-tipo={p.tipoInicial ?? ""} data-tel-opcional={String(!!p.telefoneOpcional)}>
       <button type="button" data-criar onClick={() => { p.onCreated?.("novo-id", "Pessoa Nova"); p.onOpenChange(false); }}>criar</button>
     </div>
   ),
@@ -109,6 +109,7 @@ describe("cadastrar pessoa a partir da fila (quem contribuiu e ainda não está 
     expect(form).not.toBeNull();
     expect(form.getAttribute("data-nome")).toBe("Sandra Maria Silva");
     expect(form.getAttribute("data-tipo")).toBe("visitante");
+    expect(form.getAttribute("data-tel-opcional")).toBe("true");   // o telefone não é obrigatório aqui (decisão dela, 27/10/2026)
   });
   it("ao salvar a pessoa, a contribuição é vinculada a ela na hora (e a pessoa entra nas sugestões)", async () => {
     auth.pode = true;
