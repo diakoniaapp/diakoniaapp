@@ -139,7 +139,7 @@ describe("a Edge Function usa os blocos sem expor a lista", () => {
     expect(fn).toContain("validarPedido(corpo, hoje");
     expect(fn).toContain('pedido.blocos.includes("saude_da_base")');
     expect(fn).toContain("resumirBase(semContribuicaoAnalisada)");
-    expect(fn).toMatch(/montarEmailDeContribuicoes\(analise, \{ igreja, aviso, blocos: pedido\.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido\.ordenacao, baseAnalisada: pedido\.base \}\)/);
+    expect(fn).toMatch(/montarEmailDeContribuicoes\(analise, \{ igreja, aviso, blocos: pedido\.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido\.ordenacao, baseAnalisada: pedido\.base, assunto: pedido\.textos\?\.assunto, abertura: pedido\.textos\?\.abertura, encerramento: pedido\.textos\?\.encerramento \}\)/);
     expect(fn).not.toMatch(/\.lista\b/);   // a lista nominal (propriedade `lista` da análise) nunca é lida pela função
   });
   it("registra no histórico quais blocos foram", () => {

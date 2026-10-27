@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base });
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base, assunto: pedido.textos?.assunto, abertura: pedido.textos?.abertura, encerramento: pedido.textos?.encerramento });
     const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, novosDizimistas: analise.novosDizimistas, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       const r = await supabase.from("comunicacao_envios").insert({
         tipo: "relatorio_contribuicoes", origem, solicitante: usuario.id, solicitante_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null,
         remetente: REMETENTE, reply_to: replyTo, assunto: origem === "teste" ? `[TESTE] ${email.assunto}` : email.assunto, destinatarios: destinos,
-        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido) }, resumo,
+        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido), texto_personalizado: Object.keys(pedido.textos ?? {}).length > 0 }, resumo,
         resultado: ok === destinos.length ? "enviado" : ok === 0 ? "falhou" : "parcial", resend_ids: ids,
       });
       return !r.error;

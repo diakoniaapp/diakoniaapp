@@ -203,6 +203,10 @@ function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[]
 export interface OpcoesDoEmailDeContribuicoes {
   igreja?: string | null;
   aviso?: string;
+  /** os textos que quem envia editou antes de mandar (texto puro, escapado aqui): o assunto no lugar do padrão, uma abertura logo no começo e um encerramento no fim. Nunca números. */
+  assunto?: string;
+  abertura?: string;
+  encerramento?: string;
   /** os blocos escolhidos; ausente = todos os AGREGADOS (nomes só entram se o bloco nominal for pedido) */
   blocos?: IdDoBloco[];
   /** o resumo da base (SÓ números), necessário ao bloco "Saúde da base contribuinte" */
@@ -242,13 +246,13 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   const escolhidos = new Set<IdDoBloco>(o.blocos ?? IDS_AGREGADOS);   // sem escolha explícita, só os agregados: nomes nunca entram por omissão
   const tem = (id: IdDoBloco) => escolhidos.has(id);
   const periodo = `${ddmmaaaa(a.periodo.ini)} a ${ddmmaaaa(a.periodo.fim)}`;
-  const assunto = `Relatório de contribuições — ${periodo}`;
+  const assunto = o.assunto?.trim() || `Relatório de contribuições — ${periodo}`;
   const resumo = resumoExecutivo(a);
   const preheader = a.arrecadado === 0 ? "Sem contribuições no período." : `${plural(a.dizimistas, "dizimista", "dizimistas")} · ${brl(a.arrecadado)} arrecadados`;
   const d = a.destaques;
 
   const comNomes = temBlocoNominal([...escolhidos]);
-  let corpo = D.saudacao("Relatório de contribuições") + (o.cabecalho ? cartaoDoCabecalho(o.cabecalho) : D.paragrafo(`Período analisado: ${periodo}.`));
+  let corpo = D.saudacao("Relatório de contribuições") + (o.abertura ? D.paragrafo(o.abertura) : "") + (o.cabecalho ? cartaoDoCabecalho(o.cabecalho) : D.paragrafo(`Período analisado: ${periodo}.`));
   if (comNomes) corpo += D.cartaoDeAlerta({ titulo: "Contém dados individuais", linhas: ["Este relatório traz nomes de pessoas e a data da última contribuição, sem valores. Não encaminhe nem imprima sem necessidade."], tom: "aviso" });
   if (tem("resumo")) corpo += D.paragrafo(resumo);
 
@@ -306,6 +310,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
       + "A análise usa apenas o período em que a identificação das contribuições por pessoa é confiável.",
     );
   }
+  if (o.encerramento) corpo += D.paragrafo(o.encerramento);
   corpo += D.blocoDeObservacao(comNomes
     ? "Este relatório traz nomes, mas nenhum valor individual. Cada visualização e cada envio ficam registrados no sistema."
     : "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema, para quem tem acesso autorizado, com registro de quem consulta.");
@@ -313,6 +318,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
   const linhas = ["Relatório de contribuições", ...(o.cabecalho ? o.cabecalho.map(c => `${c.rotulo}: ${c.valor}`) : [`Período analisado: ${periodo}`])];
+  if (o.abertura) linhas.push("", o.abertura);
   if (tem("resumo")) linhas.push("", resumo);
   if (a.arrecadado > 0) {
     if (tem("indicadores")) linhas.push("", `Dizimistas: ${n(a.dizimistas)}`, `Doadores: ${n(a.doadores)}`, `Arrecadado: ${brl(a.arrecadado)}`, `Média mensal: ${brl(a.mediaMensal)}`,
@@ -336,6 +342,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   if (tem("contribuintes_nominal")) linhas.push("", "Quem contribuiu (sem valores)", ...(o.nominal?.contribuiram ?? []).map(linhaNominal));
   if (tem("sem_contribuicao_nominal")) linhas.push("", "Quem não contribuiu", ...(o.nominal?.semContribuicao ?? []).map(linhaNominal));
   if (tem("cobertura") && a.arrecadado > 0) linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);
+  if (o.encerramento) linhas.push("", o.encerramento);
   linhas.push("", comNomes ? "Este relatório traz nomes, mas nenhum valor individual. Não encaminhe." : "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema.");
   return { assunto, preheader, html, texto: linhas.join("\n"), resumo };
 }

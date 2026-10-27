@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Eye, Loader2, Send, X } from "lucide-react";
 import { hojeLocal } from "@/lib/data";
@@ -17,7 +18,7 @@ import { emailDeRespostaValido } from "@/lib/comunicacao";
 import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, type OrdenacaoDasListas, blocosDoModelo, modeloDaSelecao, modeloPadrao, temBlocoNominal, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
 import {
   enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
-  type FiltrosDoRelatorio, type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
+  LIMITE_DO_ASSUNTO, LIMITE_DO_TEXTO, type FiltrosDoRelatorio, type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
 } from "@/services/comunicacaoService";
 
 export const MAXIMO_DE_DESTINATARIOS = 10;
@@ -45,6 +46,10 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const [base, setBase] = useState<BaseAnalisada>(FILTROS_PADRAO.base);
   const [categorias, setCategorias] = useState<TipoDeContribuicao[]>(FILTROS_PADRAO.categorias);
   const [ordenacao, setOrdenacao] = useState<OrdenacaoDasListas>(ORDENACAO_PADRAO);   // o padrão do modelo Pastor: quantidade de contribuições, maior para menor
+  // o texto que quem envia edita antes de mandar (assunto, abertura, encerramento): texto puro; números e listas vêm só do cálculo
+  const [assuntoEditado, setAssuntoEditado] = useState("");
+  const [abertura, setAbertura] = useState("");
+  const [encerramento, setEncerramento] = useState("");
   const [destinatarios, setDestinatarios] = useState<string[]>([]);
   const [campo, setCampo] = useState("");
   const [erroDoCampo, setErroDoCampo] = useState("");
@@ -57,14 +62,17 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
     const p = ajustarAoPiso(bruto.ini, bruto.fim > hoje ? hoje : bruto.fim);
     return { ini: p.ini, fim: p.fim, ajustado: p.ajustado, vazio: p.vazio || !/^\d{4}-\d{2}-\d{2}$/.test(p.ini) || !/^\d{4}-\d{2}-\d{2}$/.test(p.fim) };
   }, [preset, de, ate, hoje]);
-  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}|${base}|${[...categorias].sort().join("+")}|${ordenacao}`;   // período, blocos, base E contribuições: mudou qualquer um, a prévia perde a validade
+  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}|${base}|${[...categorias].sort().join("+")}|${ordenacao}|${assuntoEditado.trim()}|${abertura.trim()}|${encerramento.trim()}`;   // período, blocos, base, contribuições E texto editado: mudou qualquer um, a prévia perde a validade
   const modeloAtual = modeloDaSelecao(blocos);
   const comNomes = temBlocoNominal(blocos);
   const previaValida = previa?.chave === chave;
 
   /** os blocos na ordem canônica (a mesma que o servidor usa) */
   const ordenados = IDS_DOS_BLOCOS.filter(id => blocos.includes(id));
-  const filtros: FiltrosDoRelatorio = { base, categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id).filter(id => categorias.includes(id)), ordenacao };
+  const filtros: FiltrosDoRelatorio = { base, categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id).filter(id => categorias.includes(id)), ordenacao, textos: (assuntoEditado.trim() || abertura.trim() || encerramento.trim()) ? { assunto: assuntoEditado, abertura, encerramento } : undefined };
+  const assuntoPadrao = `Relatório de contribuições — ${dataBr(pedido.ini)} a ${dataBr(pedido.fim)}`;
+  const textoEditado = !!(assuntoEditado.trim() || abertura.trim() || encerramento.trim());
+  const limparTextos = () => { setAssuntoEditado(""); setAbertura(""); setEncerramento(""); };
   const alternarCategoria = (id: TipoDeContribuicao) => setCategorias(atual => (atual.includes(id) ? atual.filter(c => c !== id) : [...atual, id]));
   const semCategoria = categorias.length === 0;
   const alternar = (id: IdDoBloco) => setBlocos(atual => (atual.includes(id) ? atual.filter(b => b !== id) : [...atual, id]));
@@ -211,6 +219,26 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
               <p className="text-xs text-muted-foreground" data-aviso="so-agregado">Valor individual, média individual, telefone e e-mail nunca vão por e-mail. Os blocos sem ⚠ levam só números.</p>
             </div>
 
+            <div className="space-y-2 rounded-md border p-3" data-secao="texto-do-email">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Texto do e-mail <span className="text-muted-foreground font-normal">— opcional: edite antes de enviar</span></Label>
+                {textoEditado && <button type="button" className="text-xs underline underline-offset-2 text-muted-foreground" data-acao="limpar-texto" onClick={limparTextos}>Voltar ao texto padrão</button>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground" htmlFor="texto-assunto">Assunto</Label>
+                <Input id="texto-assunto" value={assuntoEditado} onChange={e => setAssuntoEditado(e.target.value)} maxLength={LIMITE_DO_ASSUNTO} placeholder={assuntoPadrao} className="h-9 text-base md:text-sm" data-campo="assunto" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground" htmlFor="texto-abertura">Mensagem de abertura <span className="font-normal">(aparece no começo, antes dos números)</span></Label>
+                <Textarea id="texto-abertura" value={abertura} onChange={e => setAbertura(e.target.value)} maxLength={LIMITE_DO_TEXTO} rows={3} placeholder="Ex.: Pastor, segue o relatório do trimestre. Os destaques estão no resumo." className="text-base md:text-sm" data-campo="abertura" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground" htmlFor="texto-encerramento">Mensagem de encerramento <span className="font-normal">(aparece no fim, antes do aviso de confidencialidade)</span></Label>
+                <Textarea id="texto-encerramento" value={encerramento} onChange={e => setEncerramento(e.target.value)} maxLength={LIMITE_DO_TEXTO} rows={3} placeholder="Ex.: Fico à disposição para conversar sobre os números." className="text-base md:text-sm" data-campo="encerramento" />
+              </div>
+              <p className="text-xs text-muted-foreground" data-aviso="texto-nao-edita-numeros">Os números, os gráficos e as listas vêm sempre do sistema e não podem ser editados aqui: para mudar o que aparece, use os blocos acima. A prévia mostra o texto como vai sair.</p>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs" htmlFor="destinatario-novo">Destinatários</Label>
               <div className="flex flex-wrap gap-1.5" data-destinatarios>
@@ -259,7 +287,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
               {previa && previaValida && previa.dados.nomes && previa.dados.nomes.contribuiram + previa.dados.nomes.semContribuicao === 0 && <p className="text-xs text-warning-text" data-aviso="sem-nomes">Nenhum nome neste recorte: confira a base, as contribuições e o período.</p>}
               {previa && previaValida && previa.dados.listasCortadas && <p className="text-xs text-warning-text" data-aviso="listas-cortadas">As listas com nomes foram encurtadas (só as primeiras, as de mais contribuições) para o e-mail caber no Gmail, que corta mensagens longas. A lista completa fica no sistema e no Excel.</p>}
               {previa && previaValida && (previa.dados.tamanhoDoHtml ?? 0) > 100000 && <p className="text-xs text-warning-text" data-aviso="email-grande">Este e-mail tem {Math.round((previa.dados.tamanhoDoHtml ?? 0) / 1000)} mil caracteres e o Gmail corta acima de ~102 mil: tire blocos ou reduza o período para a lista aparecer inteira.</p>}
-              {previa && !previaValida && <p className="text-xs text-warning-text">O período, a base, as contribuições ou os blocos mudaram depois desta prévia: visualize de novo.</p>}
+              {previa && !previaValida && <p className="text-xs text-warning-text">O período, a base, as contribuições, os blocos ou o texto mudaram depois desta prévia: visualize de novo.</p>}
             </div>
           </div>
 

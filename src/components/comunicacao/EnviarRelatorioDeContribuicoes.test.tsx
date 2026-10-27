@@ -184,6 +184,69 @@ describe("o que mostrar: modelos e blocos", () => {
   });
 });
 
+describe("editar o texto do e-mail antes de enviar (assunto, abertura, encerramento)", () => {
+  const escrever = async (sel: string, valor: string) => {
+    const campo = q(sel) as HTMLInputElement | HTMLTextAreaElement;
+    const proto = campo instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    await act(async () => { Object.getOwnPropertyDescriptor(proto, "value")!.set!.call(campo, valor); campo.dispatchEvent(new Event("input", { bubbles: true })); });
+  };
+  it("a seção 'Texto do e-mail' tem assunto, mensagem de abertura e de encerramento, e diz que os números não se editam", async () => {
+    await abrirGaveta(servico());
+    const t = q('[data-secao="texto-do-email"]')!.textContent!;
+    for (const x of ["Texto do e-mail", "Assunto", "Mensagem de abertura", "Mensagem de encerramento", "não podem ser editados"]) expect(t).toContain(x);
+    expect((q('[data-campo="assunto"]') as HTMLInputElement).placeholder).toMatch(/^Relatório de contribuições — \d{2}\/\d{2}\/\d{4} a \d{2}\/\d{2}\/\d{4}$/);   // o padrão aparece como sugestão
+    expect(q('[data-acao="limpar-texto"]')).toBeNull();   // sem texto editado, nada a limpar
+  });
+  it("o texto editado vai no pedido da prévia, do teste e do envio", async () => {
+    const s = servico();
+    await abrirGaveta(s);
+    await escrever('[data-campo="assunto"]', "Contribuições do 3º trimestre");
+    await escrever('[data-campo="abertura"]', "Pastor, segue o relatório.");
+    await escrever('[data-campo="encerramento"]', "Abraço, Telma");
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(s.previa.mock.calls[0][2].textos).toEqual({ assunto: "Contribuições do 3º trimestre", abertura: "Pastor, segue o relatório.", encerramento: "Abraço, Telma" });
+    await clicar(q('[data-acao="teste"]'));
+    expect(s.teste.mock.calls[0][2].textos).toMatchObject({ abertura: "Pastor, segue o relatório." });
+  });
+  it("e no envio (depois da confirmação)", async () => {
+    const s = servico();
+    await abrirGaveta(s);
+    await escrever('[data-campo="assunto"]', "Contribuições do 3º trimestre");
+    await escrever('[data-campo="encerramento"]', "Abraço, Telma");
+    await digitar("pastor@igreja.org");
+    await clicar(q('[data-acao="visualizar"]'));
+    await clicar(q('[data-acao="enviar"]'));
+    await clicar([...q('[data-confirmacao="envio"]')!.querySelectorAll("button")].find(b => b.textContent === "Enviar"));
+    expect(s.enviar.mock.calls[0][2].textos).toMatchObject({ assunto: "Contribuições do 3º trimestre", encerramento: "Abraço, Telma" });
+  });
+  it("mudar o texto depois da prévia tira a validade dela: é preciso visualizar de novo para enviar", async () => {
+    await abrirGaveta(servico());
+    await digitar("pastor@igreja.org");
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q("[data-previa]")!.getAttribute("data-previa")).toBe("valida");
+    expect((q('[data-acao="enviar"]') as HTMLButtonElement).disabled).toBe(false);
+    await escrever('[data-campo="abertura"]', "Nova frase");
+    expect(q("[data-previa]")!.getAttribute("data-previa")).toBe("antiga");
+    expect((q('[data-acao="enviar"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(document.body.textContent).toContain("o texto mudaram depois desta prévia");
+  });
+  it("'Voltar ao texto padrão' limpa os três campos", async () => {
+    await abrirGaveta(servico());
+    await escrever('[data-campo="abertura"]', "Oi");
+    await escrever('[data-campo="assunto"]', "Meu assunto");
+    await clicar(q('[data-acao="limpar-texto"]'));
+    expect((q('[data-campo="abertura"]') as HTMLTextAreaElement).value).toBe("");
+    expect((q('[data-campo="assunto"]') as HTMLInputElement).value).toBe("");
+    expect(q('[data-acao="limpar-texto"]')).toBeNull();
+  });
+  it("os campos têm limite de tamanho (o mesmo da função)", async () => {
+    await abrirGaveta(servico());
+    expect((q('[data-campo="assunto"]') as HTMLInputElement).maxLength).toBe(150);
+    expect((q('[data-campo="abertura"]') as HTMLTextAreaElement).maxLength).toBe(2000);
+    expect((q('[data-campo="encerramento"]') as HTMLTextAreaElement).maxLength).toBe(2000);
+  });
+});
+
 describe("Exibir nomes: a lista aparece na prévia", () => {
   const PREVIA_COM_NOMES = { ...PREVIA, nomes: { contribuiram: 135, semContribuicao: 133 }, tamanhoDoHtml: 72000 };
   it("é um interruptor claro, desligado por padrão, com a descrição da lista: # posição, nome, quantidade e perfil, do maior para o menor, sem valores", async () => {

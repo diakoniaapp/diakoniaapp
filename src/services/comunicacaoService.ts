@@ -16,10 +16,14 @@ export interface PreviaDoRelatorio {
 export interface ResultadoDoEnvio { enviados: number; falharam: number; historicoGravado: boolean; motivo?: "enviado_ha_pouco" }
 
 /** Os filtros globais do relatório: a base analisada e as contribuições consideradas. */
-export interface FiltrosDoRelatorio { base: string; categorias: string[]; ordenacao: string }
+/** Os textos editáveis do e-mail (decisão dela, 27/10/2026): assunto, abertura e encerramento. Texto puro; nunca números. */
+export interface TextosDoEmail { assunto?: string; abertura?: string; encerramento?: string }
+export const LIMITE_DO_ASSUNTO = 150;
+export const LIMITE_DO_TEXTO = 2000;
+export interface FiltrosDoRelatorio { base: string; categorias: string[]; ordenacao: string; textos?: TextosDoEmail }
 
 async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios?: string[]) {
-  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, base: filtros.base, categorias: filtros.categorias, ordenacao: filtros.ordenacao, ...(destinatarios ? { destinatarios } : {}) } });
+  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, base: filtros.base, categorias: filtros.categorias, ordenacao: filtros.ordenacao, ...(filtros.textos?.assunto?.trim() ? { assunto: filtros.textos.assunto } : {}), ...(filtros.textos?.abertura?.trim() ? { abertura: filtros.textos.abertura } : {}), ...(filtros.textos?.encerramento?.trim() ? { encerramento: filtros.textos.encerramento } : {}), ...(destinatarios ? { destinatarios } : {}) } });
   if (error) {
     let msg = error.message;
     try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }

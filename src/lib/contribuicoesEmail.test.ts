@@ -88,7 +88,7 @@ describe("validarPedido — a função não confia no que vem da chamada", () =>
   const hoje = "2026-10-27";
   const ok = (corpo: Parameters<typeof validarPedido>[0], exige = false) => validarPedido(corpo, hoje, exige);
   it("período válido passa; fim no futuro vira hoje; início antes do piso é ajustado", () => {
-    expect(ok({ periodo: { ini: "2026-03-01", fim: "2026-12-31" } })).toEqual({ ok: true, pedido: { periodo: { ini: "2026-03-01", fim: "2026-10-27", ajustado: false }, destinatarios: [], blocos: blocosDoModelo("pastor"), base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"], ordenacao: "quantidade" } });
+    expect(ok({ periodo: { ini: "2026-03-01", fim: "2026-12-31" } })).toEqual({ ok: true, pedido: { periodo: { ini: "2026-03-01", fim: "2026-10-27", ajustado: false }, destinatarios: [], blocos: blocosDoModelo("pastor"), base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"], ordenacao: "quantidade", textos: {} } });
     const r = ok({ periodo: { ini: "2025-06-01", fim: "2026-03-31" } });
     expect(r.ok && r.pedido.periodo).toEqual({ ini: "2026-01-01", fim: "2026-03-31", ajustado: true });
   });

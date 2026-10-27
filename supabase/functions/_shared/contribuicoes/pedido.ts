@@ -13,11 +13,30 @@ const dataReal = (s: unknown): string | null => {
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : s;
 };
 
-export interface PedidoValidado { periodo: { ini: string; fim: string; ajustado: boolean }; destinatarios: string[]; blocos: IdDoBloco[]; base: BaseAnalisada; categorias: TipoDeContribuicao[]; ordenacao: OrdenacaoDasListas }
+/**
+ * Os TEXTOS que quem envia pode editar antes de mandar (decisão dela, 27/10/2026): o assunto, uma mensagem de abertura e uma de encerramento. São texto puro (a função os escapa); os NÚMEROS e as listas
+ * continuam saindo só do cálculo do banco: não existe como editar um número no e-mail.
+ */
+export interface TextosDoEmail { assunto?: string; abertura?: string; encerramento?: string }
+export const LIMITE_DO_ASSUNTO = 150;
+export const LIMITE_DO_TEXTO = 2000;
+const CONTROLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+function limparTexto(v: unknown, max: number, umaLinha: boolean, rotulo: string): { ok: boolean; valor?: string; erro?: string } {
+  if (v === undefined || v === null) return { ok: true };
+  if (typeof v !== "string") return { ok: false, erro: `${rotulo} não é um texto válido.` };
+  let t = v.replace(/\r\n?/g, "\n").replace(CONTROLE, "");
+  t = umaLinha ? t.replace(/\s+/g, " ").trim() : t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (t.length === 0) return { ok: true };
+  if (t.length > max) return { ok: false, erro: `${rotulo} passa de ${max} caracteres.` };
+  return { ok: true, valor: t };
+}
+const hashCurto = (s: string) => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.codePointAt(0)!) | 0; return (h >>> 0).toString(36); };
+
+export interface PedidoValidado { periodo: { ini: string; fim: string; ajustado: boolean }; destinatarios: string[]; blocos: IdDoBloco[]; base: BaseAnalisada; categorias: TipoDeContribuicao[]; ordenacao: OrdenacaoDasListas; textos?: TextosDoEmail }
 export type ResultadoDoPedido = { ok: true; pedido: PedidoValidado } | { ok: false; erro: string };
 
 /** Só as datas e a lista de destinatários; quem chama decide se a ação exige destinatário. */
-export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown; ordenacao?: unknown }, hoje: string, exigeDestinatario: boolean): ResultadoDoPedido {
+export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown; ordenacao?: unknown; assunto?: unknown; abertura?: unknown; encerramento?: unknown }, hoje: string, exigeDestinatario: boolean): ResultadoDoPedido {
   const ini = dataReal(corpo.periodo?.ini), fimPedido = dataReal(corpo.periodo?.fim);
   if (!ini || !fimPedido) return { ok: false, erro: "Informe o período com datas válidas (AAAA-MM-DD)." };
   const fim = fimPedido > hoje ? hoje : fimPedido;   // não há contribuição no futuro
@@ -41,6 +60,13 @@ export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown 
     if (categorias.length === 0) return { ok: false, erro: "Escolha ao menos uma categoria de contribuição." };
   }
 
+  const textos: TextosDoEmail = {};
+  for (const [campo, max, umaLinha, rotulo] of [["assunto", LIMITE_DO_ASSUNTO, true, "O assunto"], ["abertura", LIMITE_DO_TEXTO, false, "A mensagem de abertura"], ["encerramento", LIMITE_DO_TEXTO, false, "A mensagem de encerramento"]] as const) {
+    const r = limparTexto((corpo as Record<string, unknown>)[campo], max, umaLinha, rotulo);
+    if (!r.ok) return { ok: false, erro: r.erro! };
+    if (r.valor) textos[campo] = r.valor;
+  }
+
   const brutos = Array.isArray(corpo.destinatarios) ? corpo.destinatarios : [];
   const destinatarios: string[] = [];
   for (const x of brutos) {
@@ -50,8 +76,8 @@ export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown 
   }
   if (destinatarios.length > MAXIMO_DE_DESTINATARIOS) return { ok: false, erro: `No máximo ${MAXIMO_DE_DESTINATARIOS} destinatários por envio.` };
   if (exigeDestinatario && destinatarios.length === 0) return { ok: false, erro: "Informe ao menos um destinatário." };
-  return { ok: true, pedido: { periodo: { ini: p.ini, fim: p.fim, ajustado: p.ajustado }, destinatarios, blocos: b.blocos!, base: base as BaseAnalisada, categorias, ordenacao: o.ordenacao! } };
+  return { ok: true, pedido: { periodo: { ini: p.ini, fim: p.fim, ajustado: p.ajustado }, destinatarios, blocos: b.blocos!, base: base as BaseAnalisada, categorias, ordenacao: o.ordenacao!, textos } };
 }
 
 /** A chave que identifica "o mesmo envio" (período + destinatários), para recusar o clique duplo. */
-export const chaveDoEnvio = (p: PedidoValidado) => `${p.periodo.ini}|${p.periodo.fim}|${[...p.destinatarios].sort().join(",")}|${p.blocos.join("+")}|${p.base}|${p.categorias.join("+")}|${p.ordenacao}`;
+export const chaveDoEnvio = (p: PedidoValidado) => `${p.periodo.ini}|${p.periodo.fim}|${[...p.destinatarios].sort().join(",")}|${p.blocos.join("+")}|${p.base}|${p.categorias.join("+")}|${p.ordenacao}${Object.keys(p.textos ?? {}).length > 0 ? `|t${hashCurto(JSON.stringify(p.textos))}` : ""}`;
