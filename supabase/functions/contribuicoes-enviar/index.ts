@@ -26,7 +26,8 @@ import { chaveDoEnvio, validarPedido } from "../_shared/contribuicoes/pedido.ts"
 import { aplicarNotaDeResposta, aplicarNotaDeRespostaNoTexto } from "../_shared/email/desenho.ts";
 import { lerNomeDaIgreja } from "../_shared/email/identidade.ts";
 import { REMETENTE_RELATORIOS, comReplyTo, lerEnderecoDeResposta } from "../_shared/email/remetente.ts";
-import { hojeEmBrasilia } from "../_shared/saldos/extratoDasContas.ts";
+import { ehContaDeBanco, hojeEmBrasilia, lerExtratoDasContas } from "../_shared/saldos/extratoDasContas.ts";
+import { calcularConfiabilidade, type DecisaoDeTriagem } from "../_shared/contribuicoes/confiabilidade.ts";
 
 const REMETENTE = REMETENTE_RELATORIOS;   // relatórios sob demanda saem de `relatorios@`; a resposta vai para o Reply-To da Identidade da Igreja
 const MINUTOS_ANTI_DUPLICIDADE = 10;
@@ -46,7 +47,8 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown; ordenacao?: unknown };
-  if (corpo.acao !== "previa" && corpo.acao !== "teste" && corpo.acao !== "enviar") return resposta({ erro: "Ação desconhecida." }, 400);
+  // "confiabilidade": só o quadro (percentual identificado, pendências, impacto, data dos dados), SEM nomes e sem registro de acesso — a tela o pede antes de gerar a lista com nomes
+  if (corpo.acao !== "previa" && corpo.acao !== "teste" && corpo.acao !== "enviar" && corpo.acao !== "confiabilidade") return resposta({ erro: "Ação desconhecida." }, 400);
 
   // quem chama: sessão válida E papel de admin ou diakonia
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -71,11 +73,21 @@ Deno.serve(async (req) => {
     const { data: nomeDoUsuario } = await supabase.rpc("fin_nome_do_usuario", { p_id: usuario.id });   // para o histórico e o registro de acessos
     const comNomes = temBlocoNominal(pedido.blocos);
     const acaoDoRegistro = corpo.acao === "previa" ? "previa_relatorio" : corpo.acao === "teste" ? "teste_relatorio" : "enviar_relatorio";
+    // a confiabilidade da lista de "sem contribuição": o que está pendente de identificação, e até quando vão os dados
+    const decisoes = new Map<string, DecisaoDeTriagem>();
+    try {
+      const t = await supabase.from("fin_contribuicao_triagem_atual").select("lancamento_id, decisao");
+      if (!t.error) for (const x of (t.data ?? []) as { lancamento_id: string; decisao: DecisaoDeTriagem }[]) decisoes.set(x.lancamento_id, x.decisao);
+    } catch { /* sem a view da triagem (migration pendente): nenhuma decisão, tudo sem pessoa conta como pendente */ }
+    const extratos = await lerExtratoDasContas(supabase);
+    const ultimoExtrato = extratos.filter(ehContaDeBanco).map(c => c.ultimo_movimento).filter((d): d is string => !!d).sort().pop() ?? null;
     // a lista de pessoas existe só aqui dentro; o e-mail recebe os resumos (números) e, se pedido, as linhas nominais SEM valor
     let nominal: ListasNominais | null = null;
     let semContribuicaoAnalisada: ReturnType<typeof analisarSemContribuicao> | null = null;
     // a base de "sem contribuição" é sempre calculada: o cabeçalho diz quantas pessoas foram consideradas e quantas contribuíram
     semContribuicaoAnalisada = analisarSemContribuicao(linhas, pessoasDaBase, pedido.periodo, { considerar: "qualquer", incluirMenores: false, vinculos: VINCULOS_DA_BASE[pedido.base] });
+    const confiabilidade = calcularConfiabilidade(todasAsLinhas, pedido.periodo, { categorias: pedido.categorias, tamanhoDaLista: semContribuicaoAnalisada.naoContribuiram, decisoes, ultimoExtrato });
+    if (corpo.acao === "confiabilidade") return resposta({ ok: true, confiabilidade });
     if (comNomes && semContribuicaoAnalisada) {
       const nomes = await lerNomesDePessoas(supabase, resumirPessoas(linhas, pedido.periodo).map(r => r.pessoaId));
       nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada, pedido.ordenacao, oQueFaltaAQuemNaoContribuiu(pedido.categorias));
@@ -101,13 +113,13 @@ Deno.serve(async (req) => {
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base, categorias: pedido.categorias, assunto: pedido.textos?.assunto, abertura: pedido.textos?.abertura, encerramento: pedido.textos?.encerramento });
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base, categorias: pedido.categorias, confiabilidade, assunto: pedido.textos?.assunto, abertura: pedido.textos?.abertura, encerramento: pedido.textos?.encerramento });
     const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, novosDizimistas: analise.novosDizimistas, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
     const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao };
 
-    if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, tamanhoDoHtml: email.html.length, listasCortadas: !!email.listasCortadas, nomes: nominal ? { contribuiram: nominal.contribuiram.length, semContribuicao: nominal.semContribuicao.length } : null, ...informacoes });
+    if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, tamanhoDoHtml: email.html.length, listasCortadas: !!email.listasCortadas, confiabilidade, nomes: nominal ? { contribuiram: nominal.contribuiram.length, semContribuicao: nominal.semContribuicao.length } : null, ...informacoes });
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) return resposta({ erro: "RESEND_API_KEY não configurada — ver Project Settings → Edge Functions → Secrets" }, 500);
@@ -117,7 +129,7 @@ Deno.serve(async (req) => {
       const r = await supabase.from("comunicacao_envios").insert({
         tipo: "relatorio_contribuicoes", origem, solicitante: usuario.id, solicitante_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null,
         remetente: REMETENTE, reply_to: replyTo, assunto: origem === "teste" ? `[TESTE] ${email.assunto}` : email.assunto, destinatarios: destinos,
-        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido), texto_personalizado: Object.keys(pedido.textos ?? {}).length > 0 }, resumo,
+        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido), texto_personalizado: Object.keys(pedido.textos ?? {}).length > 0, confiabilidade: { nivel: confiabilidade.nivel, pctIdentificado: confiabilidade.pctIdentificado, pendentes: confiabilidade.pendentes.quantidade } }, resumo,
         resultado: ok === destinos.length ? "enviado" : ok === 0 ? "falhou" : "parcial", resend_ids: ids,
       });
       return !r.error;

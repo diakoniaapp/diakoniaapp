@@ -12,9 +12,9 @@ export async function lerContribuicoesDoPiso(cliente: { from: (tabela: string) =
   for (const c of (cats.data ?? []) as { id: string; nome: string }[]) if (tipoDaContribuicao(c.nome) !== null) nomePorId.set(c.id, c.nome);
   if (nomePorId.size === 0) return [];
 
-  const brutas: { pessoa_id: string | null; data: string; valor: number; categoria_id: string }[] = [];
+  const brutas: { id: string; pessoa_id: string | null; data: string; valor: number; categoria_id: string }[] = [];
   for (let p = 0; ; p++) {
-    const r = await cliente.from("fin_lancamentos").select("pessoa_id, data, valor, categoria_id")
+    const r = await cliente.from("fin_lancamentos").select("id, pessoa_id, data, valor, categoria_id")
       .eq("tipo", "entrada").in("status", ["realizado", "conciliado"])
       .in("categoria_id", [...nomePorId.keys()]).gte("data", PISO_DE_IDENTIFICACAO).lte("data", fim)
       .order("data", { ascending: true }).order("id", { ascending: true }).range(p * PAGINA, p * PAGINA + PAGINA - 1);
@@ -22,7 +22,7 @@ export async function lerContribuicoesDoPiso(cliente: { from: (tabela: string) =
     brutas.push(...(r.data ?? []));
     if (!r.data || r.data.length < PAGINA) break;
   }
-  return brutas.map(l => ({ pessoa_id: l.pessoa_id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null }));
+  return brutas.map(l => ({ id: l.id, pessoa_id: l.pessoa_id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null }));
 }
 
 /**

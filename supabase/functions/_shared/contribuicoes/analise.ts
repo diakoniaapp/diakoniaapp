@@ -20,7 +20,7 @@ export const DIAS_NO_MES_MEDIO = 30.4375;
 export type TipoDeContribuicao = "dizimo" | "oferta" | "missoes";
 
 /** Uma entrada do caixa, no mínimo necessário. `categoria` é o NOME da categoria (ou nulo para transferência/sem categoria). */
-export interface LinhaDeContribuicao { pessoa_id: string | null; data: string; valor: number; categoria: string | null }
+export interface LinhaDeContribuicao { pessoa_id: string | null; data: string; valor: number; categoria: string | null; /** o lançamento: só serve para casar com a classificação de "anônima/ignorada" (confiabilidade) */ id?: string }
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
@@ -469,7 +469,9 @@ export const FILTROS_PADRAO: FiltrosDeAnalise = { base: "membros_congregados", c
  */
 export function oQueFaltaAQuemNaoContribuiu(cats: TipoDeContribuicao[] | undefined): string {
   if (!cats || cats.length === 0 || cats.length >= CATEGORIAS_DE_CONTRIBUICAO.length) return "contribuições";
-  return rotuloDasCategorias(cats).toLowerCase();
+  // "Sem dízimo registrado no período analisado" (a expressão que ela pediu no lugar de "não dizimistas")
+  if (cats.length === 1) return cats[0] === "dizimo" ? "dízimo registrado" : cats[0] === "oferta" ? "oferta registrada" : "oferta para missões registrada";
+  return `${rotuloDasCategorias(cats).toLowerCase()} registrados`;
 }
 
 /** O texto das categorias escolhidas: "Dízimos, Ofertas e Ofertas para Missões". */
