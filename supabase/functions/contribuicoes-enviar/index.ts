@@ -82,12 +82,12 @@ Deno.serve(async (req) => {
       if (reg.error) return resposta({ erro: "O registro de acessos não está disponível (migration 20261027200000 pendente): o relatório com nomes não foi gerado. Tire os blocos com nomes para enviar só os números." }, 503);
     }
     // a saúde da base usa a lista de pessoas SÓ para contar: o módulo do e-mail recebe o resumo (números), nunca a lista
-    const base: ResumoDaBase | null = pedido.blocos.includes("saude_da_base") && semContribuicaoAnalisada ? resumirBase(semContribuicaoAnalisada) : null;
+    const resumoDaBase: ResumoDaBase | null = pedido.blocos.includes("saude_da_base") && semContribuicaoAnalisada ? resumirBase(semContribuicaoAnalisada) : null;
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const base = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base, nominal });
-    const email = { ...base, html: aplicarNotaDeResposta(base.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(base.texto, replyTo) };
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal });
+    const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
     const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos };
