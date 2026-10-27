@@ -47,7 +47,8 @@ describe("o texto é gerado conforme o período", () => {
     expect(texto("2026-07-01", "2026-09-30")["Só ofertas"]).toContain("nunca com dízimo");
   });
   it("Novo dizimista: com histórico, explica a regra; começando no piso, diz que ninguém é novo (não há histórico)", () => {
-    expect(texto("2026-07-01", "2026-09-30")["Novo dizimista"]).toContain("sem nenhuma contribuição identificada antes de 01/07/2026");
+    expect(texto("2026-07-01", "2026-09-30")["Novo dizimista"]).toContain("sem nenhum dízimo identificado antes de 01/07/2026");
+    expect(texto("2026-07-01", "2026-09-30")["Novo dizimista"]).toContain("Pode já ter dado ofertas ou missões antes");
     const noPiso = texto("2026-01-01", "2026-06-30")["Novo dizimista"];
     expect(noPiso).toContain("o período começa em 01/01/2026");
     expect(noPiso).toContain("ninguém é classificado como novo dizimista");

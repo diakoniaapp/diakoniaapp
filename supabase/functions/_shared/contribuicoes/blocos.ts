@@ -8,7 +8,7 @@ export const BLOCOS_DE_CONTRIBUICOES = [
   { id: "resumo", titulo: "Resumo em texto", grupo: "Indicadores", descricao: "O parágrafo que abre o relatório" },
   { id: "indicadores", titulo: "Indicadores principais", grupo: "Indicadores", descricao: "Dizimistas, doadores, arrecadado, médias, recorrência, novos, frequência" },
   { id: "categorias", titulo: "Arrecadação por categoria", grupo: "Indicadores", descricao: "Dízimos, ofertas e missões" },
-  { id: "saude_da_base", titulo: "Saúde da base contribuinte", grupo: "Pastoral", descricao: "Membros ativos, contribuíram, sem contribuição registrada, adesão, novos e recorrentes" },
+  { id: "saude_da_base", titulo: "Saúde da base contribuinte", grupo: "Pastoral", descricao: "Saúde da contribuição (dízimo, oferta ou missões) e saúde do dízimo, cada uma com a quebra por vínculo (membros, congregados, visitantes); novos contribuintes, novos dizimistas e recorrentes" },
   { id: "nao_contribuiram", titulo: "Não contribuíram no período", grupo: "Pastoral", descricao: "Sem contribuição no período e sem registro anterior, contribuíram antes e não agora, e há quanto tempo (30/60/90/180 dias)" },
   { id: "tendencias", titulo: "Tendências", grupo: "Gráficos", descricao: "Comparação com o período anterior ou direção da série" },
   { id: "curva_adesao", titulo: "Curva de adesão", grupo: "Gráficos", descricao: "Pessoas diferentes que contribuíram em cada semana" },

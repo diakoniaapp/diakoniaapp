@@ -27,7 +27,7 @@ export interface ListasNominais { contribuiram: LinhaNominal[]; semContribuicao:
  */
 function perfilDeQuemContribuiu(r: ResumoDePessoa): string {
   if (r.recorrente === true) return "Recorrente";
-  if (r.nova === true) return "Novo dizimista";
+  if (r.novaDizimista === true) return "Novo dizimista";   // o primeiro DÍZIMO caiu no período (quem só deu oferta, mesmo sendo novo, é "Só ofertas")
   if (!r.dizimista) return "Só ofertas";
   return r.mesesCompletos > 0 ? "Parcial" : "Contribuiu no período";
 }

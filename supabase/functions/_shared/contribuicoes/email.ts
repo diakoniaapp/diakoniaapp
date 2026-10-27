@@ -5,7 +5,7 @@
 // números (`AnaliseDoPeriodo` e `ResumoDaBase`): não há como um nome entrar no e-mail. Os gráficos são barras em tabela
 // HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
-import { PISO_DE_IDENTIFICACAO, ROTULO_DA_BASE, mesesCompletos, type AnaliseDoPeriodo, type BaseAnalisada, type ResumoDaBase, type TendenciaDoPeriodo } from "./analise.ts";
+import { PISO_DE_IDENTIFICACAO, ROTULO_DA_BASE, mesesCompletos, type AnaliseDoPeriodo, type BaseAnalisada, type ResumoDaBase, type SaudeDeUmTipo, type TendenciaDoPeriodo, type VinculoDaBase } from "./analise.ts";
 import { IDS_AGREGADOS, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, temBlocoNominal, type IdDoBloco, type OrdenacaoDasListas } from "./blocos.ts";
 import type { LinhaNominal, ListasNominais } from "./nominal.ts";
 
@@ -30,7 +30,7 @@ export function resumoExecutivo(a: AnaliseDoPeriodo): string {
     `A média mensal foi de ${brl(a.mediaMensal)}.`,
   ];
   if (a.recorrentes) partes.push(`${n(a.recorrentes.pct ?? 0, 0)}% dos dizimistas (${n(a.recorrentes.pessoas)}) deram dízimo em todos os ${n(a.recorrentes.meses)} meses completos do período.`);
-  if (a.novos !== null) partes.push(a.novos === 0 ? "Ninguém contribuiu pela primeira vez no período." : `${plural(a.novos, "pessoa contribuiu", "pessoas contribuíram")} pela primeira vez no período.`);
+  if (a.novos !== null) partes.push(a.novos === 0 ? "Ninguém contribuiu pela primeira vez no período." : `${plural(a.novos, "pessoa contribuiu", "pessoas contribuíram")} pela primeira vez no período${a.novosDizimistas ? `, e ${plural(a.novosDizimistas, "começou a dizimar", "começaram a dizimar")}` : ""}.`);
   const d = a.destaques.maiorAdesao;
   if (d) partes.push(`A semana de maior adesão foi a de ${ddmm(d.inicio)}, com ${plural(d.contribuintes, "pessoa", "pessoas")}.`);
   return partes.join(" ");
@@ -63,18 +63,40 @@ function colunasDeAdesao(semanas: AnaliseDoPeriodo["semanas"]): string {
     + `<td align="right" style="padding-top:4px;font-size:11px;color:${D.COR.suave}">semana de ${ddmm(semanas[semanas.length - 1].inicio)}</td></tr></table>`;
 }
 
-/** O bloco "Saúde da base contribuinte": adesão da base, novos, recorrentes e quem não contribuiu — só QUANTIDADES, nunca nomes. */
-function blocoSaudeDaBase(a: AnaliseDoPeriodo, b: ResumoDaBase | null): string {
-  let h = D.secao("Saúde da base contribuinte", "Membros e congregados ativos; menores de 18 anos ficam fora.");
+/** "Membros: 114 de 252 (45,2%)" — uma linha por vínculo que faz parte da base escolhida. */
+const ROTULO_DO_VINCULO: Record<VinculoDaBase, string> = { membro: "Membros", congregado: "Congregados", visitante: "Visitantes" };
+const ORDEM_DOS_VINCULOS: VinculoDaBase[] = ["membro", "congregado", "visitante"];
+export function linhasPorVinculo(s: SaudeDeUmTipo): string[] {
+  return ORDEM_DOS_VINCULOS.filter(v => s.porVinculo[v]).map(v => { const r = s.porVinculo[v]!; return `${ROTULO_DO_VINCULO[v]}: ${n(r.contribuiram)} de ${n(r.base)}${r.adesaoPct === null ? "" : ` (${n(r.adesaoPct, 1)}%)`}`; });
+}
+const pctOuTraco = (v: number | null) => (v === null ? "—" : `${n(v, 1)}%`);
+
+/**
+ * O bloco "Saúde da base contribuinte": DUAS saúdes (decisão dela, 27/10/2026) — a da contribuição (dízimo, oferta ou missões) e a do dízimo —, cada uma com a quebra por vínculo, mais os novos.
+ * Só QUANTIDADES, nunca nomes.
+ */
+function blocoSaudeDaBase(a: AnaliseDoPeriodo, b: ResumoDaBase | null, base: BaseAnalisada = "membros_congregados"): string {
+  let h = D.secao("Saúde da base contribuinte", `${ROTULO_DA_BASE[base]} (ativos); menores de 18 anos ficam fora da conta de quem não contribuiu.`);
   if (!b) return h + D.blocoDeObservacao("A adesão da base não pôde ser calculada neste envio.");
+  const { contribuicao, dizimo } = b.saude;
+  h += D.secao("Saúde da contribuição", "Quem deu dízimo, oferta ou missões no período.");
   h += D.indicadores([
-    { icone: "🏛️", rotulo: "Membros ativos", valor: n(b.base) },
-    { icone: "✅", rotulo: "Contribuíram", valor: n(b.contribuiram) },
+    { icone: "🏛️", rotulo: "Base ativa", valor: n(b.base) },
+    { icone: "✅", rotulo: "Contribuíram", valor: n(contribuicao.contribuiram) },
+    { icone: "📈", rotulo: "Adesão à contribuição", valor: pctOuTraco(contribuicao.adesaoPct) },
     { icone: "🕊️", rotulo: "Sem contribuição registrada", valor: n(b.naoContribuiram) },
-    { icone: "📈", rotulo: "Adesão da base", valor: b.adesaoPct === null ? "—" : `${n(b.adesaoPct, 1)}%` },
-    { icone: "🌱", rotulo: "Novos dizimistas", valor: a.novos === null ? "—" : n(a.novos) },
-    { icone: "🔁", rotulo: "Recorrentes", valor: a.recorrentes ? n(a.recorrentes.pessoas) : "—" },
+    { icone: "🌱", rotulo: "Novos contribuintes", valor: a.novos === null ? "—" : n(a.novos) },
   ]);
+  h += D.cartaoDeLista({ titulo: "Por vínculo", frase: "Quantos de cada vínculo contribuíram.", itens: linhasPorVinculo(contribuicao), tom: "info" });
+  h += D.secao("Saúde do dízimo", "Quem deu dízimo no período (ofertas e missões não contam aqui).");
+  h += D.indicadores([
+    { icone: "🏛️", rotulo: "Base ativa", valor: n(b.base) },
+    { icone: "🙏", rotulo: "Deram dízimo", valor: n(dizimo.contribuiram) },
+    { icone: "📈", rotulo: "Adesão ao dízimo", valor: pctOuTraco(dizimo.adesaoPct) },
+    { icone: "🔁", rotulo: "Recorrentes", valor: a.recorrentes ? n(a.recorrentes.pessoas) : "—" },
+    { icone: "🌿", rotulo: "Novos dizimistas", valor: a.novosDizimistas === null ? "—" : n(a.novosDizimistas) },
+  ]);
+  h += D.cartaoDeLista({ titulo: "Por vínculo", frase: "Quantos de cada vínculo deram dízimo.", itens: linhasPorVinculo(dizimo), tom: "info" });
   return h;
 }
 
@@ -146,8 +168,8 @@ export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada):
     ? `Pessoa que contribuiu em todos os meses do período analisado. O período ${entre} não tem nenhum mês completo; por isso ninguém é classificado como recorrente.`
     : `Pessoa que contribuiu em todos os meses do período analisado: ${completos.length === 1 ? "o único mês completo" : `os ${completos.length} meses completos`} ${entre} (${meses}). O primeiro e o último mês, quando incompletos, não entram nessa conta.`;
   const novo = ini <= PISO_DE_IDENTIFICACAO
-    ? `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado. Como o período começa em ${ddmmaaaa(ini)}, ainda não há histórico anterior confiável; por isso ninguém é classificado como novo dizimista neste relatório.`
-    : `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado (${p}), sem nenhuma contribuição identificada antes de ${ddmmaaaa(ini)}.`;
+    ? `Pessoa cujo primeiro dízimo identificado ocorreu dentro do período analisado. Como o período começa em ${ddmmaaaa(ini)}, ainda não há histórico anterior confiável; por isso ninguém é classificado como novo dizimista neste relatório.`
+    : `Pessoa cujo primeiro dízimo identificado ocorreu dentro do período analisado (${p}), sem nenhum dízimo identificado antes de ${ddmmaaaa(ini)}. Pode já ter dado ofertas ou missões antes.`;
   return [
     { titulo: "Recorrente", texto: recorrente },
     { titulo: "Parcial", texto: completos.length === 0 ? `Pessoa que contribuiu ${entre}. Sem mês completo no período, não há como separar recorrente de parcial; por isso aparece como "Contribuiu no período".` : `Pessoa que deu dízimo em alguns, mas não em todos, dos meses completos do período analisado. A coluna "Meses com dízimo" mostra quantos (por exemplo, 2/${completos.length}); a quantidade de contribuições não muda o perfil.` },
@@ -240,7 +262,8 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
         { icone: "📅", rotulo: "Média mensal", valor: brl(a.mediaMensal) },
         { icone: "📊", rotulo: "Média por doador", valor: a.mediaPorDoador === null ? "—" : brl(a.mediaPorDoador) },
         { icone: "🔁", rotulo: "Recorrência", valor: a.recorrentes ? `${n(a.recorrentes.pct ?? 0, 1)}%` : "—" },
-        { icone: "🌱", rotulo: "Novos", valor: a.novos === null ? "—" : n(a.novos) },
+        { icone: "🌱", rotulo: "Novos contribuintes", valor: a.novos === null ? "—" : n(a.novos) },
+        { icone: "🌿", rotulo: "Novos dizimistas", valor: a.novosDizimistas === null ? "—" : n(a.novosDizimistas) },
         { icone: "🧾", rotulo: "Frequência média", valor: a.frequenciaMedia === null ? "—" : n(a.frequenciaMedia, 1) },
       ]);
     }
@@ -269,7 +292,7 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
     }
   }
   // a saúde da base independe de haver arrecadação no período: "ninguém contribuiu" também é informação
-  if (tem("saude_da_base")) corpo += blocoSaudeDaBase(a, o.base ?? null);
+  if (tem("saude_da_base")) corpo += blocoSaudeDaBase(a, o.base ?? null, o.baseAnalisada);
   if (tem("nao_contribuiram")) corpo += blocoNaoContribuiram(o.base ?? null);
   if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
   if (tem("criterios")) corpo += blocoCriterios();
@@ -293,13 +316,16 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   if (tem("resumo")) linhas.push("", resumo);
   if (a.arrecadado > 0) {
     if (tem("indicadores")) linhas.push("", `Dizimistas: ${n(a.dizimistas)}`, `Doadores: ${n(a.doadores)}`, `Arrecadado: ${brl(a.arrecadado)}`, `Média mensal: ${brl(a.mediaMensal)}`,
-      `Recorrência: ${a.recorrentes ? n(a.recorrentes.pct ?? 0, 1) + "%" : "—"}`, `Novos: ${a.novos === null ? "—" : n(a.novos)}`);
+      `Recorrência: ${a.recorrentes ? n(a.recorrentes.pct ?? 0, 1) + "%" : "—"}`, `Novos contribuintes: ${a.novos === null ? "—" : n(a.novos)}`, `Novos dizimistas: ${a.novosDizimistas === null ? "—" : n(a.novosDizimistas)}`);
     if (tem("categorias")) linhas.push("", `Dízimos ${brl(a.porTipo.dizimo)} · Ofertas ${brl(a.porTipo.oferta)} · Missões ${brl(a.porTipo.missoes)}`);
   }
   if (tem("saude_da_base") && o.base) {
     const b = o.base;
-    linhas.push("", "Saúde da base contribuinte", `Membros ativos: ${n(b.base)}`, `Contribuíram: ${n(b.contribuiram)}`, `Sem contribuição registrada: ${n(b.naoContribuiram)}`,
-      `Adesão da base: ${b.adesaoPct === null ? "—" : n(b.adesaoPct, 1) + "%"}`);
+    const { contribuicao, dizimo } = b.saude;
+    linhas.push("", "Saúde da base contribuinte", `Base ativa: ${n(b.base)}`, "", "Saúde da contribuição (dízimo, oferta ou missões)", `Contribuíram: ${n(contribuicao.contribuiram)}`, `Adesão à contribuição: ${pctOuTraco(contribuicao.adesaoPct)}`, `Sem contribuição registrada: ${n(b.naoContribuiram)}`,
+      `Novos contribuintes: ${a.novos === null ? "—" : n(a.novos)}`, ...linhasPorVinculo(contribuicao).map(l => `  ${l}`),
+      "", "Saúde do dízimo", `Deram dízimo: ${n(dizimo.contribuiram)}`, `Adesão ao dízimo: ${pctOuTraco(dizimo.adesaoPct)}`, `Recorrentes: ${a.recorrentes ? n(a.recorrentes.pessoas) : "—"}`,
+      `Novos dizimistas: ${a.novosDizimistas === null ? "—" : n(a.novosDizimistas)}`, ...linhasPorVinculo(dizimo).map(l => `  ${l}`));
   }
   if (tem("nao_contribuiram") && o.base) {
     const b = o.base;

@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import {
   BLOCOS_DE_CONTRIBUICOES, IDS_AGREGADOS, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, temBlocoNominal, validarBlocos,
 } from "../../supabase/functions/_shared/contribuicoes/blocos";
-import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type LinhaDeContribuicao, type PessoaDaBase } from "../../supabase/functions/_shared/contribuicoes/analise";
+import { analisarContribuicoes, analisarSemContribuicao, resumirBase, resumirPessoas, type LinhaDeContribuicao, type PessoaDaBase } from "../../supabase/functions/_shared/contribuicoes/analise";
+import { listasNominaisDoEmail } from "../../supabase/functions/_shared/contribuicoes/nominal";
 import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
 
 describe("o registro de blocos e os modelos", () => {
@@ -107,7 +108,7 @@ describe("Saúde da base contribuinte — só quantidades", () => {
   const sem = analisarSemContribuicao(linhas, pessoas, periodo, { considerar: "qualquer", incluirMenores: false });
   const base = resumirBase(sem);
   it("o resumo traz só números: base, contribuíram, não contribuíram, adesão, nunca, antes e 'há mais de 30/60/90/180 dias' (acumulado)", () => {
-    expect(base).toEqual({
+    expect(base).toMatchObject({
       base: 6, contribuiram: 1, naoContribuiram: 5, adesaoPct: 16.67, nuncaDesdeOPiso: 2, jaContribuiuAntes: 3,
       haMaisDe: { dias30: 3, dias60: 3, dias90: 3, dias180: 1 },   // b 102, d 133, c 182 → todos > 90; só c > 180
       menoresFora: 0,
@@ -117,7 +118,7 @@ describe("Saúde da base contribuinte — só quantidades", () => {
   it("o e-mail mostra adesão, não contribuíram e as faixas, sem nenhum nome", () => {
     const a = analisarContribuicoes(linhas, periodo);
     const e = montarEmailDeContribuicoes(a, { blocos: ["saude_da_base", "nao_contribuiram"], base });
-    for (const t of ["Saúde da base contribuinte", "Membros ativos", "Adesão da base", "16,7%", "Sem contribuição registrada", "Não contribuíram no período", "há mais de 30 dias: 3", "180 dias: 1", "Sem contribuição no período e sem registro anterior: 2"]) expect(e.html).toContain(t);
+    for (const t of ["Saúde da base contribuinte", "Saúde da contribuição", "Saúde do dízimo", "Base ativa", "Adesão à contribuição", "Adesão ao dízimo", "16,7%", "Sem contribuição registrada", "Não contribuíram no período", "há mais de 30 dias: 3", "180 dias: 1", "Sem contribuição no período e sem registro anterior: 2"]) expect(e.html).toContain(t);
     expect(e.html).not.toContain("01/01/2026");   // nunca uma data fixa: só o período escolhido
     expect(e.html).not.toMatch(/NOME-SECRETO/);
     expect(e.texto).toContain("Sem contribuição há mais de 30 / 60 / 90 / 180 dias: 3 / 3 / 3 / 1");
@@ -127,7 +128,8 @@ describe("Saúde da base contribuinte — só quantidades", () => {
     const vazio = analisarContribuicoes([], periodo);
     const e = montarEmailDeContribuicoes(vazio, { blocos: ["saude_da_base"], base: resumirBase(analisarSemContribuicao([], pessoas, periodo, { considerar: "qualquer", incluirMenores: false })) });
     expect(e.html).toContain("Saúde da base contribuinte");
-    expect(e.html).toContain("Adesão da base");
+    expect(e.html).toContain("Adesão à contribuição");
+    expect(e.html).toContain("Adesão ao dízimo");
   });
 });
 
@@ -142,5 +144,84 @@ describe("a Edge Function usa os blocos sem expor a lista", () => {
   });
   it("registra no histórico quais blocos foram", () => {
     expect(fn).toMatch(/parametros: \{ ini: pedido\.periodo\.ini, fim: pedido\.periodo\.fim, blocos: pedido\.blocos/);
+  });
+});
+
+// ─── As duas saúdes e os dois "novos" (decisão dela, 27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Antes: "adesão" contava qualquer contribuição e "novos dizimistas" contava qualquer contribuinte novo (41 contra 21 no dado real). Agora: saúde da contribuição × saúde do dízimo, com a quebra por vínculo;
+// novos contribuintes (1ª contribuição de qualquer tipo) × novos dizimistas (1º DÍZIMO, mesmo que já tivesse ofertas).
+describe("saúde da contribuição × saúde do dízimo", () => {
+  const P = (id: string, tipo_pessoa: string): PessoaDaBase => ({ id, nome: `P-${id}`, tipo_pessoa, status: "ativo", data_nascimento: "1980-01-01", familia_id: null });
+  const periodo = { ini: "2026-07-01", fim: "2026-09-30" };
+  const L = (pessoa_id: string, data: string, categoria: string): LinhaDeContribuicao => ({ pessoa_id, data, valor: 10, categoria });
+  const pessoas = [P("m1", "membro"), P("m2", "membro"), P("m3", "membro"), P("c1", "congregado"), P("c2", "congregado"), P("v1", "visitante")];
+  const linhas = [L("m1", "2026-08-10", "Dizimos"), L("m2", "2026-08-12", "Ofertas"), L("c1", "2026-09-01", "Dizimos"), L("v1", "2026-09-05", "Ofertas para Missões")];
+  const sem = analisarSemContribuicao(linhas, pessoas, periodo, { considerar: "qualquer", incluirMenores: true, vinculos: ["membro", "congregado", "visitante"] });
+
+  it("a adesão à contribuição conta qualquer tipo; a adesão ao dízimo, só dízimo — mesma base", () => {
+    expect(sem.saude.contribuicao).toMatchObject({ base: 6, contribuiram: 4, adesaoPct: 66.67 });
+    expect(sem.saude.dizimo).toMatchObject({ base: 6, contribuiram: 2, adesaoPct: 33.33 });
+  });
+  it("a quebra por vínculo: membros, congregados e visitantes (cada um contra a própria base)", () => {
+    expect(sem.saude.contribuicao.porVinculo).toEqual({ membro: { base: 3, contribuiram: 2, adesaoPct: 66.67 }, congregado: { base: 2, contribuiram: 1, adesaoPct: 50 }, visitante: { base: 1, contribuiram: 1, adesaoPct: 100 } });
+    expect(sem.saude.dizimo.porVinculo).toEqual({ membro: { base: 3, contribuiram: 1, adesaoPct: 33.33 }, congregado: { base: 2, contribuiram: 1, adesaoPct: 50 }, visitante: { base: 1, contribuiram: 0, adesaoPct: 0 } });
+  });
+  it("só os vínculos da base escolhida aparecem na quebra", () => {
+    const so = analisarSemContribuicao(linhas, pessoas, periodo, { considerar: "qualquer", incluirMenores: true, vinculos: ["membro"] });
+    expect(Object.keys(so.saude.dizimo.porVinculo)).toEqual(["membro"]);
+  });
+  it("a opção 'considerar' da lista não muda as duas saúdes", () => {
+    const soDizimo = analisarSemContribuicao(linhas, pessoas, periodo, { considerar: "dizimo", incluirMenores: true, vinculos: ["membro", "congregado", "visitante"] });
+    expect(soDizimo.saude).toEqual(sem.saude);
+  });
+  it("o resumo do e-mail leva as duas saúdes (números, sem nomes) e o e-mail mostra cada uma com a quebra por vínculo", () => {
+    const base = resumirBase(sem);
+    expect(base.saude).toEqual(sem.saude);
+    const e = montarEmailDeContribuicoes(analisarContribuicoes(linhas, periodo), { blocos: ["saude_da_base"], base, baseAnalisada: "membros_congregados_visitantes" });
+    for (const t of ["Saúde da contribuição", "Saúde do dízimo", "Adesão à contribuição", "66,7%", "Adesão ao dízimo", "33,3%", "Membros: 2 de 3", "Congregados: 1 de 2", "Visitantes: 0 de 1"]) expect(e.html).toContain(t);
+    expect(e.texto).toContain("Adesão ao dízimo: 33,3%");
+    expect(e.html).not.toMatch(/P-m1|P-c1/);
+  });
+});
+
+describe("novos contribuintes × novos dizimistas", () => {
+  const periodo = { ini: "2026-07-01", fim: "2026-09-30" };
+  const L = (pessoa_id: string, data: string, categoria: string): LinhaDeContribuicao => ({ pessoa_id, data, valor: 10, categoria });
+  const linhas = [
+    L("m1", "2026-02-10", "Dizimos"), L("m1", "2026-08-10", "Dizimos"),                    // já dizimava: não é novo de nenhum tipo
+    L("c1", "2026-08-15", "Dizimos"),                                                       // primeira contribuição E primeiro dízimo
+    L("m4", "2026-03-01", "Ofertas"), L("m4", "2026-09-01", "Dizimos"),                    // já ofertava; o 1º dízimo é agora: novo DIZIMISTA, não novo contribuinte
+    L("m2", "2026-08-01", "Ofertas"),                                                       // novo contribuinte, mas não dizimista
+  ];
+  const a = analisarContribuicoes(linhas, periodo);
+  it("novos contribuintes = 1ª contribuição de qualquer tipo; novos dizimistas = 1º dízimo (mesmo que já tivesse ofertas)", () => {
+    expect(a.novos).toBe(2);             // c1 e m2
+    expect(a.novosDizimistas).toBe(2);   // c1 e m4
+  });
+  it("por pessoa: m4 é novo dizimista e não novo contribuinte; m2 é o contrário", () => {
+    const por = Object.fromEntries(resumirPessoas(linhas, periodo).map(r => [r.pessoaId, r]));
+    expect(por.m4).toMatchObject({ nova: false, novaDizimista: true });
+    expect(por.m2).toMatchObject({ nova: true, novaDizimista: false });
+    expect(por.m1).toMatchObject({ nova: false, novaDizimista: false });
+    expect(por.c1).toMatchObject({ nova: true, novaDizimista: true });
+  });
+  it("período que começa no piso: sem histórico, os dois são nulos", () => {
+    const b = analisarContribuicoes(linhas, { ini: "2026-01-01", fim: "2026-09-30" });
+    expect(b.novos).toBeNull();
+    expect(b.novosDizimistas).toBeNull();
+  });
+  it("quem só deu oferta, mesmo sendo novo, NÃO aparece como 'Novo dizimista' na lista com nomes (é 'Só ofertas')", () => {
+    const nomes = new Map([["m1", "M1"], ["c1", "C1"], ["m4", "M4"], ["m2", "M2"]]);
+    const sem = analisarSemContribuicao(linhas, [], periodo, { considerar: "qualquer", incluirMenores: true });
+    const por = Object.fromEntries(listasNominaisDoEmail(linhas, periodo, nomes, sem).contribuiram.map(l => [l.nome, l.perfil]));
+    expect(por.M2).toBe("Só ofertas");
+    expect(por.C1).toBe("Novo dizimista");
+    expect(por.M4).toBe("Novo dizimista");
+  });
+  it("o resumo executivo e o e-mail citam os dois, com rótulos próprios", () => {
+    const e = montarEmailDeContribuicoes(a, { blocos: ["resumo", "indicadores"] });
+    expect(e.resumo).toContain("começaram a dizimar");
+    for (const t of ["Novos contribuintes", "Novos dizimistas"]) expect(e.html).toContain(t);
+    expect(e.texto).toContain("Novos dizimistas: 2");
   });
 });

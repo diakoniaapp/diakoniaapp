@@ -13,9 +13,9 @@ import { brl } from "@/services/finService";
 import type { ResumoDePessoa } from "@/lib/contribuicoes";
 import { textoDoRegistro, type EstadoDoRegistro } from "./useRegistroDeAcesso";
 
-export type GrupoDePessoas = "todos" | "dizimistas" | "recorrentes" | "novos";
+export type GrupoDePessoas = "todos" | "dizimistas" | "recorrentes" | "novos" | "novosDizimistas";
 export const GRUPOS_DE_PESSOAS: { id: GrupoDePessoas; rotulo: string }[] = [
-  { id: "todos", rotulo: "Todos" }, { id: "dizimistas", rotulo: "Dizimistas" }, { id: "recorrentes", rotulo: "Recorrentes" }, { id: "novos", rotulo: "Novos" },
+  { id: "todos", rotulo: "Todos" }, { id: "dizimistas", rotulo: "Dizimistas" }, { id: "recorrentes", rotulo: "Recorrentes" }, { id: "novos", rotulo: "Novos contribuintes" }, { id: "novosDizimistas", rotulo: "Novos dizimistas" },
 ];
 
 export type OrdemDaLista = "total_desc" | "total_asc" | "frequencia" | "ultima" | "nome_az" | "nome_za" | "tempo";
@@ -66,6 +66,7 @@ export function filtrarPessoas(lista: PessoaDaLista[], grupo: GrupoDePessoas, bu
   if (grupo === "dizimistas") r = r.filter(p => p.dizimista);
   if (grupo === "recorrentes") r = r.filter(p => p.recorrente === true);
   if (grupo === "novos") r = r.filter(p => p.nova === true);
+  if (grupo === "novosDizimistas") r = r.filter(p => p.novaDizimista === true);
   if (busca.trim().length >= 2) { const b = normalizar(busca); r = r.filter(p => normalizar(p.nome).includes(b)); }
   const cadeia = COMPARADORES[ordem];
   const ordenada = [...r].sort((a, b) => { for (const c of cadeia) { const x = c(a, b); if (x !== 0) return x; } return porNome(a, b); });
@@ -107,7 +108,7 @@ export function ListaDePessoas({ pessoas, grupo, aoMudarGrupo, busca, aoMudarBus
       {aviso && <p className={`text-xs ${registro.estado === "indisponivel" ? "text-warning-text" : "text-muted-foreground"}`} data-registro={registro.estado}>{aviso}</p>}
 
       <div className="flex flex-wrap gap-1.5" data-grupos>
-        {GRUPOS_DE_PESSOAS.filter(g => (g.id !== "novos" || novosDisponivel) && (g.id !== "recorrentes" || recorrentesDisponivel)).map(g => (
+        {GRUPOS_DE_PESSOAS.filter(g => ((g.id !== "novos" && g.id !== "novosDizimistas") || novosDisponivel) && (g.id !== "recorrentes" || recorrentesDisponivel)).map(g => (
           <button key={g.id} type="button" onClick={() => aoMudarGrupo(g.id)} data-grupo={g.id} aria-pressed={grupo === g.id}
             className={`rounded-full border px-3 py-1 text-xs transition-colors ${grupo === g.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"}`}>
             {g.rotulo} <span className="tabular-nums opacity-80">{contagem(g.id)}</span>
@@ -147,7 +148,7 @@ export function ListaDePessoas({ pessoas, grupo, aoMudarGrupo, busca, aoMudarBus
               <span className="w-7 shrink-0 text-right text-xs tabular-nums text-muted-foreground" data-posicao>{i + 1}</span>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm truncate">{p.nome}</p>
-                <p className="text-xs text-muted-foreground">{p.quantidade} {p.quantidade === 1 ? "contribuição" : "contribuições"} · última em {dataBr(p.ultima)}{p.recorrente ? " · recorrente" : p.dizimista && p.mesesCompletos > 0 ? ` · parcial (${p.mesesComDizimo}/${p.mesesCompletos} meses com dízimo)` : ""}{p.nova ? " · nova" : ""}</p>
+                <p className="text-xs text-muted-foreground">{p.quantidade} {p.quantidade === 1 ? "contribuição" : "contribuições"} · última em {dataBr(p.ultima)}{p.recorrente ? " · recorrente" : p.dizimista && p.mesesCompletos > 0 ? ` · parcial (${p.mesesComDizimo}/${p.mesesCompletos} meses com dízimo)` : ""}{p.novaDizimista ? " · novo dizimista" : p.nova ? " · novo contribuinte" : ""}</p>
                 <p className="text-xs text-muted-foreground" data-medias>Média mensal {brl(p.mediaMensal)} · valor médio {brl(p.valorMedio)}</p>
               </div>
               <span className="text-sm font-semibold tabular-nums text-success-text shrink-0">{brl(p.total)}</span>

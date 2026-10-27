@@ -269,9 +269,9 @@ export default function FinancasDoadores() {
           <TabsList className="w-full justify-start overflow-x-auto" data-abas="doadores">
             {ABAS.map(a => (<TabsTrigger key={a.id} value={a.id}>{a.rotulo}</TabsTrigger>))}
           </TabsList>
-          <TabsContent value="painel" className="mt-4">{analise && <PainelDeContribuicoes analise={analise} saude={saude} rotuloDaBase={ROTULO_DA_BASE[baseEscolhida]} foraDaBase={foraDaBase} />}</TabsContent>
+          <TabsContent value="painel" className="mt-4">{analise && <PainelDeContribuicoes analise={analise} saude={saude} rotuloDaBase={ROTULO_DA_BASE[baseEscolhida]} foraDaBase={foraDaBase} aoVerPendencias={() => mudar({ aba: "pendentes" })} />}</TabsContent>
           <TabsContent value="pessoas" className="mt-4">
-            <ListaDePessoas pessoas={pessoasDaLista} grupo={(["dizimistas", "recorrentes", "novos"].includes(url.grupo) ? url.grupo : "todos") as GrupoDePessoas}
+            <ListaDePessoas pessoas={pessoasDaLista} grupo={(["dizimistas", "recorrentes", "novos", "novosDizimistas"].includes(url.grupo) ? url.grupo : "todos") as GrupoDePessoas}
               aoMudarGrupo={g => mudar({ grupo: g })} busca={url.q} aoMudarBusca={v => mudar({ q: v })} ordem={ordemDaUrl(url.ordem)} aoMudarOrdem={o => mudar({ ordem: o })} top={topDaUrl(url.top)} aoMudarTop={t => mudar({ top: t })}
               registro={registroPessoas} aoExportar={exportarPessoas} exportando={exportando}
               novosDisponivel={resumos.some(r => r.nova !== null)} recorrentesDisponivel={resumos.some(r => r.recorrente !== null)} />

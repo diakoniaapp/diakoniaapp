@@ -222,6 +222,32 @@ describe("Fase 2B: filtros globais, card Saúde da base, ordenação e valores",
     expect(card.querySelector("[data-saude-ausencia]")!.textContent).toContain("Sem contribuição no período e sem registro anterior");
     expect(card.compareDocumentPosition(q('[data-grafico="evolucao"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();   // o card vem ANTES dos gráficos
   });
+  it("o card tem DUAS saúdes (contribuição × dízimo), cada uma com a adesão e a quebra por vínculo", async () => {
+    await abrir();
+    const card = q('[data-card="saude-da-base"]')!;
+    const secoes = [...card.querySelectorAll("[data-saude-secao]")].map(e => e.getAttribute("data-saude-secao"));
+    expect(secoes).toEqual(["contribuicao", "dizimo"]);
+    expect(card.textContent).toContain("Saúde da contribuição");
+    expect(card.textContent).toContain("Saúde do dízimo");
+    expect(card.textContent).toContain("Adesão à contribuição");
+    expect(card.textContent).toContain("Adesão ao dízimo");
+    for (const id of ["adesao", "adesao-dizimo", "dizimistas", "novos", "novos-dizimistas", "recorrentes"]) expect(card.querySelector(`[data-saude="${id}"]`), id).not.toBeNull();
+    expect(card.querySelector('[data-por-vinculo="contribuicao"]')!.textContent).toContain("Membros:");
+    expect(card.querySelector('[data-por-vinculo="dizimo"]')!.textContent).toContain("Membros:");
+  });
+  it("a Qualidade da identificação abre o painel e o botão 'Ver pendências' leva à aba Pendentes", async () => {
+    await abrir();
+    const painel = q("[data-painel]")!;
+    const qualidade = q('[data-card="qualidade-da-identificacao"]')!;
+    expect(qualidade).not.toBeNull();
+    expect(painel.firstElementChild).toBe(qualidade);   // logo no topo
+    expect(qualidade.textContent).toContain("Qualidade da identificação");
+    expect(qualidade.textContent).toContain("identificados");
+    expect(qualidade.textContent).toContain("pendentes");
+    await clicarEm(q('[data-acao="ver-pendencias"]'));
+    expect(document.body.textContent).toContain("Pendentes de identificação");
+    expect(q('[role="tab"][aria-selected="true"]')?.textContent).toContain("Pendentes");
+  });
   it("quem contribuiu fora da base NÃO entra nos indicadores e aparece à parte", async () => {
     await abrir();
     expect(valorDe("doadores")).toBe("2");   // 'fora' tem R$ 20 mas não conta
@@ -300,7 +326,7 @@ describe("o piso de 01/01/2026 e os links antigos", () => {
 
 describe("filtros puros", () => {
   const P2 = (pessoaId: string, nome: string, total: number, quantidade: number, ultima: string, o: Partial<PessoaDaLista> = {}): PessoaDaLista => ({
-    pessoaId, nome, total, quantidade, ultima, dizimista: true, recorrente: false, mesesComDizimo: 0, mesesCompletos: 6, nova: false, mediaMensal: total / 6, valorMedio: total / quantidade, diasSemContribuir: diasEntre(ultima, "2026-10-27"), ...o,
+    pessoaId, nome, total, quantidade, ultima, dizimista: true, recorrente: false, mesesComDizimo: 0, mesesCompletos: 6, nova: false, novaDizimista: false, mediaMensal: total / 6, valorMedio: total / quantidade, diasSemContribuir: diasEntre(ultima, "2026-10-27"), ...o,
   });
   const pessoas = [
     P2("1", "Ana Lúcia", 100, 2, "2026-09-01", { recorrente: true }),

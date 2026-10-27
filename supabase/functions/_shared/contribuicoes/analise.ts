@@ -121,8 +121,10 @@ export interface AnaliseDoPeriodo {
   /** contribuições identificadas por doador no período */
   frequenciaMedia: number | null;
   recorrentes: { pessoas: number; pct: number | null; meses: number } | null;
-  /** `null` quando o período começa no piso: sem histórico anterior confiável para dizer quem é novo */
+  /** NOVOS CONTRIBUINTES: a primeira contribuição identificada (de qualquer tipo) caiu no período. `null` quando o período começa no piso: sem histórico anterior confiável para dizer quem é novo */
   novos: number | null;
+  /** NOVOS DIZIMISTAS: o primeiro DÍZIMO identificado caiu no período — mesmo que a pessoa já tivesse dado ofertas ou missões antes (decisão dela, 27/10/2026). `null` pelo mesmo motivo */
+  novosDizimistas: number | null;
   semanas: SemanaDeContribuicao[];
   meses: MesDeContribuicao[];
   destaques: Destaques;
@@ -161,6 +163,12 @@ export function analisarContribuicoes(linhas: LinhaDeContribuicao[], periodo: { 
     const antes = new Set(linhas.filter(l => !!l.pessoa_id && l.data >= PISO_DE_IDENTIFICACAO && l.data < ini && tipoDaContribuicao(l.categoria) !== null).map(l => l.pessoa_id!));
     novos = [...doadores].filter(p => !antes.has(p)).length;
   }
+  // novos dizimistas: nenhum DÍZIMO identificado entre o piso e o início do período (ofertas e missões anteriores não impedem)
+  let novosDizimistas: number | null = null;
+  if (ini > PISO_DE_IDENTIFICACAO) {
+    const antesDizimo = new Set(linhas.filter(l => !!l.pessoa_id && l.data >= PISO_DE_IDENTIFICACAO && l.data < ini && tipoDaContribuicao(l.categoria) === "dizimo").map(l => l.pessoa_id!));
+    novosDizimistas = [...dizimistas].filter(p => !antesDizimo.has(p)).length;
+  }
 
   // semanas e meses (contribuintes DISTINTOS e valor, só das linhas do período)
   const sem = new Map<string, { pessoas: Set<string>; valor: number }>();
@@ -196,7 +204,7 @@ export function analisarContribuicoes(linhas: LinhaDeContribuicao[], periodo: { 
     mediaMensal: arred(arrecadado / (dias / DIAS_NO_MES_MEDIO)),
     mediaPorDoador: doadores.size > 0 ? arred(valorIdent / doadores.size) : null,
     frequenciaMedia: doadores.size > 0 ? arred(identificadas.length / doadores.size) : null,
-    recorrentes, novos, semanas, meses,
+    recorrentes, novos, novosDizimistas, semanas, meses,
     destaques: destaquesDasSemanas(semanas),
   };
 }
@@ -259,6 +267,16 @@ export interface OpcoesDosSemContribuicao {
   vinculos?: VinculoDaBase[];
 }
 
+/** Quantas pessoas da base fizeram a coisa medida e a adesão. */
+export interface RecorteDeAdesao { base: number; contribuiram: number; adesaoPct: number | null }
+/** A adesão geral da base e a quebra por vínculo (só os vínculos que fazem parte da base escolhida). */
+export interface SaudeDeUmTipo extends RecorteDeAdesao { porVinculo: Partial<Record<VinculoDaBase, RecorteDeAdesao>> }
+/**
+ * As DUAS saúdes (decisão dela, 27/10/2026): a da CONTRIBUIÇÃO (quem deu dízimo, oferta ou missões) e a do DÍZIMO (quem deu dízimo). Mesma base, mesmo período; respondem perguntas diferentes —
+ * "quanto da igreja participa financeiramente" × "quanto da igreja dizima".
+ */
+export interface SaudeDaContribuicao { contribuicao: SaudeDeUmTipo; dizimo: SaudeDeUmTipo }
+
 export interface AnaliseDosSemContribuicao {
   base: number;
   contribuiram: number;
@@ -270,6 +288,8 @@ export interface AnaliseDosSemContribuicao {
   faixas: Record<FaixaSemContribuicao, number>;
   /** quem saiu da base por ser menor de 18 anos (a lista os esconde por padrão) */
   menoresFora: number;
+  /** a adesão por tipo (qualquer contribuição × só dízimo) e por vínculo; independe de `considerar` */
+  saude: SaudeDaContribuicao;
   /** dos que não contribuíram, quantos têm alguém da família contribuindo */
   comFamiliaQueContribui: number;
   lista: PessoaSemContribuicao[];
@@ -328,12 +348,27 @@ export function analisarSemContribuicao(
   // ordem padrão: ALFABÉTICA — a lista não vira ranking nem placar
   lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
+  // as duas saúdes, sempre as duas (a opção `considerar` só decide quem aparece na lista de "sem contribuição")
+  const noPeriodoQualquer = new Set<string>(), noPeriodoDizimo = new Set<string>();
+  for (const l of linhas) {
+    const t = tipoDaContribuicao(l.categoria);
+    if (!l.pessoa_id || t === null || l.data < PISO_DE_IDENTIFICACAO || l.data < ini || l.data > fim) continue;
+    noPeriodoQualquer.add(l.pessoa_id);
+    if (t === "dizimo") noPeriodoDizimo.add(l.pessoa_id);
+  }
+  const recorte = (ps: PessoaDaBase[], fizeram: Set<string>): RecorteDeAdesao => { const c = ps.filter(p => fizeram.has(p.id)).length; return { base: ps.length, contribuiram: c, adesaoPct: ps.length > 0 ? arred((c / ps.length) * 100) : null }; };
+  const umTipo = (fizeram: Set<string>): SaudeDeUmTipo => ({
+    ...recorte(base, fizeram),
+    porVinculo: Object.fromEntries((vinculos as VinculoDaBase[]).map(v => [v, recorte(base.filter(p => p.tipo_pessoa === v), fizeram)])) as SaudeDeUmTipo["porVinculo"],
+  });
+  const saude: SaudeDaContribuicao = { contribuicao: umTipo(noPeriodoQualquer), dizimo: umTipo(noPeriodoDizimo) };
+
   return {
     base: base.length, contribuiram, naoContribuiram: lista.length,
     adesaoPct: base.length > 0 ? arred((contribuiram / base.length) * 100) : null,
     nuncaDesdeOPiso: lista.filter(p => p.classificacao === "nunca").length,
     jaContribuiuAntes: lista.filter(p => p.classificacao === "antes").length,
-    faixas, menoresFora,
+    faixas, menoresFora, saude,
     comFamiliaQueContribui: lista.filter(p => p.familiaContribui).length,
     lista,
   };
@@ -354,6 +389,8 @@ export interface ResumoDePessoa {
   mesesCompletos: number;
   /** primeira contribuição identificada desde o piso cai dentro do período; `null` se o período começa no piso */
   nova: boolean | null;
+  /** o primeiro DÍZIMO identificado desde o piso cai dentro do período (e a pessoa é dizimista); `null` se o período começa no piso */
+  novaDizimista: boolean | null;
 }
 
 /** Quem contribuiu no período (só contribuição identificada), uma linha por pessoa. Sem ordem: a tela ordena (por nome, por padrão). */
@@ -361,6 +398,7 @@ export function resumirPessoas(linhas: LinhaDeContribuicao[], periodo: { ini: st
   const { ini, fim } = periodo;
   const completos = mesesCompletos(ini, fim);
   const antes = new Set(linhas.filter(l => !!l.pessoa_id && l.data >= PISO_DE_IDENTIFICACAO && l.data < ini && tipoDaContribuicao(l.categoria) !== null).map(l => l.pessoa_id!));
+  const antesDizimo = new Set(linhas.filter(l => !!l.pessoa_id && l.data >= PISO_DE_IDENTIFICACAO && l.data < ini && tipoDaContribuicao(l.categoria) === "dizimo").map(l => l.pessoa_id!));
   const por = new Map<string, { total: number; quantidade: number; ultima: string; dizimista: boolean; meses: Set<string> }>();   // `meses`: só os meses com DÍZIMO
   for (const l of linhas) {
     if (!l.pessoa_id || l.data < ini || l.data > fim || tipoDaContribuicao(l.categoria) === null) continue;
@@ -375,6 +413,7 @@ export function resumirPessoas(linhas: LinhaDeContribuicao[], periodo: { ini: st
     recorrente: completos.length > 0 ? completos.every(m => e.meses.has(m)) : null,
     mesesComDizimo: completos.filter(m => e.meses.has(m)).length, mesesCompletos: completos.length,
     nova: ini > PISO_DE_IDENTIFICACAO ? !antes.has(pessoaId) : null,
+    novaDizimista: ini > PISO_DE_IDENTIFICACAO ? e.dizimista && !antesDizimo.has(pessoaId) : null,
   }));
 }
 
@@ -390,6 +429,8 @@ export interface ResumoDaBase {
   /** quantas pessoas (que contribuíram antes, mas não no período) estão sem contribuir há MAIS de 30, 60, 90 e 180 dias — acumulado, como ela pediu */
   haMaisDe: { dias30: number; dias60: number; dias90: number; dias180: number };
   menoresFora: number;
+  /** a saúde da contribuição × a saúde do dízimo, com a quebra por vínculo */
+  saude: SaudeDaContribuicao;
 }
 
 export function resumirBase(a: AnaliseDosSemContribuicao): ResumoDaBase {
@@ -399,7 +440,7 @@ export function resumirBase(a: AnaliseDosSemContribuicao): ResumoDaBase {
     base: a.base, contribuiram: a.contribuiram, naoContribuiram: a.naoContribuiram, adesaoPct: a.adesaoPct,
     nuncaDesdeOPiso: a.nuncaDesdeOPiso, jaContribuiuAntes: a.jaContribuiuAntes,
     haMaisDe: { dias30: ate60, dias60: ate90, dias90: ate180, dias180: mais180 },
-    menoresFora: a.menoresFora,
+    menoresFora: a.menoresFora, saude: a.saude,
   };
 }
 
