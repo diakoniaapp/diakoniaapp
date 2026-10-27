@@ -58,7 +58,7 @@ describe("a página é só leitura e só do administrador", () => {
     const fonte = fs.readFileSync("src/lib/sondagemDeRegras.ts", "utf8");
     const ini = fonte.indexOf("export interface ResultadoDaSondagem {");
     const bloco = fonte.slice(ini, fonte.indexOf("}", ini));
-    expect(bloco).not.toMatch(/texto/i);
+    expect(bloco).not.toMatch(/^\s*texto\w*\??:/m);   // nenhuma PROPRIEDADE de texto (o comentário pode citar a palavra)
     expect(bloco).toContain("trechos: string[]");
   });
   it("a rota fica sob /admin (a guarda por prefixo exige o papel de administração)", () => {
