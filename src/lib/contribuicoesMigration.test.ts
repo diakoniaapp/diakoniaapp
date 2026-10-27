@@ -30,10 +30,15 @@ describe("migration 20261027160000 — registro de quem vê a lista nominal", ()
     expect(funcao).toMatch(/REVOKE ALL ON FUNCTION public\.contribuicoes_registrar_acesso\(text, jsonb, integer\) FROM PUBLIC/);
     expect(funcao).toMatch(/GRANT EXECUTE ON FUNCTION public\.contribuicoes_registrar_acesso\(text, jsonb, integer\) TO authenticated/);
   });
-  it("as ações que o app envia são exatamente as que o CHECK aceita", () => {
-    const aceitas = [...sql.matchAll(/acao IN \(([^)]*)\)/g)][0][1].match(/'([a-z_]+)'/g)!.map(s => s.replace(/'/g, "")).sort();
+  it("toda ação que o app envia é aceita pelo CHECK VIGENTE (a última migration que o redefine)", () => {
+    // o CHECK foi ampliado duas vezes (relatório com nomes; pendentes): vale o da migration mais recente
+    const vigente = readFileSync("supabase/migrations/20261027220000_contribuicoes_triagem_de_identificacao.sql", "utf8");
+    const aceitas = new Set((vigente.match(/CHECK \(acao IN \(([\s\S]*?)\)\s*\)/)![1].match(/'([a-z_]+)'/g) ?? []).map(x => x.replace(/'/g, "")));
     const doApp = [...servico.matchAll(/"(ver_[a-z_]+|exportar_[a-z_]+)"/g)].map(m => m[1]);
-    expect(new Set(doApp)).toEqual(new Set(aceitas));
+    expect(doApp.length).toBeGreaterThan(0);
+    for (const acao of new Set(doApp)) expect(aceitas.has(acao), acao).toBe(true);
+    // e nenhuma das cinco originais deixou de ser aceita
+    for (const original of ["ver_pessoas", "ver_nao_contribuiram", "exportar_pessoas", "exportar_nao_contribuiram", "ver_pessoa"]) expect(aceitas.has(original), original).toBe(true);
   });
   it("o cliente chama a função pelo mesmo nome e parâmetros, e o rollback a remove", () => {
     expect(servico).toContain('"contribuicoes_registrar_acesso"');

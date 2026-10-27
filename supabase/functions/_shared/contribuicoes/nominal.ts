@@ -9,28 +9,28 @@ export interface LinhaNominal {
   /** a classificação (#): a posição na lista, já na ordem escolhida */
   posicao: number;
   nome: string;
-  /** AAAA-MM-DD da última contribuição (a do período, ou a anterior a ele); `null` = nenhuma desde 01/01/2026 */
-  ultima: string | null;
   /** quantas contribuições no período (só para quem contribuiu); frequência, não valor */
   contribuicoes: number | null;
-  /** o que a linha diz sobre a pessoa, em palavras */
-  situacao: string;
+  /** o PERFIL DE CONTRIBUIÇÃO, em palavras (as definições estão no bloco "Como interpretar este relatório") */
+  perfil: string;
 }
 
 export interface ListasNominais { contribuiram: LinhaNominal[]; semContribuicao: LinhaNominal[] }
 
 
-function situacaoDeQuemContribuiu(r: ResumoDePessoa): string {
+/** Recorrente · Novo dizimista · Contribuiu no período — os três perfis de quem contribuiu. */
+function perfilDeQuemContribuiu(r: ResumoDePessoa): string {
   if (r.recorrente === true) return "Recorrente";
-  if (r.nova === true) return "Novo";
+  if (r.nova === true) return "Novo dizimista";
   return "Contribuiu no período";
 }
 
-function situacaoDeQuemNaoContribuiu(p: PessoaSemContribuicao): string {
-  if (p.classificacao === "nunca") return "Nenhuma contribuição desde 01/01/2026";
-  if (p.dias !== null && p.dias > 180) return "Sem contribuição há mais de 180 dias";
-  if (p.dias !== null && p.dias > 90) return "Sem contribuição há mais de 90 dias";
-  return "Sem contribuição no período";
+/** Todo mundo que não contribuiu é "Sem contribuição registrada"; o complemento diz há quanto tempo (nenhuma desde o piso, mais de 90 ou de 180 dias). */
+function perfilDeQuemNaoContribuiu(p: PessoaSemContribuicao): string {
+  if (p.classificacao === "nunca") return "Sem contribuição registrada · nenhuma desde 01/01/2026";
+  if (p.dias !== null && p.dias > 180) return "Sem contribuição registrada · há mais de 180 dias";
+  if (p.dias !== null && p.dias > 90) return "Sem contribuição registrada · há mais de 90 dias";
+  return "Sem contribuição registrada";
 }
 
 /** O que a ordenação enxerga de cada pessoa. O `total` SÓ ordena (opção "valor total contribuído"): nunca chega à linha que sai. */
@@ -54,10 +54,10 @@ const COMPARADORES: Record<OrdenacaoDasListas, Comparador[]> = {
 };
 
 /** Ordena pela escolha e numera (#). Estável: o que empata em todos os critérios segue em ordem alfabética (o último critério já é o nome). */
-function ordenarENumerar(itens: (ParaOrdenar & { situacao: string })[], ordenacao: OrdenacaoDasListas): LinhaNominal[] {
+function ordenarENumerar(itens: (ParaOrdenar & { perfil: string })[], ordenacao: OrdenacaoDasListas): LinhaNominal[] {
   const cadeia = COMPARADORES[ordenacao];
   const ordenados = [...itens].sort((a, b) => { for (const c of cadeia) { const r = c(a, b); if (r !== 0) return r; } return porNome(a, b); });
-  return ordenados.map((i, k) => ({ posicao: k + 1, nome: i.nome, ultima: i.ultima, contribuicoes: i.quantidade, situacao: i.situacao }));
+  return ordenados.map((i, k) => ({ posicao: k + 1, nome: i.nome, contribuicoes: i.quantidade, perfil: i.perfil }));   // a última contribuição só ORDENA (opção do construtor): não é coluna
 }
 
 /**
@@ -68,9 +68,9 @@ export function listasNominaisDoEmail(
   linhas: LinhaDeContribuicao[], periodo: { ini: string; fim: string }, nomes: Map<string, string>, semContribuicao: AnaliseDosSemContribuicao, ordenacao: OrdenacaoDasListas = ORDENACAO_PADRAO,
 ): ListasNominais {
   const contribuiram = resumirPessoas(linhas, periodo).map(r => ({
-    nome: nomes.get(r.pessoaId) ?? "(nome não encontrado)", ultima: r.ultima, quantidade: r.quantidade, total: r.total, dias: diasEntre(r.ultima, periodo.fim), situacao: situacaoDeQuemContribuiu(r),
+    nome: nomes.get(r.pessoaId) ?? "(nome não encontrado)", ultima: r.ultima, quantidade: r.quantidade, total: r.total, dias: diasEntre(r.ultima, periodo.fim), perfil: perfilDeQuemContribuiu(r),
   }));
-  const sem = semContribuicao.lista.map(p => ({ nome: p.nome, ultima: p.ultima, quantidade: 0, total: 0, dias: p.dias, situacao: situacaoDeQuemNaoContribuiu(p) }));
+  const sem = semContribuicao.lista.map(p => ({ nome: p.nome, ultima: p.ultima, quantidade: 0, total: 0, dias: p.dias, perfil: perfilDeQuemNaoContribuiu(p) }));
   return { contribuiram: ordenarENumerar(contribuiram, ordenacao), semContribuicao: ordenarENumerar(sem, ordenacao).map(l => ({ ...l, contribuicoes: null })) };
 }
 

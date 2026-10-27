@@ -5,6 +5,8 @@
 //   · Painel — só agregados (nenhum nome): indicadores, gráficos, destaques. É o que o e-mail ao pastor levará.
 //   · Pessoas — a lista nominal de antes, sobre o período, com grupos. NOMINAL: exige o registro do acesso.
 //   · Sem contribuição — quem não contribuiu no período (base: membros e congregados ativos). NOMINAL: exige o registro do acesso.
+//   · Pendentes de identificação (Fase 3) — a fila das contribuições SEM pessoa: vincular pessoa/família, aceitar sugestão, anônimo, ignorar, desfazer; taxa em quatro partes e meta de 95%.
+//     Independe dos filtros de período/base (olha tudo desde 01/01/2026) e, ao mudar algo, recarrega as contribuições para o painel refletir na hora.
 // O PISO (decisão dela): toda análise começa em 01/01/2026 — antes disso só ~30–35% dos dízimos têm pessoa ligada. O período pedido é ajustado ao piso e a tela diz que foi.
 // FILTROS GLOBAIS (Fase 2B, 27/10/2026): a BASE analisada (membros / membros e congregados / + visitantes ativos) e as CONTRIBUIÇÕES consideradas (dízimos, ofertas, missões) valem para as três abas; quem contribuiu
 // fora da base não entra nos indicadores e aparece à parte ("fora da base"). O card "Saúde da base" fica fixo no painel. A lista de Pessoas ordena por TOTAL (maior para menor) por padrão e tem "Top N"
@@ -34,11 +36,12 @@ import { downloadCSV } from "@/services/finService";
 import { PainelDeContribuicoes } from "@/components/contribuicoes/PainelDeContribuicoes";
 import { ListaDePessoas, ordemDaUrl, topDaUrl, type GrupoDePessoas, type PessoaDaLista } from "@/components/contribuicoes/ListaDePessoas";
 import { SemContribuicao, type FiltrosDosSem } from "@/components/contribuicoes/SemContribuicao";
+import { PendentesDeIdentificacao } from "@/components/contribuicoes/PendentesDeIdentificacao";
 import { useRegistroDeAcesso } from "@/components/contribuicoes/useRegistroDeAcesso";
 import { abaDePessoas, abasDoPainel, abasDosSemContribuicao, paraCSV, textoDoPeriodo } from "@/components/contribuicoes/exportacoes";
 
-type Aba = "painel" | "pessoas" | "sem";
-const ABAS: { id: Aba; rotulo: string }[] = [{ id: "painel", rotulo: "Painel" }, { id: "pessoas", rotulo: "Pessoas" }, { id: "sem", rotulo: "Sem contribuição" }];
+type Aba = "painel" | "pessoas" | "sem" | "pendentes";
+const ABAS: { id: Aba; rotulo: string }[] = [{ id: "painel", rotulo: "Painel" }, { id: "pessoas", rotulo: "Pessoas" }, { id: "sem", rotulo: "Sem contribuição" }, { id: "pendentes", rotulo: "Pendentes de identificação" }];
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const ultimoDia = (ano: number, mes: number) => `${ano}-${String(mes).padStart(2, "0")}-${String(new Date(ano, mes, 0).getDate()).padStart(2, "0")}`;
 
@@ -273,6 +276,7 @@ export default function FinancasDoadores() {
               registro={registroPessoas} aoExportar={exportarPessoas} exportando={exportando}
               novosDisponivel={resumos.some(r => r.nova !== null)} recorrentesDisponivel={resumos.some(r => r.recorrente !== null)} />
           </TabsContent>
+          <TabsContent value="pendentes" className="mt-4"><PendentesDeIdentificacao aoMudar={carregar} /></TabsContent>
           <TabsContent value="sem" className="mt-4">
             {!semAnalise ? <PaginaSkeleton linhas={3} comCabecalho={false} /> : (
               <SemContribuicao analise={semAnalise} filtros={filtrosSem}

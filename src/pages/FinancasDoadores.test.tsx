@@ -81,6 +81,10 @@ describe("o painel é só agregado", () => {
     await abrir();
     expect(q('[data-acao="enviar-relatorio"]')?.getAttribute("href")).toBe("/comunicacao?aba=relatorios&enviar=doadores&de=2026-04-28&ate=2026-10-27");
   });
+  it("as quatro abas: Painel, Pessoas, Sem contribuição e Pendentes de identificação", async () => {
+    await abrir();
+    expect(qa('[role="tab"]').map(t => t.textContent)).toEqual(["Painel", "Pessoas", "Sem contribuição", "Pendentes de identificação"]);
+  });
   it("três gráficos e os destaques", async () => {
     await abrir();
     expect(qa("[data-grafico]").map(g => g.getAttribute("data-grafico"))).toEqual(["evolucao", "adesao", "mensal"]);

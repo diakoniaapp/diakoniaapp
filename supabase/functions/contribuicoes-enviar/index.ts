@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao });
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao, baseAnalisada: pedido.base });
     const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };

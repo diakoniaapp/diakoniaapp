@@ -74,7 +74,7 @@ describe("a moldura única dos e-mails do sistema", () => {
     const src = readFileSync("supabase/functions/_shared/contribuicoes/email.ts", "utf8");
     expect(src).not.toMatch(/<!doctype|<html/i);
     expect(src).not.toMatch(/#[0-9a-fA-F]{6}\b/);   // só `D.COR`
-    expect(src).not.toMatch(/membros|nome_completo|pessoa_id/);
+    expect(src).not.toMatch(/nome_completo|pessoa_id|\.from\(|carregar\.ts/);   // não consulta o banco nem carrega dados de pessoas: só formata o que recebe
   });
   it("a prévia e o teste levam a faixa de aviso; o envio de verdade, não", () => {
     expect(montarEmailDeContribuicoes(a, { aviso: "PRÉVIA — nada foi enviado" }).html).toContain("PRÉVIA — nada foi enviado");

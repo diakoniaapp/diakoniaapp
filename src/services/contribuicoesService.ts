@@ -41,7 +41,7 @@ export async function carregarNomes(ids: string[]): Promise<Map<string, string>>
 }
 
 // ── o registro de quem VÊ a lista nominal ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-export type AcaoDoRegistro = "ver_pessoas" | "ver_nao_contribuiram" | "exportar_pessoas" | "exportar_nao_contribuiram" | "ver_pessoa";
+export type AcaoDoRegistro = "ver_pessoas" | "ver_nao_contribuiram" | "exportar_pessoas" | "exportar_nao_contribuiram" | "ver_pessoa" | "ver_pendentes";
 /**
  * `ok`: gravou. `indisponivel`: a função ainda não existe no banco (migration 20261027160000 não aplicada) — a tela mostra a lista COM um aviso. Qualquer outro erro (sem permissão, rede)
  * NÃO libera a lista: sem registro, sem nomes.
