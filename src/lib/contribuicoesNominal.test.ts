@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type LinhaDeContribuicao, type PessoaDaBase } from "../../supabase/functions/_shared/contribuicoes/analise";
 import { listasNominaisDoEmail, totalDeNomes } from "../../supabase/functions/_shared/contribuicoes/nominal";
 import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
-import { blocosDoModelo } from "../../supabase/functions/_shared/contribuicoes/blocos";
+import { IDS_NOMINAIS, blocosDoModelo } from "../../supabase/functions/_shared/contribuicoes/blocos";
 
 const periodo = { ini: "2026-07-01", fim: "2026-09-30" };
 const L = (pessoa_id: string, data: string, valor: number, categoria = "Dizimos"): LinhaDeContribuicao => ({ pessoa_id, data, valor, categoria });
@@ -25,7 +25,7 @@ const nomes = new Map([["zeca", "Zeca Teste"], ["ana", "Ana Teste"], ["inativo",
 const sem = analisarSemContribuicao(linhas, pessoas, periodo, { considerar: "qualquer", incluirMenores: false });
 const listas = listasNominaisDoEmail(linhas, periodo, nomes, sem);
 const analise = analisarContribuicoes(linhas, periodo);
-const email = montarEmailDeContribuicoes(analise, { blocos: blocosDoModelo("pastor"), base: resumirBase(sem), nominal: listas });
+const email = montarEmailDeContribuicoes(analise, { blocos: [...blocosDoModelo("pastor"), ...IDS_NOMINAIS], base: resumirBase(sem), nominal: listas });   // nomes só quando as opções nominais são marcadas
 
 describe("as linhas com nomes não têm valor", () => {
   it("quem contribuiu: nome, última, quantidade e situação — em ordem alfabética", () => {

@@ -1,7 +1,7 @@
 // ─── pedido — validar o que a tela manda para `contribuicoes-enviar` (puro: sem rede, sem Deno) ─────────────────────────────────────────────────────────────────────────────────────────────
 // A função NÃO confia no que vem da chamada: o período é conferido (datas reais, não no futuro, ajustado ao piso de 01/01/2026) e os destinatários são limpos (e-mail válido, sem repetição, no máximo
 // `MAXIMO_DE_DESTINATARIOS`). Os NÚMEROS nunca vêm da chamada: a função os calcula sozinha a partir do banco.
-import { ajustarAoPiso } from "./analise.ts";
+import { BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, FILTROS_PADRAO, ajustarAoPiso, type BaseAnalisada, type TipoDeContribuicao } from "./analise.ts";
 import { validarBlocos, type IdDoBloco } from "./blocos.ts";
 import { emailDeRespostaValido } from "../email/remetente.ts";
 
@@ -13,11 +13,11 @@ const dataReal = (s: unknown): string | null => {
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : s;
 };
 
-export interface PedidoValidado { periodo: { ini: string; fim: string; ajustado: boolean }; destinatarios: string[]; blocos: IdDoBloco[] }
+export interface PedidoValidado { periodo: { ini: string; fim: string; ajustado: boolean }; destinatarios: string[]; blocos: IdDoBloco[]; base: BaseAnalisada; categorias: TipoDeContribuicao[] }
 export type ResultadoDoPedido = { ok: true; pedido: PedidoValidado } | { ok: false; erro: string };
 
 /** Só as datas e a lista de destinatários; quem chama decide se a ação exige destinatário. */
-export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown }; destinatarios?: unknown; blocos?: unknown }, hoje: string, exigeDestinatario: boolean): ResultadoDoPedido {
+export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown }, hoje: string, exigeDestinatario: boolean): ResultadoDoPedido {
   const ini = dataReal(corpo.periodo?.ini), fimPedido = dataReal(corpo.periodo?.fim);
   if (!ini || !fimPedido) return { ok: false, erro: "Informe o período com datas válidas (AAAA-MM-DD)." };
   const fim = fimPedido > hoje ? hoje : fimPedido;   // não há contribuição no futuro
@@ -28,6 +28,16 @@ export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown 
   const b = validarBlocos(corpo.blocos);
   if (!b.ok) return { ok: false, erro: b.erro };
 
+  // os filtros globais: só valores conhecidos; ausentes = o padrão (membros e congregados; as três categorias)
+  const base = corpo.base === undefined || corpo.base === null ? FILTROS_PADRAO.base : corpo.base;
+  if (!(BASES_ANALISADAS as unknown[]).includes(base)) return { ok: false, erro: "Base analisada inválida." };
+  let categorias: TipoDeContribuicao[] = FILTROS_PADRAO.categorias;
+  if (corpo.categorias !== undefined && corpo.categorias !== null) {
+    if (!Array.isArray(corpo.categorias) || corpo.categorias.some(c => !CATEGORIAS_DE_CONTRIBUICAO.some(x => x.id === c))) return { ok: false, erro: "Categoria de contribuição inválida." };
+    categorias = CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id).filter(id => (corpo.categorias as unknown[]).includes(id));
+    if (categorias.length === 0) return { ok: false, erro: "Escolha ao menos uma categoria de contribuição." };
+  }
+
   const brutos = Array.isArray(corpo.destinatarios) ? corpo.destinatarios : [];
   const destinatarios: string[] = [];
   for (const x of brutos) {
@@ -37,8 +47,8 @@ export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown 
   }
   if (destinatarios.length > MAXIMO_DE_DESTINATARIOS) return { ok: false, erro: `No máximo ${MAXIMO_DE_DESTINATARIOS} destinatários por envio.` };
   if (exigeDestinatario && destinatarios.length === 0) return { ok: false, erro: "Informe ao menos um destinatário." };
-  return { ok: true, pedido: { periodo: { ini: p.ini, fim: p.fim, ajustado: p.ajustado }, destinatarios, blocos: b.blocos! } };
+  return { ok: true, pedido: { periodo: { ini: p.ini, fim: p.fim, ajustado: p.ajustado }, destinatarios, blocos: b.blocos!, base: base as BaseAnalisada, categorias } };
 }
 
 /** A chave que identifica "o mesmo envio" (período + destinatários), para recusar o clique duplo. */
-export const chaveDoEnvio = (p: PedidoValidado) => `${p.periodo.ini}|${p.periodo.fim}|${[...p.destinatarios].sort().join(",")}|${p.blocos.join("+")}`;
+export const chaveDoEnvio = (p: PedidoValidado) => `${p.periodo.ini}|${p.periodo.fim}|${[...p.destinatarios].sort().join(",")}|${p.blocos.join("+")}|${p.base}|${p.categorias.join("+")}`;

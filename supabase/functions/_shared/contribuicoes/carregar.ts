@@ -41,7 +41,7 @@ export async function lerBaseDePessoas(cliente: { from: (tabela: string) => any 
     return todas;
   };
   const pessoas = await paginar<{ id: string; nome_completo: string; tipo_pessoa: string; status: string; data_nascimento: string | null }>((de, ate) =>
-    cliente.from("membros").select("id, nome_completo, tipo_pessoa, status, data_nascimento").eq("status", "ativo").in("tipo_pessoa", ["membro", "congregado"]).order("id", { ascending: true }).range(de, ate));
+    cliente.from("membros").select("id, nome_completo, tipo_pessoa, status, data_nascimento").eq("status", "ativo").in("tipo_pessoa", ["membro", "congregado", "visitante"]).order("id", { ascending: true }).range(de, ate));
   const vinculos = await paginar<{ membro_id: string; familia_id: string }>((de, ate) =>
     cliente.from("vinculos_familiares").select("membro_id, familia_id").order("id", { ascending: true }).range(de, ate));
   const familiaDe = new Map(vinculos.map(v => [v.membro_id, v.familia_id]));

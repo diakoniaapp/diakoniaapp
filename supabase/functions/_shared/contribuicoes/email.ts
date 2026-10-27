@@ -5,7 +5,7 @@
 // números (`AnaliseDoPeriodo` e `ResumoDaBase`): não há como um nome entrar no e-mail. Os gráficos são barras em tabela
 // HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
-import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ResumoDaBase } from "./analise.ts";
+import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ResumoDaBase, type TendenciaDoPeriodo } from "./analise.ts";
 import { IDS_AGREGADOS, temBlocoNominal, type IdDoBloco } from "./blocos.ts";
 import type { LinhaNominal, ListasNominais } from "./nominal.ts";
 
@@ -72,13 +72,58 @@ function blocoSaudeDaBase(a: AnaliseDoPeriodo, b: ResumoDaBase | null): string {
     { icone: "🌱", rotulo: "Novos dizimistas", valor: a.novos === null ? "—" : n(a.novos) },
     { icone: "🔁", rotulo: "Recorrentes", valor: a.recorrentes ? n(a.recorrentes.pessoas) : "—" },
   ]);
-  const linhas = [
-    `Nenhuma contribuição desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`,
-    `Contribuíram antes do período, mas não nele: ${n(b.jaContribuiuAntes)}`,
-    `Sem contribuir há mais de 30 dias: ${n(b.haMaisDe.dias30)} · de 60: ${n(b.haMaisDe.dias60)} · de 90: ${n(b.haMaisDe.dias90)} · de 180: ${n(b.haMaisDe.dias180)}`,
-  ];
-  h += D.cartaoDeLista({ titulo: "Quem ainda não contribuiu no período", frase: "Quantidades para acompanhamento pastoral. Quem contribui por outra pessoa da família, em espécie ou sem identificação pode estar aqui.", itens: linhas, tom: "info" });
   return h;
+}
+
+/** O bloco "Não contribuíram no período": só quantidades, nunca nomes. */
+function blocoNaoContribuiram(b: ResumoDaBase | null): string {
+  let h = D.secao("Não contribuíram no período", "Quantidades para acompanhamento pastoral.");
+  if (!b) return h + D.blocoDeObservacao("Esta informação não pôde ser calculada neste envio.");
+  const linhas = [
+    `Nenhuma contribuição registrada desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`,
+    `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
+    `Sem contribuição há mais de 30 dias: ${n(b.haMaisDe.dias30)} · 60 dias: ${n(b.haMaisDe.dias60)} · 90 dias: ${n(b.haMaisDe.dias90)} · 180 dias: ${n(b.haMaisDe.dias180)}`,
+  ];
+  return h + D.cartaoDeLista({ titulo: "Quem ainda não contribuiu", frase: "Quem contribui por outra pessoa da família, em espécie ou sem identificação pode estar aqui sem ter deixado de contribuir.", itens: linhas, tom: "info" });
+}
+
+const sinal = (v: number | null) => (v === null ? "—" : `${v > 0 ? "+" : ""}${n(v, 1)}%`);
+
+/** O bloco "Tendências": comparação com o período anterior (quando cabe depois do piso) ou a direção da série. */
+function blocoTendencias(t: TendenciaDoPeriodo | null | undefined): string {
+  let h = D.secao("Tendências");
+  if (!t) return h + D.blocoDeObservacao("Não há dados suficientes neste período para indicar uma tendência.");
+  if (t.modo === "periodo_anterior" && t.arrecadado && t.contribuintes && t.dizimistas && t.anterior) {
+    h += D.paragrafo(`Comparação com o período anterior de mesma duração (${ddmmaaaa(t.anterior.ini)} a ${ddmmaaaa(t.anterior.fim)}).`);
+    return h + D.cartaoDeLista({ titulo: "Variação", frase: "", tom: "info", itens: [
+      `Arrecadado: ${brl(t.arrecadado.atual)} (antes ${brl(t.arrecadado.anterior)}) · ${sinal(t.arrecadado.variacaoPct)}`,
+      `Contribuintes: ${n(t.contribuintes.atual)} (antes ${n(t.contribuintes.anterior)}) · ${sinal(t.contribuintes.variacaoPct)}`,
+      `Dizimistas: ${n(t.dizimistas.atual)} (antes ${n(t.dizimistas.anterior)}) · ${sinal(t.dizimistas.variacaoPct)}`,
+    ] });
+  }
+  const direcao = t.direcao === "alta" ? "em alta" : t.direcao === "queda" ? "em queda" : "estável";
+  return h + D.cartaoDeLista({ titulo: `Arrecadação ${direcao}`, frase: "", tom: "info", itens: [
+    `A média semanal da segunda metade do período em relação à primeira: ${sinal(t.variacaoPct ?? null)}.`,
+    `O período anterior equivalente começaria antes de ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}, quando a identificação ainda não era confiável; por isso a tendência é a da própria série.`,
+  ] });
+}
+
+/** O bloco "Critérios da análise": as definições usadas, em frases. */
+function blocoCriterios(): string {
+  return D.secao("Critérios da análise", "Como cada número é calculado.") + D.cartaoDeLista({ titulo: "Definições", frase: "", tom: "info", itens: [
+    `A análise começa em ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: antes disso só cerca de um terço das contribuições tem pessoa identificada.`,
+    "Contribuição: dízimo, oferta ou oferta para missões, realizada ou conciliada; transferências e rendimentos ficam de fora.",
+    "Dizimista: pessoa da base com dízimo identificado no período. Doador: qualquer das contribuições escolhidas.",
+    "Recorrente: dizimista que deu dízimo em todos os meses completos do período. Novo: primeira contribuição identificada dentro do período.",
+    "Base: pessoas ativas do vínculo escolhido; quem contribuiu e está fora da base aparece à parte e não entra nos indicadores.",
+    "Sem contribuição \"nunca\" significa nenhuma contribuição registrada desde o início da análise, não na vida.",
+  ] });
+}
+
+/** O cabeçalho de rastreabilidade: período, base, contribuições, pessoas consideradas, quando e por quem foi gerado, versão dos critérios. */
+function cartaoDoCabecalho(linhas: { rotulo: string; valor: string }[]): string {
+  const l = (x: { rotulo: string; valor: string }) => `<tr><td style="padding:2px 10px 2px 0;font-size:12px;color:${D.COR.suave};white-space:nowrap" valign="top">${D.esc(x.rotulo)}</td><td style="padding:2px 0;font-size:12px;color:${D.COR.texto}">${D.esc(x.valor)}</td></tr>`;
+  return D.cartao("Este relatório", `<table role="presentation" cellpadding="0" cellspacing="0" width="100%">${linhas.map(l).join("")}</table>`);
 }
 
 /** Uma lista com nomes: nome, última contribuição, quantidade (só de quem contribuiu) e situação. Nenhum valor. */
@@ -100,6 +145,10 @@ export interface OpcoesDoEmailDeContribuicoes {
   base?: ResumoDaBase | null;
   /** as listas com nomes (sem valores), necessárias aos blocos nominais; só vão se o bloco foi escolhido */
   nominal?: ListasNominais | null;
+  /** o cabeçalho de rastreabilidade (obrigatório em todo relatório gerado pela função) */
+  cabecalho?: { rotulo: string; valor: string }[];
+  /** a tendência do período, para o bloco "Tendências" */
+  tendencia?: TendenciaDoPeriodo | null;
 }
 
 export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = {}): EmailDeContribuicoes {
@@ -112,7 +161,7 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   const d = a.destaques;
 
   const comNomes = temBlocoNominal([...escolhidos]);
-  let corpo = D.saudacao("Relatório de contribuições") + D.paragrafo(`Período analisado: ${periodo}.`);
+  let corpo = D.saudacao("Relatório de contribuições") + (o.cabecalho ? cartaoDoCabecalho(o.cabecalho) : D.paragrafo(`Período analisado: ${periodo}.`));
   if (comNomes) corpo += D.cartaoDeAlerta({ titulo: "Contém dados individuais", linhas: ["Este relatório traz nomes de pessoas e a data da última contribuição, sem valores. Não encaminhe nem imprima sem necessidade."], tom: "aviso" });
   if (tem("resumo")) corpo += D.paragrafo(resumo);
 
@@ -156,6 +205,9 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   }
   // a saúde da base independe de haver arrecadação no período: "ninguém contribuiu" também é informação
   if (tem("saude_da_base")) corpo += blocoSaudeDaBase(a, o.base ?? null);
+  if (tem("nao_contribuiram")) corpo += blocoNaoContribuiram(o.base ?? null);
+  if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
+  if (tem("criterios")) corpo += blocoCriterios();
   if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, última contribuição no período, quantidade de contribuições e situação. Sem valores.", o.nominal?.contribuiram ?? [], true);
   if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Membros e congregados ativos sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false);
   if (tem("cobertura") && a.arrecadado > 0) {
@@ -171,7 +223,7 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
 
   const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
-  const linhas = ["Relatório de contribuições", `Período analisado: ${periodo}`];
+  const linhas = ["Relatório de contribuições", ...(o.cabecalho ? o.cabecalho.map(c => `${c.rotulo}: ${c.valor}`) : [`Período analisado: ${periodo}`])];
   if (tem("resumo")) linhas.push("", resumo);
   if (a.arrecadado > 0) {
     if (tem("indicadores")) linhas.push("", `Dizimistas: ${n(a.dizimistas)}`, `Doadores: ${n(a.doadores)}`, `Arrecadado: ${brl(a.arrecadado)}`, `Média mensal: ${brl(a.mediaMensal)}`,
@@ -181,8 +233,12 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   if (tem("saude_da_base") && o.base) {
     const b = o.base;
     linhas.push("", "Saúde da base contribuinte", `Membros ativos: ${n(b.base)}`, `Contribuíram: ${n(b.contribuiram)}`, `Sem contribuição registrada: ${n(b.naoContribuiram)}`,
-      `Adesão da base: ${b.adesaoPct === null ? "—" : n(b.adesaoPct, 1) + "%"}`,
-      `Sem contribuir há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
+      `Adesão da base: ${b.adesaoPct === null ? "—" : n(b.adesaoPct, 1) + "%"}`);
+  }
+  if (tem("nao_contribuiram") && o.base) {
+    const b = o.base;
+    linhas.push("", "Não contribuíram no período", `Nenhuma contribuição registrada desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`, `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
+      `Sem contribuição há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
   }
   const linhaNominal = (l: LinhaNominal) => `- ${l.nome} — última: ${l.ultima ? ddmmaaaa(l.ultima) : "—"}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`} — ${l.situacao}`;
   if (tem("contribuintes_nominal")) linhas.push("", "Quem contribuiu (sem valores)", ...(o.nominal?.contribuiram ?? []).map(linhaNominal));

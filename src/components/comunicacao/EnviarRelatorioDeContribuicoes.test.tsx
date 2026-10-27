@@ -21,6 +21,7 @@ let raiz: Root | null = null;
 beforeAll(() => { (Element.prototype as unknown as { hasPointerCapture?: () => boolean }).hasPointerCapture ??= () => false; });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; vi.clearAllMocks(); });
 
+const FILTROS = { base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"] };
 const PASTOR = IDS_DOS_BLOCOS.filter(id => blocosDoModelo("pastor").includes(id));   // na ordem canônica, a que a gaveta envia
 const PREVIA = { assunto: "Relatório de contribuições — 28/04/2026 a 27/10/2026", html: "<p>corpo</p>", texto: "corpo", resumo: "resumo", periodo: { ini: "2026-04-28", fim: "2026-10-27", ajustado: false } };
 function servico(o: Partial<ServicoDoEnvio> = {}) {
@@ -77,7 +78,7 @@ describe("a gaveta de envio", () => {
     await abrirGaveta(s);
     await digitar("pastor@qibrj.org.br");
     await clicar(q('[data-acao="visualizar"]'));
-    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR);
+    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, FILTROS);
     const frame = q("iframe") as HTMLIFrameElement;
     expect(frame.getAttribute("sandbox")).toBe("");
     expect(frame.getAttribute("srcdoc")).toBe("<p>corpo</p>");
@@ -106,8 +107,10 @@ describe("o que mostrar: modelos e blocos", () => {
     expect(q('[data-modelo="pastor"]')?.getAttribute("aria-pressed")).toBe("true");
     expect(marcados()).toEqual(IDS_DOS_BLOCOS.filter(id => PASTOR.includes(id)));
     expect(marcados()).toContain("saude_da_base");
+    expect(marcados()).toContain("nao_contribuiram");
     expect(q('[data-aviso="so-agregado"]')?.textContent).toContain("Valor individual, média individual, telefone e e-mail nunca vão por e-mail");
-    expect(q('[data-aviso="nominal"]')?.textContent).toContain("sem valores");   // o Pastor leva nomes: o aviso aparece de saída
+    expect(q('[data-aviso="nominal"]')).toBeNull();   // o padrão é só agregado: sem nomes, sem aviso de dados nominais
+    expect(marcados().some(id => (IDS_NOMINAIS as string[]).includes(id as string))).toBe(false);
   });
   it("os três modelos: Pastor, Diretoria e Tesouraria; Diretoria não leva a saúde da base, Tesouraria leva todos os agregados e nenhum nome", async () => {
     await abrirGaveta(servico());
@@ -161,14 +164,18 @@ describe("o que mostrar: modelos e blocos", () => {
     expect(texto).not.toMatch(/telefone|valor individual|total contribu|e-mail de pessoa/);
     expect(qa("[data-bloco]").length).toBe(IDS_DOS_BLOCOS.length);
   });
-  it("a confirmação de envio com nomes diz ATENÇÃO: contém nomes; sem nomes, diz que leva só números", async () => {
+  it("a lista nominal é OPÇÃO: marcar mostra o aviso de dados nominais e a confirmação diz ATENÇÃO; desmarcar tira os dois", async () => {
     await abrirGaveta(servico());
     await digitar("pastor@qibrj.org.br");
+    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));
+    expect(q('[data-aviso="nominal"]')?.textContent).toContain("dados nominais");
+    expect(q('[data-aviso="nominal"]')?.textContent).toContain("registrados para auditoria");
     await clicar(q('[data-acao="visualizar"]'));
     await clicar(botaoEnviar());
     expect(q('[data-confirmacao="envio"]')?.textContent).toContain("ATENÇÃO: o e-mail contém NOMES de pessoas (sem valores)");
     await clicar([...q('[data-confirmacao="envio"]')!.querySelectorAll("button")].find(b => b.textContent === "Cancelar"));
-    await clicar(q('[data-modelo="diretoria"]'));
+    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));   // desmarca
+    expect(q('[data-aviso="nominal"]')).toBeNull();
     await clicar(q('[data-acao="visualizar"]'));
     await clicar(botaoEnviar());
     expect(q('[data-confirmacao="envio"]')?.textContent).toContain("só números agregados, sem nomes");
@@ -211,10 +218,10 @@ describe("enviar", () => {
     const confirmacao = q('[data-confirmacao="envio"]')!;
     expect(confirmacao.textContent).toContain("28/04/2026 a 27/10/2026");
     expect(confirmacao.textContent).toContain("pastor@qibrj.org.br");
-    expect(confirmacao.textContent).toContain("NOMES de pessoas (sem valores)");   // o padrão (Pastor) leva nomes: a confirmação avisa
+    expect(confirmacao.textContent).toContain("só números agregados, sem nomes");   // o padrão (Pastor) é só agregado
     expect(s.enviar).not.toHaveBeenCalled();
     await clicar([...confirmacao.querySelectorAll("button")].find(b => b.textContent === "Enviar"));
-    expect(s.enviar).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, ["pastor@qibrj.org.br"]);
+    expect(s.enviar).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, FILTROS, ["pastor@qibrj.org.br"]);
     expect(toast.success).toHaveBeenCalledWith("Relatório enviado para 1 destinatário");
     expect(aoEnviar).toHaveBeenCalled();
     expect(aoFechar).toHaveBeenCalled();
@@ -254,8 +261,8 @@ describe("enviar", () => {
     const s = servico();
     await abrirGaveta(s);
     await clicar(q('[data-acao="teste"]'));
-    expect(s.teste).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR);
-    expect(s.teste.mock.calls[0].length).toBe(2);   // período e blocos — nunca destinatários
+    expect(s.teste).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, FILTROS);
+    expect(s.teste.mock.calls[0].length).toBe(3);   // período, blocos e filtros — nunca destinatários
     expect(toast.success).toHaveBeenCalledWith("Teste enviado para telma@qibrj.org.br");
   });
   it("período antes do piso: avisa, ajusta e o pedido sai a partir de 01/01/2026", async () => {
@@ -264,7 +271,7 @@ describe("enviar", () => {
     expect(q("[data-periodo]")?.textContent).toContain("01/01/2026 a 31/03/2026");
     expect(q("[data-periodo]")?.textContent).toContain("ajustado");
     await clicar(q('[data-acao="visualizar"]'));
-    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-01-01", fim: "2026-03-31" }, PASTOR);
+    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-01-01", fim: "2026-03-31" }, PASTOR, FILTROS);
   });
 });
 

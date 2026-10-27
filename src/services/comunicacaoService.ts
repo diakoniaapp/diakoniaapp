@@ -7,8 +7,11 @@ export interface PeriodoDoRelatorio { ini: string; fim: string }
 export interface PreviaDoRelatorio { assunto: string; html: string; texto: string; resumo: string; periodo: { ini: string; fim: string; ajustado: boolean } }
 export interface ResultadoDoEnvio { enviados: number; falharam: number; historicoGravado: boolean; motivo?: "enviado_ha_pouco" }
 
-async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, blocos: string[], destinatarios?: string[]) {
-  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, ...(destinatarios ? { destinatarios } : {}) } });
+/** Os filtros globais do relatório: a base analisada e as contribuições consideradas. */
+export interface FiltrosDoRelatorio { base: string; categorias: string[] }
+
+async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios?: string[]) {
+  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, base: filtros.base, categorias: filtros.categorias, ...(destinatarios ? { destinatarios } : {}) } });
   if (error) {
     let msg = error.message;
     try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }
@@ -18,26 +21,26 @@ async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRel
   return data as Record<string, any>;
 }
 
-export async function previaDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[]): Promise<PreviaDoRelatorio> {
-  const r = await chamar("previa", periodo, blocos);
+export async function previaDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio): Promise<PreviaDoRelatorio> {
+  const r = await chamar("previa", periodo, blocos, filtros);
   return { assunto: r.assunto ?? "", html: r.html ?? "", texto: r.texto ?? "", resumo: r.resumo ?? "", periodo: r.periodo ?? { ...periodo, ajustado: false } };
 }
 
 /** Manda o e-mail marcado [TESTE] SÓ para o e-mail cadastrado de quem está logado. */
-export async function enviarTesteDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[]): Promise<{ enviadoPara: string }> {
-  const r = await chamar("teste", periodo, blocos);
+export async function enviarTesteDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio): Promise<{ enviadoPara: string }> {
+  const r = await chamar("teste", periodo, blocos, filtros);
   return { enviadoPara: r.enviadoPara ?? "" };
 }
 
-export async function enviarRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], destinatarios: string[]): Promise<ResultadoDoEnvio> {
-  const r = await chamar("enviar", periodo, blocos, destinatarios);
+export async function enviarRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios: string[]): Promise<ResultadoDoEnvio> {
+  const r = await chamar("enviar", periodo, blocos, filtros, destinatarios);
   return { enviados: r.enviados ?? 0, falharam: r.falharam ?? 0, historicoGravado: r.historicoGravado !== false, motivo: r.motivo };
 }
 
 // ── o histórico ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 export interface EnvioDoHistorico {
   id: string; em: string; tipo: string; origem: "sob_demanda" | "teste"; solicitante_nome: string | null; assunto: string | null;
-  destinatarios: { email: string; ok: boolean; erro: string | null }[]; parametros: { ini?: string; fim?: string; blocos?: string[] }; resultado: "enviado" | "parcial" | "falhou";
+  destinatarios: { email: string; ok: boolean; erro: string | null }[]; parametros: { ini?: string; fim?: string; blocos?: string[]; base?: string; categorias?: string[]; versao?: string }; resultado: "enviado" | "parcial" | "falhou";
 }
 export interface HistoricoDosEnvios { envios: EnvioDoHistorico[]; /** a tabela ainda não existe (migration 20261027180000 não aplicada) */ indisponivel: boolean }
 

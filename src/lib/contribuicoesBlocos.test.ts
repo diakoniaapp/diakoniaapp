@@ -10,8 +10,8 @@ import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type Linha
 import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
 
 describe("o registro de blocos e os modelos", () => {
-  it("oito blocos agregados e DOIS com nomes; cada modelo só usa blocos que existem; nenhum bloco de valor, telefone ou contato", () => {
-    expect(IDS_AGREGADOS).toEqual(["resumo", "indicadores", "categorias", "curva_adesao", "distribuicao_mensal", "destaques", "saude_da_base", "cobertura"]);
+  it("onze blocos agregados e DOIS com nomes; cada modelo só usa blocos que existem; nenhum bloco de valor, telefone ou contato", () => {
+    expect(IDS_AGREGADOS).toEqual(["resumo", "indicadores", "categorias", "saude_da_base", "nao_contribuiram", "tendencias", "curva_adesao", "distribuicao_mensal", "destaques", "criterios", "cobertura"]);
     expect(IDS_NOMINAIS).toEqual(["contribuintes_nominal", "sem_contribuicao_nominal"]);
     expect(IDS_DOS_BLOCOS).toEqual([...IDS_AGREGADOS, ...IDS_NOMINAIS]);
     for (const m of MODELOS_DE_RELATORIO) for (const b of m.blocos) expect(IDS_DOS_BLOCOS).toContain(b);
@@ -21,11 +21,11 @@ describe("o registro de blocos e os modelos", () => {
     expect(temBlocoNominal(["resumo"])).toBe(false);
     expect(temBlocoNominal(["resumo", "sem_contribuicao_nominal"])).toBe(true);
   });
-  it("Pastor leva a saúde da base e os dois blocos com nomes, sem categorias; Diretoria e Tesouraria NÃO levam nomes (Tesouraria = todos os agregados)", () => {
-    expect(blocosDoModelo("pastor")).toContain("saude_da_base");
-    expect(blocosDoModelo("pastor")).toEqual(expect.arrayContaining(IDS_NOMINAIS));
+  it("NENHUM modelo leva nomes por padrão (decisão dela, 2ª rodada): Pastor = saúde da base, não contribuíram, tendências, gráficos; Tesouraria = todos os agregados", () => {
+    expect(blocosDoModelo("pastor")).toEqual(expect.arrayContaining(["saude_da_base", "nao_contribuiram", "tendencias", "curva_adesao"]));
+    expect(temBlocoNominal(blocosDoModelo("pastor"))).toBe(false);
     expect(blocosDoModelo("pastor")).not.toContain("categorias");
-    expect(blocosDoModelo("diretoria")).toContain("categorias");
+    expect(blocosDoModelo("diretoria")).toEqual(expect.arrayContaining(["categorias", "tendencias", "distribuicao_mensal"]));
     expect(blocosDoModelo("diretoria")).not.toContain("saude_da_base");
     expect(temBlocoNominal(blocosDoModelo("diretoria"))).toBe(false);
     expect(blocosDoModelo("tesouraria")).toEqual(IDS_AGREGADOS);
@@ -116,10 +116,10 @@ describe("Saúde da base contribuinte — só quantidades", () => {
   });
   it("o e-mail mostra adesão, não contribuíram e as faixas, sem nenhum nome", () => {
     const a = analisarContribuicoes(linhas, periodo);
-    const e = montarEmailDeContribuicoes(a, { blocos: ["saude_da_base"], base });
-    for (const t of ["Saúde da base contribuinte", "Membros ativos", "Adesão da base", "16,7%", "Sem contribuição registrada", "há mais de 30 dias: 3", "de 180: 1", "Nenhuma contribuição desde 01/01/2026: 2"]) expect(e.html).toContain(t);
+    const e = montarEmailDeContribuicoes(a, { blocos: ["saude_da_base", "nao_contribuiram"], base });
+    for (const t of ["Saúde da base contribuinte", "Membros ativos", "Adesão da base", "16,7%", "Sem contribuição registrada", "Não contribuíram no período", "há mais de 30 dias: 3", "180 dias: 1", "Nenhuma contribuição registrada desde 01/01/2026: 2"]) expect(e.html).toContain(t);
     expect(e.html).not.toMatch(/NOME-SECRETO/);
-    expect(e.texto).toContain("Sem contribuir há mais de 30 / 60 / 90 / 180 dias: 3 / 3 / 3 / 1");
+    expect(e.texto).toContain("Sem contribuição há mais de 30 / 60 / 90 / 180 dias: 3 / 3 / 3 / 1");
     expect(e.texto).not.toMatch(/NOME-SECRETO/);
   });
   it("aparece mesmo sem arrecadação no período: 'ninguém contribuiu' também é informação", () => {
@@ -136,7 +136,7 @@ describe("a Edge Function usa os blocos sem expor a lista", () => {
     expect(fn).toContain("validarPedido(corpo, hoje");
     expect(fn).toContain('pedido.blocos.includes("saude_da_base")');
     expect(fn).toContain("resumirBase(semContribuicaoAnalisada)");
-    expect(fn).toMatch(/montarEmailDeContribuicoes\(analise, \{ igreja, aviso, blocos: pedido\.blocos, base: resumoDaBase, nominal \}\)/);
+    expect(fn).toMatch(/montarEmailDeContribuicoes\(analise, \{ igreja, aviso, blocos: pedido\.blocos, base: resumoDaBase, nominal, cabecalho, tendencia \}\)/);
     expect(fn).not.toMatch(/\.lista\b/);   // a lista nominal (propriedade `lista` da análise) nunca é lida pela função
   });
   it("registra no histórico quais blocos foram", () => {

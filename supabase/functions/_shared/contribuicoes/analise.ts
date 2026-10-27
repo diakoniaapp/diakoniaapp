@@ -255,6 +255,8 @@ export interface OpcoesDosSemContribuicao {
   /** o que conta como "contribuiu": qualquer das três categorias, ou só Dízimo */
   considerar: "qualquer" | "dizimo";
   incluirMenores: boolean;
+  /** o vínculo da base; ausente = membros e congregados (o padrão de sempre) */
+  vinculos?: VinculoDaBase[];
 }
 
 export interface AnaliseDosSemContribuicao {
@@ -299,7 +301,8 @@ export function analisarSemContribuicao(
     else if (l.data < ini) { const u = ultimaAntes.get(l.pessoa_id!); if (!u || l.data > u) ultimaAntes.set(l.pessoa_id!, l.data); }
   }
 
-  const todos = pessoas.filter(fazParteDaBase);
+  const vinculos: string[] = opcoes.vinculos ?? ["membro", "congregado"];
+  const todos = pessoas.filter(p => p.status === "ativo" && vinculos.includes(p.tipo_pessoa));
   const ehMenor = (p: PessoaDaBase) => { const i = idadeEm(p.data_nascimento, fim); return i !== null && i < 18; };
   const menoresFora = opcoes.incluirMenores ? 0 : todos.filter(ehMenor).length;
   const base = opcoes.incluirMenores ? todos : todos.filter(p => !ehMenor(p));
@@ -394,4 +397,128 @@ export function resumirBase(a: AnaliseDosSemContribuicao): ResumoDaBase {
     haMaisDe: { dias30: ate60, dias60: ate90, dias90: ate180, dias180: mais180 },
     menoresFora: a.menoresFora,
   };
+}
+
+// ── os filtros globais: BASE analisada e CONTRIBUIÇÕES consideradas (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Decisão dela: "todos os indicadores e gráficos respeitam a base escolhida" e as categorias são cumulativas. Regras:
+//   · Base = ativos do vínculo escolhido (membros; membros e congregados — o padrão; membros, congregados e visitantes ativos). Menores de 18 anos fazem parte da base para QUEM CONTRIBUIU (uma criança que
+//     dá oferta não é "de fora"); só saem do denominador de "quem não contribuiu" (opção de incluir, como antes).
+//   · Quem contribuiu e NÃO está na base (inativo, ex-membro, visitante quando não incluído) não entra nos indicadores: aparece à parte em `foraDaBase` (pessoas e valor).
+//   · Entrada sem pessoa identificada continua no total e na cobertura (é a qualidade do dado), como antes.
+export type BaseAnalisada = "membros" | "membros_congregados" | "membros_congregados_visitantes";
+export type VinculoDaBase = "membro" | "congregado" | "visitante";
+export const VINCULOS_DA_BASE: Record<BaseAnalisada, VinculoDaBase[]> = {
+  membros: ["membro"], membros_congregados: ["membro", "congregado"], membros_congregados_visitantes: ["membro", "congregado", "visitante"],
+};
+export const ROTULO_DA_BASE: Record<BaseAnalisada, string> = { membros: "Membros", membros_congregados: "Membros e congregados", membros_congregados_visitantes: "Membros, congregados e visitantes ativos" };
+export const BASES_ANALISADAS: BaseAnalisada[] = ["membros", "membros_congregados", "membros_congregados_visitantes"];
+export const CATEGORIAS_DE_CONTRIBUICAO: { id: TipoDeContribuicao; rotulo: string }[] = [
+  { id: "dizimo", rotulo: "Dízimos" }, { id: "oferta", rotulo: "Ofertas" }, { id: "missoes", rotulo: "Ofertas para Missões" },
+];
+export interface FiltrosDeAnalise { base: BaseAnalisada; categorias: TipoDeContribuicao[] }
+export const FILTROS_PADRAO: FiltrosDeAnalise = { base: "membros_congregados", categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id) };
+
+/** O texto das categorias escolhidas: "Dízimos, Ofertas e Ofertas para Missões". */
+export function rotuloDasCategorias(cats: TipoDeContribuicao[]): string {
+  const nomes = CATEGORIAS_DE_CONTRIBUICAO.filter(c => cats.includes(c.id)).map(c => c.rotulo);
+  return nomes.length <= 1 ? (nomes[0] ?? "nenhuma") : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
+/** Os ids de quem faz parte da base (ativos do vínculo escolhido; menores incluídos — ver acima). */
+export function idsDaBase(pessoas: PessoaDaBase[], base: BaseAnalisada): Set<string> {
+  const vinculos = VINCULOS_DA_BASE[base];
+  return new Set(pessoas.filter(p => p.status === "ativo" && (vinculos as string[]).includes(p.tipo_pessoa)).map(p => p.id));
+}
+
+export interface ForaDaBase { pessoas: number; valor: number }
+
+/**
+ * Aplica as categorias e a base às linhas. Devolve as linhas que contam (histórico completo de quem está na base, mais as entradas sem pessoa) e quem ficou de fora no período.
+ * `ids` nulo = sem filtro de base (só categorias).
+ */
+export function aplicarFiltros(
+  linhas: LinhaDeContribuicao[], filtros: FiltrosDeAnalise, ids: Set<string> | null, periodo: { ini: string; fim: string },
+): { linhas: LinhaDeContribuicao[]; foraDaBase: ForaDaBase } {
+  const porCategoria = linhas.filter(l => { const t = tipoDaContribuicao(l.categoria); return t !== null && filtros.categorias.includes(t); });
+  if (!ids) return { linhas: porCategoria, foraDaBase: { pessoas: 0, valor: 0 } };
+  const contam: LinhaDeContribuicao[] = [];
+  const foraPessoas = new Set<string>();
+  let foraValor = 0;
+  for (const l of porCategoria) {
+    if (!l.pessoa_id || ids.has(l.pessoa_id)) { contam.push(l); continue; }
+    if (l.data >= periodo.ini && l.data <= periodo.fim) { foraPessoas.add(l.pessoa_id); foraValor += Number(l.valor); }
+  }
+  return { linhas: contam, foraDaBase: { pessoas: foraPessoas.size, valor: Math.round(foraValor * 100) / 100 } };
+}
+
+// ── tendências (modelo Diretoria) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Dois modos, sem inventar o que o dado não sustenta: (1) comparação com o período ANTERIOR equivalente (mesma duração, terminando na véspera), SÓ quando esse período também começa em 01/01/2026
+// ou depois (antes disso a identificação não é confiável); (2) senão, a inclinação da própria série: média semanal da segunda metade do período contra a da primeira.
+export interface VariacaoDeTendencia { atual: number; anterior: number; variacaoPct: number | null }
+export interface TendenciaDoPeriodo {
+  modo: "periodo_anterior" | "serie";
+  /** modo "periodo_anterior": o período usado na comparação */
+  anterior?: { ini: string; fim: string };
+  arrecadado?: VariacaoDeTendencia;
+  contribuintes?: VariacaoDeTendencia;
+  dizimistas?: VariacaoDeTendencia;
+  /** modo "serie": a direção e a variação da segunda metade sobre a primeira */
+  direcao?: "alta" | "estavel" | "queda";
+  variacaoPct?: number | null;
+}
+
+const variacao = (atual: number, anterior: number): VariacaoDeTendencia => ({ atual, anterior, variacaoPct: anterior > 0 ? Math.round(((atual - anterior) / anterior) * 10000) / 100 : null });
+const LIMITE_DE_ESTABILIDADE_PCT = 5;
+
+export function analisarTendencia(linhasFiltradas: LinhaDeContribuicao[], periodo: { ini: string; fim: string }): TendenciaDoPeriodo | null {
+  const dias = diasEntre(periodo.ini, periodo.fim) + 1;
+  const anteriorFim = somarDias(periodo.ini, -1);
+  const anteriorIni = somarDias(anteriorFim, -(dias - 1));
+  if (anteriorIni >= PISO_DE_IDENTIFICACAO) {
+    const atual = analisarContribuicoes(linhasFiltradas, periodo), ant = analisarContribuicoes(linhasFiltradas, { ini: anteriorIni, fim: anteriorFim });
+    return {
+      modo: "periodo_anterior", anterior: { ini: anteriorIni, fim: anteriorFim },
+      arrecadado: variacao(atual.arrecadado, ant.arrecadado), contribuintes: variacao(atual.doadores, ant.doadores), dizimistas: variacao(atual.dizimistas, ant.dizimistas),
+    };
+  }
+  const a = analisarContribuicoes(linhasFiltradas, periodo);
+  if (a.semanas.length < 4 || a.arrecadado === 0) return null;   // série curta demais para dizer uma direção
+  const metade = Math.floor(a.semanas.length / 2);
+  const media = (s: SemanaDeContribuicao[]) => s.reduce((t, x) => t + x.valor, 0) / Math.max(1, s.length);
+  const primeira = media(a.semanas.slice(0, metade)), segunda = media(a.semanas.slice(a.semanas.length - metade));
+  if (primeira <= 0) return { modo: "serie", direcao: "alta", variacaoPct: null };
+  const pct = Math.round(((segunda - primeira) / primeira) * 10000) / 100;
+  return { modo: "serie", direcao: pct > LIMITE_DE_ESTABILIDADE_PCT ? "alta" : pct < -LIMITE_DE_ESTABILIDADE_PCT ? "queda" : "estavel", variacaoPct: pct };
+}
+
+// ── o cabeçalho de rastreabilidade (toda saída) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/** Muda quando uma regra de cálculo muda (piso, definição de recorrência, base, categorias): permite dizer, meses depois, com QUAIS critérios um relatório foi gerado. */
+export const VERSAO_DOS_CRITERIOS = "2026-10-27.1";
+
+export interface CabecalhoDoRelatorio {
+  periodo: { ini: string; fim: string };
+  base: BaseAnalisada;
+  categorias: TipoDeContribuicao[];
+  /** o tamanho da base analisada (ativos do vínculo, sem os menores quando a opção está desligada) */
+  pessoasNaBase: number | null;
+  contribuiram: number | null;
+  foraDaBase: number;
+  /** ISO do momento da geração */
+  geradoEm: string;
+  geradoPor: string | null;
+  versao: string;
+}
+
+const dataBrCompleta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+
+/** As linhas do cabeçalho obrigatório, em texto (tela, Excel, e-mail e impressão usam as mesmas). `geradoEmTexto` já vem formatado em Brasília. */
+export function linhasDoCabecalho(c: CabecalhoDoRelatorio, geradoEmTexto: string): { rotulo: string; valor: string }[] {
+  const linhas = [
+    { rotulo: "Período analisado", valor: `${dataBrCompleta(c.periodo.ini)} a ${dataBrCompleta(c.periodo.fim)} (a análise começa em ${dataBrCompleta(PISO_DE_IDENTIFICACAO)})` },
+    { rotulo: "Base analisada", valor: `${ROTULO_DA_BASE[c.base]} (ativos)` },
+    { rotulo: "Contribuições consideradas", valor: rotuloDasCategorias(c.categorias) },
+  ];
+  if (c.pessoasNaBase !== null) linhas.push({ rotulo: "Pessoas consideradas", valor: `${c.pessoasNaBase} na base${c.contribuiram !== null ? `, ${c.contribuiram} contribuíram` : ""}; contribuintes fora da base: ${c.foraDaBase}` });
+  linhas.push({ rotulo: "Gerado em", valor: `${geradoEmTexto}${c.geradoPor ? ` por ${c.geradoPor}` : ""}` }, { rotulo: "Versão dos critérios", valor: c.versao });
+  return linhas;
 }

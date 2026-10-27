@@ -1,17 +1,20 @@
 // ─── blocos — o que o relatório de contribuições mostra, escolhido antes de enviar (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────────────────
 // Pedido dela: "escolher o que mostrar no relatório a ser enviado" — blocos independentes que se ligam e desligam, e modelos prontos (Pastor, Diretoria, Tesouraria).
-// Dois níveis: AGREGADO (só números) e NOMINAL (nomes). Decisão dela de 27/10/2026: o modelo Pastor pode levar NOMES por e-mail — nome, última contribuição, frequência e situação —, mas nunca valor individual,
-// média individual, total contribuído, telefone ou e-mail. Os dois blocos nominais abaixo são os ÚNICOS que levam nomes; a validação recusa qualquer outro id, no servidor também, e cada visualização/envio com
-// nomes fica registrado. Valor individual não é bloco: não existe como pedir.
+// Dois níveis: AGREGADO (só números) e NOMINAL (nomes). Decisão dela (27/10/2026, 2ª rodada): o padrão de TODO modelo é só agregado — o Pastor também —; os dois blocos nominais abaixo existem como OPÇÃO
+// ("Incluir lista nominal"), desligada, com aviso e registro de quem viu/enviou. Nome, última contribuição, quantidade e situação; nunca valor individual, média individual, total contribuído, telefone ou e-mail.
+// São os ÚNICOS blocos que levam nomes; a validação recusa qualquer outro id, no servidor também. Valor individual não é bloco de e-mail: não existe como pedir.
 
 export const BLOCOS_DE_CONTRIBUICOES = [
   { id: "resumo", titulo: "Resumo em texto", grupo: "Indicadores", descricao: "O parágrafo que abre o relatório" },
   { id: "indicadores", titulo: "Indicadores principais", grupo: "Indicadores", descricao: "Dizimistas, doadores, arrecadado, médias, recorrência, novos, frequência" },
   { id: "categorias", titulo: "Arrecadação por categoria", grupo: "Indicadores", descricao: "Dízimos, ofertas e missões" },
+  { id: "saude_da_base", titulo: "Saúde da base contribuinte", grupo: "Pastoral", descricao: "Membros ativos, contribuíram, sem contribuição registrada, adesão, novos e recorrentes" },
+  { id: "nao_contribuiram", titulo: "Não contribuíram no período", grupo: "Pastoral", descricao: "Nenhuma desde 01/01/2026, contribuíram antes e não agora, e há quanto tempo (30/60/90/180 dias)" },
+  { id: "tendencias", titulo: "Tendências", grupo: "Gráficos", descricao: "Comparação com o período anterior ou direção da série" },
   { id: "curva_adesao", titulo: "Curva de adesão", grupo: "Gráficos", descricao: "Pessoas diferentes que contribuíram em cada semana" },
   { id: "distribuicao_mensal", titulo: "Distribuição mensal", grupo: "Gráficos", descricao: "Valor arrecadado em cada mês" },
   { id: "destaques", titulo: "Semanas de destaque", grupo: "Gráficos", descricao: "Maior adesão, maior arrecadação, maior crescimento" },
-  { id: "saude_da_base", titulo: "Saúde da base contribuinte", grupo: "Pastoral", descricao: "Adesão da base, quem não contribuiu (em quantidades) e há quanto tempo" },
+  { id: "criterios", titulo: "Critérios da análise", grupo: "Qualidade dos dados", descricao: "As definições usadas: piso, contribuição, dizimista, recorrente, novo, base" },
   { id: "cobertura", titulo: "Cobertura da identificação", grupo: "Qualidade dos dados", descricao: "Quanto do valor tem pessoa identificada" },
   { id: "contribuintes_nominal", titulo: "Quem contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome, última contribuição, quantidade de contribuições e situação (recorrente, novo). Sem valores." },
   { id: "sem_contribuicao_nominal", titulo: "Quem não contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome, última contribuição e situação (nenhuma desde 01/01/2026, sem contribuição há mais de 90 ou 180 dias). Sem valores." },
@@ -27,8 +30,8 @@ export const temBlocoNominal = (blocos: readonly string[]) => IDS_NOMINAIS.some(
 
 export type IdDoModelo = "pastor" | "diretoria" | "tesouraria";
 export const MODELOS_DE_RELATORIO: { id: IdDoModelo; rotulo: string; descricao: string; blocos: IdDoBloco[] }[] = [
-  { id: "pastor", rotulo: "Pastor", descricao: "Visão pastoral: indicadores, adesão da base e quem contribuiu e quem não contribuiu, com nomes e sem valores", blocos: ["resumo", "indicadores", "saude_da_base", "curva_adesao", "destaques", "contribuintes_nominal", "sem_contribuicao_nominal", "cobertura"] },
-  { id: "diretoria", rotulo: "Diretoria", descricao: "Visão financeira agregada: indicadores, categorias e evolução mensal", blocos: ["resumo", "indicadores", "categorias", "distribuicao_mensal", "destaques", "cobertura"] },
+  { id: "pastor", rotulo: "Pastor", descricao: "Visão pastoral, sem nomes: indicadores, saúde da base, quem não contribuiu (quantidades), tendências e gráficos", blocos: ["resumo", "indicadores", "saude_da_base", "nao_contribuiram", "tendencias", "curva_adesao", "destaques", "cobertura"] },
+  { id: "diretoria", rotulo: "Diretoria", descricao: "Visão financeira agregada: indicadores, categorias e evolução mensal", blocos: ["resumo", "indicadores", "categorias", "tendencias", "distribuicao_mensal", "destaques", "cobertura"] },
   { id: "tesouraria", rotulo: "Tesouraria", descricao: "Tudo o que é agregado (sem nomes)", blocos: [...IDS_AGREGADOS] },
 ];
 

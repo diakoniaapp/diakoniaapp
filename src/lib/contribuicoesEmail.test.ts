@@ -86,7 +86,7 @@ describe("validarPedido — a função não confia no que vem da chamada", () =>
   const hoje = "2026-10-27";
   const ok = (corpo: Parameters<typeof validarPedido>[0], exige = false) => validarPedido(corpo, hoje, exige);
   it("período válido passa; fim no futuro vira hoje; início antes do piso é ajustado", () => {
-    expect(ok({ periodo: { ini: "2026-03-01", fim: "2026-12-31" } })).toEqual({ ok: true, pedido: { periodo: { ini: "2026-03-01", fim: "2026-10-27", ajustado: false }, destinatarios: [], blocos: blocosDoModelo("pastor") } });
+    expect(ok({ periodo: { ini: "2026-03-01", fim: "2026-12-31" } })).toEqual({ ok: true, pedido: { periodo: { ini: "2026-03-01", fim: "2026-10-27", ajustado: false }, destinatarios: [], blocos: blocosDoModelo("pastor"), base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"] } });
     const r = ok({ periodo: { ini: "2025-06-01", fim: "2026-03-31" } });
     expect(r.ok && r.pedido.periodo).toEqual({ ini: "2026-01-01", fim: "2026-03-31", ajustado: true });
   });
@@ -107,7 +107,7 @@ describe("validarPedido — a função não confia no que vem da chamada", () =>
   });
   it("a chave do envio ignora a ordem dos destinatários (clique duplo com a lista reordenada é o mesmo envio)", () => {
     const base = { periodo: { ini: "2026-03-01", fim: "2026-03-31", ajustado: false } };
-    expect(chaveDoEnvio({ ...base, destinatarios: ["a@x.com", "b@x.com"], blocos: ["resumo" as const] })).toBe(chaveDoEnvio({ ...base, destinatarios: ["b@x.com", "a@x.com"], blocos: ["resumo" as const] }));
+    expect(chaveDoEnvio({ ...base, destinatarios: ["a@x.com", "b@x.com"], blocos: ["resumo" as const], base: "membros" as const, categorias: ["dizimo" as const] })).toBe(chaveDoEnvio({ ...base, destinatarios: ["b@x.com", "a@x.com"], blocos: ["resumo" as const], base: "membros" as const, categorias: ["dizimo" as const] }));
   });
 });
 

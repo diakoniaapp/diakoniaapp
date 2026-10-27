@@ -15,7 +15,9 @@
 // Implantação: `supabase functions deploy contribuicoes-enviar` (com verificação de JWT, o padrão). Ver docs/CONTRIBUICOES_EMAIL_IMPLANTACAO.md.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { analisarContribuicoes, analisarSemContribuicao, resumirBase, resumirPessoas, type ResumoDaBase } from "../_shared/contribuicoes/analise.ts";
+import {
+  VERSAO_DOS_CRITERIOS, VINCULOS_DA_BASE, aplicarFiltros, analisarContribuicoes, analisarSemContribuicao, analisarTendencia, idsDaBase, linhasDoCabecalho, resumirBase, resumirPessoas, type ResumoDaBase,
+} from "../_shared/contribuicoes/analise.ts";
 import { lerBaseDePessoas, lerContribuicoesDoPiso, lerNomesDePessoas } from "../_shared/contribuicoes/carregar.ts";
 import { temBlocoNominal } from "../_shared/contribuicoes/blocos.ts";
 import { listasNominaisDoEmail, totalDeNomes, type ListasNominais } from "../_shared/contribuicoes/nominal.ts";
@@ -43,7 +45,7 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceRoleKey) return resposta({ erro: "Configuração do Supabase ausente" }, 500);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown; blocos?: unknown };
+  const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown };
   if (corpo.acao !== "previa" && corpo.acao !== "teste" && corpo.acao !== "enviar") return resposta({ erro: "Ação desconhecida." }, 400);
 
   // quem chama: sessão válida E papel de admin ou diakonia
@@ -60,7 +62,11 @@ Deno.serve(async (req) => {
   const pedido = validado.pedido;
 
   try {
-    const linhas = await lerContribuicoesDoPiso(supabase, pedido.periodo.fim);
+    const todasAsLinhas = await lerContribuicoesDoPiso(supabase, pedido.periodo.fim);
+    // os filtros globais: a base escolhida (só quem está nela conta como contribuinte) e as categorias consideradas
+    const pessoasDaBase = await lerBaseDePessoas(supabase);
+    const filtrado = aplicarFiltros(todasAsLinhas, { base: pedido.base, categorias: pedido.categorias }, idsDaBase(pessoasDaBase, pedido.base), pedido.periodo);
+    const linhas = filtrado.linhas;
     const analise = analisarContribuicoes(linhas, pedido.periodo);
     const { data: nomeDoUsuario } = await supabase.rpc("fin_nome_do_usuario", { p_id: usuario.id });   // para o histórico e o registro de acessos
     const comNomes = temBlocoNominal(pedido.blocos);
@@ -68,29 +74,38 @@ Deno.serve(async (req) => {
     // a lista de pessoas existe só aqui dentro; o e-mail recebe os resumos (números) e, se pedido, as linhas nominais SEM valor
     let nominal: ListasNominais | null = null;
     let semContribuicaoAnalisada: ReturnType<typeof analisarSemContribuicao> | null = null;
-    if (comNomes || pedido.blocos.includes("saude_da_base")) {
-      semContribuicaoAnalisada = analisarSemContribuicao(linhas, await lerBaseDePessoas(supabase), pedido.periodo, { considerar: "qualquer", incluirMenores: false });
-    }
+    // a base de "sem contribuição" é sempre calculada: o cabeçalho diz quantas pessoas foram consideradas e quantas contribuíram
+    semContribuicaoAnalisada = analisarSemContribuicao(linhas, pessoasDaBase, pedido.periodo, { considerar: "qualquer", incluirMenores: false, vinculos: VINCULOS_DA_BASE[pedido.base] });
     if (comNomes && semContribuicaoAnalisada) {
       const nomes = await lerNomesDePessoas(supabase, resumirPessoas(linhas, pedido.periodo).map(r => r.pessoaId));
       nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada);
       // sem registro, sem nomes: grava ANTES de seguir; qualquer falha recusa o relatório com nomes
       const reg = await supabase.from("contribuicoes_acessos").insert({
         por: usuario.id, por_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null, acao: acaoDoRegistro,
-        filtros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos }, total: totalDeNomes(nominal),
+        filtros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias }, total: totalDeNomes(nominal),
       });
       if (reg.error) return resposta({ erro: "O registro de acessos não está disponível (migration 20261027200000 pendente): o relatório com nomes não foi gerado. Tire os blocos com nomes para enviar só os números." }, 503);
     }
     // a saúde da base usa a lista de pessoas SÓ para contar: o módulo do e-mail recebe o resumo (números), nunca a lista
-    const resumoDaBase: ResumoDaBase | null = pedido.blocos.includes("saude_da_base") && semContribuicaoAnalisada ? resumirBase(semContribuicaoAnalisada) : null;
+    const precisaDaBase = pedido.blocos.includes("saude_da_base") || pedido.blocos.includes("nao_contribuiram");
+    const resumoDaBase: ResumoDaBase | null = precisaDaBase && semContribuicaoAnalisada ? resumirBase(semContribuicaoAnalisada) : null;
+    const tendencia = pedido.blocos.includes("tendencias") ? analisarTendencia(linhas, pedido.periodo) : null;
+    // o cabeçalho de rastreabilidade: período, base, contribuições, pessoas, quando e por quem, versão dos critérios (obrigatório em todo relatório)
+    const geradoEm = new Date();
+    const geradoEmTexto = geradoEm.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const cabecalho = linhasDoCabecalho({
+      periodo: pedido.periodo, base: pedido.base, categorias: pedido.categorias, pessoasNaBase: semContribuicaoAnalisada ? semContribuicaoAnalisada.base : null,
+      contribuiram: semContribuicaoAnalisada ? semContribuicaoAnalisada.contribuiram : null, foraDaBase: filtrado.foraDaBase.pessoas,
+      geradoEm: geradoEm.toISOString(), geradoPor: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null, versao: VERSAO_DOS_CRITERIOS,
+    }, geradoEmTexto);
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal });
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia });
     const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
-    const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos };
+    const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias };
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, ...informacoes });
 
@@ -102,7 +117,7 @@ Deno.serve(async (req) => {
       const r = await supabase.from("comunicacao_envios").insert({
         tipo: "relatorio_contribuicoes", origem, solicitante: usuario.id, solicitante_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null,
         remetente: REMETENTE, reply_to: replyTo, assunto: origem === "teste" ? `[TESTE] ${email.assunto}` : email.assunto, destinatarios: destinos,
-        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, chave: chaveDoEnvio(pedido) }, resumo,
+        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido) }, resumo,
         resultado: ok === destinos.length ? "enviado" : ok === 0 ? "falhou" : "parcial", resend_ids: ids,
       });
       return !r.error;

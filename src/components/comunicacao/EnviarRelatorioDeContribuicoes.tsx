@@ -12,19 +12,19 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, Loader2, Send, X } from "lucide-react";
 import { hojeLocal } from "@/lib/data";
-import { PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ajustarAoPiso, intervaloDoPreset, type PresetDePeriodo } from "@/lib/contribuicoes";
+import { BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, FILTROS_PADRAO, PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ROTULO_DA_BASE, ajustarAoPiso, intervaloDoPreset, rotuloDasCategorias, type BaseAnalisada, type PresetDePeriodo, type TipoDeContribuicao } from "@/lib/contribuicoes";
 import { emailDeRespostaValido } from "@/lib/comunicacao";
 import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, modeloPadrao, temBlocoNominal, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
 import {
   enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
-  type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
+  type FiltrosDoRelatorio, type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
 } from "@/services/comunicacaoService";
 
 export const MAXIMO_DE_DESTINATARIOS = 10;
 export interface ServicoDoEnvio {
-  previa: (p: PeriodoDoRelatorio, blocos: string[]) => Promise<PreviaDoRelatorio>;
-  teste: (p: PeriodoDoRelatorio, blocos: string[]) => Promise<{ enviadoPara: string }>;
-  enviar: (p: PeriodoDoRelatorio, blocos: string[], destinatarios: string[]) => Promise<ResultadoDoEnvio>;
+  previa: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio) => Promise<PreviaDoRelatorio>;
+  teste: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio) => Promise<{ enviadoPara: string }>;
+  enviar: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios: string[]) => Promise<ResultadoDoEnvio>;
 }
 const SERVICO_REAL: ServicoDoEnvio = { previa: previaDoRelatorioDeContribuicoes, teste: enviarTesteDoRelatorioDeContribuicoes, enviar: enviarRelatorioDeContribuicoes };
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
@@ -42,6 +42,8 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const [de, setDe] = useState(periodoInicial?.ini ?? PISO_DE_IDENTIFICACAO);
   const [ate, setAte] = useState(periodoInicial?.fim ?? hoje);
   const [blocos, setBlocos] = useState<IdDoBloco[]>(() => blocosDoModelo(modeloPadrao));
+  const [base, setBase] = useState<BaseAnalisada>(FILTROS_PADRAO.base);
+  const [categorias, setCategorias] = useState<TipoDeContribuicao[]>(FILTROS_PADRAO.categorias);
   const [destinatarios, setDestinatarios] = useState<string[]>([]);
   const [campo, setCampo] = useState("");
   const [erroDoCampo, setErroDoCampo] = useState("");
@@ -54,13 +56,16 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
     const p = ajustarAoPiso(bruto.ini, bruto.fim > hoje ? hoje : bruto.fim);
     return { ini: p.ini, fim: p.fim, ajustado: p.ajustado, vazio: p.vazio || !/^\d{4}-\d{2}-\d{2}$/.test(p.ini) || !/^\d{4}-\d{2}-\d{2}$/.test(p.fim) };
   }, [preset, de, ate, hoje]);
-  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}`;   // período E blocos: mudou qualquer um, a prévia perde a validade
+  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}|${base}|${[...categorias].sort().join("+")}`;   // período, blocos, base E contribuições: mudou qualquer um, a prévia perde a validade
   const modeloAtual = modeloDaSelecao(blocos);
   const comNomes = temBlocoNominal(blocos);
   const previaValida = previa?.chave === chave;
 
   /** os blocos na ordem canônica (a mesma que o servidor usa) */
   const ordenados = IDS_DOS_BLOCOS.filter(id => blocos.includes(id));
+  const filtros: FiltrosDoRelatorio = { base, categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id).filter(id => categorias.includes(id)) };
+  const alternarCategoria = (id: TipoDeContribuicao) => setCategorias(atual => (atual.includes(id) ? atual.filter(c => c !== id) : [...atual, id]));
+  const semCategoria = categorias.length === 0;
   const alternar = (id: IdDoBloco) => setBlocos(atual => (atual.includes(id) ? atual.filter(b => b !== id) : [...atual, id]));
   const escolherModelo = (id: IdDoModelo) => setBlocos(blocosDoModelo(id));
 
@@ -79,20 +84,20 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
 
   async function visualizar() {
     setOcupado("previa");
-    try { setPrevia({ chave, dados: await servico.previa({ ini: pedido.ini, fim: pedido.fim }, ordenados) }); }
+    try { setPrevia({ chave, dados: await servico.previa({ ini: pedido.ini, fim: pedido.fim }, ordenados, filtros) }); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível montar a prévia."); }
     finally { setOcupado(""); }
   }
   async function testar() {
     setOcupado("teste");
-    try { const r = await servico.teste({ ini: pedido.ini, fim: pedido.fim }, ordenados); toast.success(`Teste enviado para ${r.enviadoPara}`); }
+    try { const r = await servico.teste({ ini: pedido.ini, fim: pedido.fim }, ordenados, filtros); toast.success(`Teste enviado para ${r.enviadoPara}`); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível enviar o teste."); }
     finally { setOcupado(""); }
   }
   async function enviar() {
     setConfirmando(false); setOcupado("enviar");
     try {
-      const r = await servico.enviar({ ini: pedido.ini, fim: pedido.fim }, ordenados, destinatarios);
+      const r = await servico.enviar({ ini: pedido.ini, fim: pedido.fim }, ordenados, filtros, destinatarios);
       if (r.motivo === "enviado_ha_pouco") { toast.info("Este mesmo relatório já foi enviado há menos de 10 minutos. Nada foi enviado de novo."); return; }
       if (r.falharam > 0) toast.warning(`Enviado para ${r.enviados}; falhou para ${r.falharam}. Veja o Histórico.`); else toast.success(`Relatório enviado para ${r.enviados} ${r.enviados === 1 ? "destinatário" : "destinatários"}`);
       if (!r.historicoGravado) toast.warning("O envio saiu, mas o histórico não foi gravado (migration pendente).");
@@ -130,8 +135,29 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                 : <p className="text-xs text-muted-foreground" data-periodo>Período do relatório: <strong>{dataBr(pedido.ini)} a {dataBr(pedido.fim)}</strong>{pedido.ajustado ? ` (ajustado: a análise começa em ${dataBr(PISO_DE_IDENTIFICACAO)})` : ""}</p>}
             </div>
 
+            <div className="space-y-2" data-secao="filtros">
+              <Label className="text-xs">Base analisada</Label>
+              <div className="flex flex-wrap gap-x-4 gap-y-1" data-bases>
+                {BASES_ANALISADAS.map(b => (
+                  <label key={b} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="radio" name="base-analisada" checked={base === b} onChange={() => setBase(b)} data-base={b} /> {ROTULO_DA_BASE[b]}
+                  </label>
+                ))}
+              </div>
+              <Label className="text-xs">Contribuições consideradas</Label>
+              <div className="flex flex-wrap gap-x-4 gap-y-1" data-categorias>
+                {CATEGORIAS_DE_CONTRIBUICAO.map(c => (
+                  <label key={c.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" checked={categorias.includes(c.id)} onChange={() => alternarCategoria(c.id)} data-categoria={c.id} /> {c.rotulo}
+                  </label>
+                ))}
+              </div>
+              {semCategoria && <p className="text-xs text-warning-text" data-aviso="sem-categoria">Escolha ao menos uma categoria de contribuição.</p>}
+              <p className="text-xs text-muted-foreground" data-resumo-criterios>Critérios: {ROTULO_DA_BASE[base]} (ativos) · {semCategoria ? "nenhuma categoria" : rotuloDasCategorias(categorias)}. Quem contribuiu e está fora da base aparece à parte e não entra nos indicadores.</p>
+            </div>
+
             <div className="space-y-2" data-secao="conteudo">
-              <Label className="text-xs">O que mostrar</Label>
+              <Label className="text-xs">O que mostrar <span className="text-muted-foreground font-normal">— só agregados por padrão; marque ⚠ para incluir a lista nominal</span></Label>
               <div className="flex flex-wrap gap-1.5" data-modelos>
                 {MODELOS_DE_RELATORIO.map(m => (
                   <button key={m.id} type="button" data-modelo={m.id} aria-pressed={modeloAtual === m.id} title={m.descricao} onClick={() => escolherModelo(m.id)}
@@ -148,7 +174,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                 ))}
               </div>
               {blocos.length === 0 && <p className="text-xs text-warning-text" data-aviso="sem-blocos">Escolha ao menos um bloco.</p>}
-              {comNomes && <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-text" data-aviso="nominal">⚠ Este relatório contém dados individuais: nomes, última contribuição e situação, sem valores. Cada prévia, teste e envio com nomes fica registrado (quem, quando, quais blocos). Não encaminhe o e-mail.</p>}
+              {comNomes && <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-text" data-aviso="nominal">⚠ Este relatório contém dados nominais (nomes, última contribuição e situação, sem valores). O acesso e envio serão registrados para auditoria. Não encaminhe o e-mail.</p>}
               <p className="text-xs text-muted-foreground" data-aviso="so-agregado">Valor individual, média individual, telefone e e-mail nunca vão por e-mail. Os blocos sem ⚠ levam só números.</p>
             </div>
 
@@ -172,10 +198,10 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={visualizar} disabled={pedido.vazio || blocos.length === 0 || !!ocupado} data-acao="visualizar">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={visualizar} disabled={pedido.vazio || blocos.length === 0 || semCategoria || !!ocupado} data-acao="visualizar">
                   {ocupado === "previa" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />} Visualizar e-mail
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={testar} disabled={pedido.vazio || blocos.length === 0 || !!ocupado} data-acao="teste">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={testar} disabled={pedido.vazio || blocos.length === 0 || semCategoria || !!ocupado} data-acao="teste">
                   {ocupado === "teste" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar teste para mim
                 </Button>
                 {!previaValida && <span className="text-xs text-muted-foreground" data-aviso="previa-obrigatoria">Visualize o e-mail para liberar o envio.</span>}
@@ -187,7 +213,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                   <iframe title="Prévia do e-mail" srcDoc={previa.dados.html} sandbox="" className="w-full h-[360px] bg-white" />
                 </div>
               )}
-              {previa && !previaValida && <p className="text-xs text-warning-text">O período ou os blocos mudaram depois desta prévia: visualize de novo.</p>}
+              {previa && !previaValida && <p className="text-xs text-warning-text">O período, a base, as contribuições ou os blocos mudaram depois desta prévia: visualize de novo.</p>}
             </div>
           </div>
 
