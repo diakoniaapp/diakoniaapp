@@ -6,7 +6,7 @@
 // HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
 import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ResumoDaBase, type TendenciaDoPeriodo } from "./analise.ts";
-import { IDS_AGREGADOS, temBlocoNominal, type IdDoBloco } from "./blocos.ts";
+import { IDS_AGREGADOS, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, temBlocoNominal, type IdDoBloco, type OrdenacaoDasListas } from "./blocos.ts";
 import type { LinhaNominal, ListasNominais } from "./nominal.ts";
 
 const ddmmaaaa = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
@@ -127,12 +127,13 @@ function cartaoDoCabecalho(linhas: { rotulo: string; valor: string }[]): string 
 }
 
 /** Uma lista com nomes: nome, última contribuição, quantidade (só de quem contribuiu) e situação. Nenhum valor. */
-function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[], comQuantidade: boolean): string {
-  let h = D.secao(titulo, subtitulo);
+function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[], comQuantidade: boolean, ordenacao: OrdenacaoDasListas): string {
+  const ordem = ORDENACOES_DAS_LISTAS.find(x => x.id === ordenacao)!;
+  let h = D.secao(titulo, `${subtitulo} Ordem: ${ordem.rotulo.toLowerCase()}. ${ordem.descricao}.`);
   if (linhas.length === 0) return h + D.blocoDeObservacao("Ninguém nesta situação no período.");
   const cel = (t: string, extra = "") => `<td style="padding:5px 6px;font-size:12px;border-bottom:1px solid ${D.COR.linha};${extra}">${t}</td>`;
-  const cab = `<tr>${["Nome", "Última", ...(comQuantidade ? ["Contribuições"] : []), "Situação"].map(t => `<td style="padding:5px 6px;font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
-  const corpo = linhas.map(l => `<tr>${cel(`<strong>${D.esc(l.nome)}</strong>`)}${cel(l.ultima ? ddmmaaaa(l.ultima) : "—", "white-space:nowrap")}${comQuantidade ? cel(l.contribuicoes === null ? "—" : n(l.contribuicoes), "text-align:center") : ""}${cel(D.esc(l.situacao), `color:${D.COR.suave}`)}</tr>`).join("");
+  const cab = `<tr>${["#", "Nome", "Última", ...(comQuantidade ? ["Contribuições"] : []), "Situação"].map(t => `<td style="padding:5px 6px;font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
+  const corpo = linhas.map(l => `<tr>${cel(n(l.posicao), `color:${D.COR.suave};text-align:right;width:28px`)}${cel(`<strong>${D.esc(l.nome)}</strong>`)}${cel(l.ultima ? ddmmaaaa(l.ultima) : "—", "white-space:nowrap")}${comQuantidade ? cel(l.contribuicoes === null ? "—" : n(l.contribuicoes), "text-align:center") : ""}${cel(D.esc(l.situacao), `color:${D.COR.suave}`)}</tr>`).join("");
   return h + D.cartao(null, `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cab}${corpo}</table>`);
 }
 
@@ -147,6 +148,8 @@ export interface OpcoesDoEmailDeContribuicoes {
   nominal?: ListasNominais | null;
   /** o cabeçalho de rastreabilidade (obrigatório em todo relatório gerado pela função) */
   cabecalho?: { rotulo: string; valor: string }[];
+  /** a ordenação das listas com nomes (a mesma com que as listas foram montadas); ausente = quantidade de contribuições */
+  ordenacao?: OrdenacaoDasListas;
   /** a tendência do período, para o bloco "Tendências" */
   tendencia?: TendenciaDoPeriodo | null;
 }
@@ -208,8 +211,8 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   if (tem("nao_contribuiram")) corpo += blocoNaoContribuiram(o.base ?? null);
   if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
   if (tem("criterios")) corpo += blocoCriterios();
-  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, última contribuição no período, quantidade de contribuições e situação. Sem valores.", o.nominal?.contribuiram ?? [], true);
-  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Membros e congregados ativos sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false);
+  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, última contribuição no período, quantidade de contribuições e situação. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO);
+  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Membros e congregados ativos sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO);
   if (tem("cobertura") && a.arrecadado > 0) {
     const c = a.cobertura;
     corpo += D.blocoDeObservacao(
@@ -240,7 +243,7 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
     linhas.push("", "Não contribuíram no período", `Nenhuma contribuição registrada desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`, `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
       `Sem contribuição há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
   }
-  const linhaNominal = (l: LinhaNominal) => `- ${l.nome} — última: ${l.ultima ? ddmmaaaa(l.ultima) : "—"}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`} — ${l.situacao}`;
+  const linhaNominal = (l: LinhaNominal) => `${l.posicao}. ${l.nome} — última: ${l.ultima ? ddmmaaaa(l.ultima) : "—"}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`} — ${l.situacao}`;
   if (tem("contribuintes_nominal")) linhas.push("", "Quem contribuiu (sem valores)", ...(o.nominal?.contribuiram ?? []).map(linhaNominal));
   if (tem("sem_contribuicao_nominal")) linhas.push("", "Quem não contribuiu", ...(o.nominal?.semContribuicao ?? []).map(linhaNominal));
   if (tem("cobertura") && a.arrecadado > 0) linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);

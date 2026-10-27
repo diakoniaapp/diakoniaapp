@@ -28,23 +28,24 @@ const analise = analisarContribuicoes(linhas, periodo);
 const email = montarEmailDeContribuicoes(analise, { blocos: [...blocosDoModelo("pastor"), ...IDS_NOMINAIS], base: resumirBase(sem), nominal: listas });   // nomes só quando as opções nominais são marcadas
 
 describe("as linhas com nomes não têm valor", () => {
-  it("quem contribuiu: nome, última, quantidade e situação — em ordem alfabética", () => {
-    expect(listas.contribuiram.map(l => [l.nome, l.ultima, l.contribuicoes, l.situacao])).toEqual([
-      ["Ana Teste", "2026-09-05", 1, "Novo"],
-      ["Zé Inativo", "2026-08-15", 1, "Novo"],   // não está na base, mas o nome vem do cadastro (a ordem é a do português: "Zé I…" antes de "Zeca")
-      ["Zeca Teste", "2026-09-10", 3, "Recorrente"],
+  it("quem contribuiu: #, nome, última, quantidade e situação — por padrão pela QUANTIDADE (maior para menor)", () => {
+    expect(listas.contribuiram.map(l => [l.posicao, l.nome, l.ultima, l.contribuicoes, l.situacao])).toEqual([
+      [1, "Zeca Teste", "2026-09-10", 3, "Recorrente"],   // a quantidade manda (3 contribuições)
+      [2, "Ana Teste", "2026-09-05", 1, "Novo"],          // empate em 1: a última contribuição mais recente vem antes
+      [3, "Zé Inativo", "2026-08-15", 1, "Novo"],         // não está na base, mas o nome vem do cadastro
     ]);
   });
   it("quem não contribuiu: nome, última contribuição e a situação por tempo (nenhuma desde 01/01/2026, mais de 90, mais de 180)", () => {
-    expect(listas.semContribuicao.map(l => [l.nome, l.ultima, l.situacao])).toEqual([
-      ["Bia Teste", "2026-05-02", "Sem contribuição há mais de 90 dias"],
-      ["Caio Teste", "2026-02-01", "Sem contribuição há mais de 180 dias"],
-      ["Duda Teste", null, "Nenhuma contribuição desde 01/01/2026"],
+    // todos com 0 contribuições no período: desempata pela última contribuição (mais recente primeiro), depois pelo nome; quem não tem nenhuma fica por último
+    expect(listas.semContribuicao.map(l => [l.posicao, l.nome, l.ultima, l.situacao])).toEqual([
+      [1, "Bia Teste", "2026-05-02", "Sem contribuição há mais de 90 dias"],
+      [2, "Caio Teste", "2026-02-01", "Sem contribuição há mais de 180 dias"],
+      [3, "Duda Teste", null, "Nenhuma contribuição desde 01/01/2026"],
     ]);
     expect(listas.semContribuicao.every(l => l.contribuicoes === null)).toBe(true);
   });
   it("NENHUM campo de valor, total ou média em nenhuma linha (garantia de tipo e de dado)", () => {
-    for (const l of [...listas.contribuiram, ...listas.semContribuicao]) expect(Object.keys(l).sort()).toEqual(["contribuicoes", "nome", "situacao", "ultima"]);
+    for (const l of [...listas.contribuiram, ...listas.semContribuicao]) expect(Object.keys(l).sort()).toEqual(["contribuicoes", "nome", "posicao", "situacao", "ultima"]);
     expect(JSON.stringify(listas)).not.toMatch(/9451|7777|1234|4321|55\.55|valor|total|media/i);
   });
   it("conta quantos nomes saem (vai para o registro de acesso)", () => {
@@ -68,7 +69,7 @@ describe("o e-mail com nomes", () => {
   });
   it("a versão em texto também leva os nomes, sem valores", () => {
     expect(email.texto).toContain("Quem contribuiu (sem valores)");
-    expect(email.texto).toContain("- Zeca Teste — última: 10/09/2026 — 3 contribuições — Recorrente");
+    expect(email.texto).toContain("1. Zeca Teste — última: 10/09/2026 — 3 contribuições — Recorrente");
     expect(email.texto).toContain("Não encaminhe");
   });
   it("sem os blocos com nomes, nada de nomes nem do aviso — mesmo que as listas sejam passadas", () => {
@@ -82,7 +83,7 @@ describe("o e-mail com nomes", () => {
     expect(vazio.html).toContain("Ninguém nesta situação no período.");
   });
   it("escapa o nome (cadastro com < > & não vira HTML)", () => {
-    const l = { contribuiram: [{ nome: "<b>X</b> & Cia", ultima: null, contribuicoes: 1, situacao: "Novo" }], semContribuicao: [] };
+    const l = { contribuiram: [{ posicao: 1, nome: "<b>X</b> & Cia", ultima: null, contribuicoes: 1, situacao: "Novo" }], semContribuicao: [] };
     const h = montarEmailDeContribuicoes(analise, { blocos: ["contribuintes_nominal"], nominal: l }).html;
     expect(h).toContain("&lt;b&gt;X&lt;/b&gt; &amp; Cia");
     expect(h).not.toContain("<b>X</b>");

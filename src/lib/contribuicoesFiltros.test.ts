@@ -149,6 +149,6 @@ describe("a função aplica os filtros e carimba o cabeçalho", () => {
   it("o cabeçalho leva a hora de Brasília, quem gerou e a versão dos critérios; o histórico guarda base, categorias e versão", () => {
     expect(fn).toContain('timeZone: "America/Sao_Paulo"');
     expect(fn).toContain("versao: VERSAO_DOS_CRITERIOS");
-    expect(fn).toMatch(/base: pedido\.base, categorias: pedido\.categorias, versao: VERSAO_DOS_CRITERIOS/);
+    expect(fn).toMatch(/base: pedido\.base, categorias: pedido\.categorias, ordenacao: pedido\.ordenacao, versao: VERSAO_DOS_CRITERIOS/);
   });
 });

@@ -2,7 +2,7 @@
 // A função NÃO confia no que vem da chamada: o período é conferido (datas reais, não no futuro, ajustado ao piso de 01/01/2026) e os destinatários são limpos (e-mail válido, sem repetição, no máximo
 // `MAXIMO_DE_DESTINATARIOS`). Os NÚMEROS nunca vêm da chamada: a função os calcula sozinha a partir do banco.
 import { BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, FILTROS_PADRAO, ajustarAoPiso, type BaseAnalisada, type TipoDeContribuicao } from "./analise.ts";
-import { validarBlocos, type IdDoBloco } from "./blocos.ts";
+import { validarBlocos, validarOrdenacao, type IdDoBloco, type OrdenacaoDasListas } from "./blocos.ts";
 import { emailDeRespostaValido } from "../email/remetente.ts";
 
 export const MAXIMO_DE_DESTINATARIOS = 10;
@@ -13,11 +13,11 @@ const dataReal = (s: unknown): string | null => {
   return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : s;
 };
 
-export interface PedidoValidado { periodo: { ini: string; fim: string; ajustado: boolean }; destinatarios: string[]; blocos: IdDoBloco[]; base: BaseAnalisada; categorias: TipoDeContribuicao[] }
+export interface PedidoValidado { periodo: { ini: string; fim: string; ajustado: boolean }; destinatarios: string[]; blocos: IdDoBloco[]; base: BaseAnalisada; categorias: TipoDeContribuicao[]; ordenacao: OrdenacaoDasListas }
 export type ResultadoDoPedido = { ok: true; pedido: PedidoValidado } | { ok: false; erro: string };
 
 /** Só as datas e a lista de destinatários; quem chama decide se a ação exige destinatário. */
-export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown }, hoje: string, exigeDestinatario: boolean): ResultadoDoPedido {
+export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown; ordenacao?: unknown }, hoje: string, exigeDestinatario: boolean): ResultadoDoPedido {
   const ini = dataReal(corpo.periodo?.ini), fimPedido = dataReal(corpo.periodo?.fim);
   if (!ini || !fimPedido) return { ok: false, erro: "Informe o período com datas válidas (AAAA-MM-DD)." };
   const fim = fimPedido > hoje ? hoje : fimPedido;   // não há contribuição no futuro
@@ -27,6 +27,9 @@ export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown 
 
   const b = validarBlocos(corpo.blocos);
   if (!b.ok) return { ok: false, erro: b.erro };
+
+  const o = validarOrdenacao(corpo.ordenacao);
+  if (!o.ok) return { ok: false, erro: o.erro! };
 
   // os filtros globais: só valores conhecidos; ausentes = o padrão (membros e congregados; as três categorias)
   const base = corpo.base === undefined || corpo.base === null ? FILTROS_PADRAO.base : corpo.base;
@@ -47,8 +50,8 @@ export function validarPedido(corpo: { periodo?: { ini?: unknown; fim?: unknown 
   }
   if (destinatarios.length > MAXIMO_DE_DESTINATARIOS) return { ok: false, erro: `No máximo ${MAXIMO_DE_DESTINATARIOS} destinatários por envio.` };
   if (exigeDestinatario && destinatarios.length === 0) return { ok: false, erro: "Informe ao menos um destinatário." };
-  return { ok: true, pedido: { periodo: { ini: p.ini, fim: p.fim, ajustado: p.ajustado }, destinatarios, blocos: b.blocos!, base: base as BaseAnalisada, categorias } };
+  return { ok: true, pedido: { periodo: { ini: p.ini, fim: p.fim, ajustado: p.ajustado }, destinatarios, blocos: b.blocos!, base: base as BaseAnalisada, categorias, ordenacao: o.ordenacao! } };
 }
 
 /** A chave que identifica "o mesmo envio" (período + destinatários), para recusar o clique duplo. */
-export const chaveDoEnvio = (p: PedidoValidado) => `${p.periodo.ini}|${p.periodo.fim}|${[...p.destinatarios].sort().join(",")}|${p.blocos.join("+")}|${p.base}|${p.categorias.join("+")}`;
+export const chaveDoEnvio = (p: PedidoValidado) => `${p.periodo.ini}|${p.periodo.fim}|${[...p.destinatarios].sort().join(",")}|${p.blocos.join("+")}|${p.base}|${p.categorias.join("+")}|${p.ordenacao}`;

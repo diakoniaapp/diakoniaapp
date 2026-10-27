@@ -14,7 +14,7 @@ import { Eye, Loader2, Send, X } from "lucide-react";
 import { hojeLocal } from "@/lib/data";
 import { BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, FILTROS_PADRAO, PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ROTULO_DA_BASE, ajustarAoPiso, intervaloDoPreset, rotuloDasCategorias, type BaseAnalisada, type PresetDePeriodo, type TipoDeContribuicao } from "@/lib/contribuicoes";
 import { emailDeRespostaValido } from "@/lib/comunicacao";
-import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, modeloPadrao, temBlocoNominal, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
+import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, type OrdenacaoDasListas, blocosDoModelo, modeloDaSelecao, modeloPadrao, temBlocoNominal, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
 import {
   enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
   type FiltrosDoRelatorio, type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
@@ -44,6 +44,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const [blocos, setBlocos] = useState<IdDoBloco[]>(() => blocosDoModelo(modeloPadrao));
   const [base, setBase] = useState<BaseAnalisada>(FILTROS_PADRAO.base);
   const [categorias, setCategorias] = useState<TipoDeContribuicao[]>(FILTROS_PADRAO.categorias);
+  const [ordenacao, setOrdenacao] = useState<OrdenacaoDasListas>(ORDENACAO_PADRAO);   // o padrão do modelo Pastor: quantidade de contribuições, maior para menor
   const [destinatarios, setDestinatarios] = useState<string[]>([]);
   const [campo, setCampo] = useState("");
   const [erroDoCampo, setErroDoCampo] = useState("");
@@ -56,14 +57,14 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
     const p = ajustarAoPiso(bruto.ini, bruto.fim > hoje ? hoje : bruto.fim);
     return { ini: p.ini, fim: p.fim, ajustado: p.ajustado, vazio: p.vazio || !/^\d{4}-\d{2}-\d{2}$/.test(p.ini) || !/^\d{4}-\d{2}-\d{2}$/.test(p.fim) };
   }, [preset, de, ate, hoje]);
-  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}|${base}|${[...categorias].sort().join("+")}`;   // período, blocos, base E contribuições: mudou qualquer um, a prévia perde a validade
+  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}|${base}|${[...categorias].sort().join("+")}|${ordenacao}`;   // período, blocos, base E contribuições: mudou qualquer um, a prévia perde a validade
   const modeloAtual = modeloDaSelecao(blocos);
   const comNomes = temBlocoNominal(blocos);
   const previaValida = previa?.chave === chave;
 
   /** os blocos na ordem canônica (a mesma que o servidor usa) */
   const ordenados = IDS_DOS_BLOCOS.filter(id => blocos.includes(id));
-  const filtros: FiltrosDoRelatorio = { base, categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id).filter(id => categorias.includes(id)) };
+  const filtros: FiltrosDoRelatorio = { base, categorias: CATEGORIAS_DE_CONTRIBUICAO.map(c => c.id).filter(id => categorias.includes(id)), ordenacao };
   const alternarCategoria = (id: TipoDeContribuicao) => setCategorias(atual => (atual.includes(id) ? atual.filter(c => c !== id) : [...atual, id]));
   const semCategoria = categorias.length === 0;
   const alternar = (id: IdDoBloco) => setBlocos(atual => (atual.includes(id) ? atual.filter(b => b !== id) : [...atual, id]));
@@ -174,6 +175,16 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                 ))}
               </div>
               {blocos.length === 0 && <p className="text-xs text-warning-text" data-aviso="sem-blocos">Escolha ao menos um bloco.</p>}
+              {comNomes && (
+                <div className="space-y-1" data-secao="ordenacao">
+                  <Label className="text-xs" htmlFor="ordenacao-das-listas">Ordenação das listas com nomes</Label>
+                  <select id="ordenacao-das-listas" value={ordenacao} onChange={e => setOrdenacao(e.target.value as OrdenacaoDasListas)} data-campo="ordenacao"
+                    className="h-9 w-full rounded-md border bg-background px-2 text-sm">
+                    {ORDENACOES_DAS_LISTAS.map(o => (<option key={o.id} value={o.id}>{o.rotulo}</option>))}
+                  </select>
+                  <p className="text-xs text-muted-foreground" data-ordem-descricao>{ORDENACOES_DAS_LISTAS.find(o => o.id === ordenacao)!.descricao}. Cada linha leva a classificação (#).</p>
+                </div>
+              )}
               {comNomes && <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-text" data-aviso="nominal">⚠ Este relatório contém dados nominais (nomes, última contribuição e situação, sem valores). O acesso e envio serão registrados para auditoria. Não encaminhe o e-mail.</p>}
               <p className="text-xs text-muted-foreground" data-aviso="so-agregado">Valor individual, média individual, telefone e e-mail nunca vão por e-mail. Os blocos sem ⚠ levam só números.</p>
             </div>

@@ -21,7 +21,7 @@ let raiz: Root | null = null;
 beforeAll(() => { (Element.prototype as unknown as { hasPointerCapture?: () => boolean }).hasPointerCapture ??= () => false; });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; vi.clearAllMocks(); });
 
-const FILTROS = { base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"] };
+const FILTROS = { base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"], ordenacao: "quantidade" };
 const PASTOR = IDS_DOS_BLOCOS.filter(id => blocosDoModelo("pastor").includes(id));   // na ordem canônica, a que a gaveta envia
 const PREVIA = { assunto: "Relatório de contribuições — 28/04/2026 a 27/10/2026", html: "<p>corpo</p>", texto: "corpo", resumo: "resumo", periodo: { ini: "2026-04-28", fim: "2026-10-27", ajustado: false } };
 function servico(o: Partial<ServicoDoEnvio> = {}) {
@@ -179,6 +179,45 @@ describe("o que mostrar: modelos e blocos", () => {
     await clicar(q('[data-acao="visualizar"]'));
     await clicar(botaoEnviar());
     expect(q('[data-confirmacao="envio"]')?.textContent).toContain("só números agregados, sem nomes");
+  });
+});
+
+describe("a ordenação das listas com nomes", () => {
+  const select = () => q('[data-campo="ordenacao"]') as HTMLSelectElement | null;
+  const escolher = async (valor: string) => { await act(async () => { const el = select()!; el.value = valor; el.dispatchEvent(new Event("change", { bubbles: true })); }); await esperar(); };
+  it("só aparece quando uma lista com nomes é marcada; o padrão é a quantidade de contribuições", async () => {
+    await abrirGaveta(servico());
+    expect(select()).toBeNull();
+    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    expect(select()?.value).toBe("quantidade");
+    expect(q("[data-ordem-descricao]")?.textContent).toContain("desempate pela última contribuição e pelo nome");
+    expect(q("[data-ordem-descricao]")?.textContent).toContain("classificação (#)");
+  });
+  it("tem as seis opções pedidas, na ordem", async () => {
+    await abrirGaveta(servico());
+    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));
+    expect([...select()!.options].map(o => o.value)).toEqual(["quantidade", "valor_total", "ultima_contribuicao", "nome_az", "nome_za", "tempo_sem_contribuir"]);
+    expect([...select()!.options].map(o => o.textContent)).toEqual(["Quantidade de contribuições", "Valor total contribuído", "Última contribuição", "Nome A–Z", "Nome Z–A", "Tempo sem contribuir"]);
+  });
+  it("a escolha vai no pedido, e mudar a ordenação depois da prévia tira a validade dela", async () => {
+    const s = servico();
+    await abrirGaveta(s);
+    await digitar("pastor@qibrj.org.br");
+    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(s.previa.mock.calls[0][2]).toMatchObject({ ordenacao: "quantidade" });
+    expect(botaoEnviar()!.disabled).toBe(false);
+    await escolher("nome_za");
+    expect(botaoEnviar()!.disabled).toBe(true);
+    expect(q('[data-previa="antiga"]')).not.toBeNull();
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(s.previa.mock.calls[1][2]).toMatchObject({ ordenacao: "nome_za" });
+  });
+  it("valor total contribuído avisa que os valores não aparecem na lista, só ordenam", async () => {
+    await abrirGaveta(servico());
+    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    await escolher("valor_total");
+    expect(q("[data-ordem-descricao]")?.textContent).toContain("os valores não aparecem na lista");
   });
 });
 

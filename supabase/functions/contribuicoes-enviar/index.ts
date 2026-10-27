@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceRoleKey) return resposta({ erro: "Configuração do Supabase ausente" }, 500);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown };
+  const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown; blocos?: unknown; base?: unknown; categorias?: unknown; ordenacao?: unknown };
   if (corpo.acao !== "previa" && corpo.acao !== "teste" && corpo.acao !== "enviar") return resposta({ erro: "Ação desconhecida." }, 400);
 
   // quem chama: sessão válida E papel de admin ou diakonia
@@ -78,11 +78,11 @@ Deno.serve(async (req) => {
     semContribuicaoAnalisada = analisarSemContribuicao(linhas, pessoasDaBase, pedido.periodo, { considerar: "qualquer", incluirMenores: false, vinculos: VINCULOS_DA_BASE[pedido.base] });
     if (comNomes && semContribuicaoAnalisada) {
       const nomes = await lerNomesDePessoas(supabase, resumirPessoas(linhas, pedido.periodo).map(r => r.pessoaId));
-      nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada);
+      nominal = listasNominaisDoEmail(linhas, pedido.periodo, nomes, semContribuicaoAnalisada, pedido.ordenacao);
       // sem registro, sem nomes: grava ANTES de seguir; qualquer falha recusa o relatório com nomes
       const reg = await supabase.from("contribuicoes_acessos").insert({
         por: usuario.id, por_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null, acao: acaoDoRegistro,
-        filtros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias }, total: totalDeNomes(nominal),
+        filtros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao }, total: totalDeNomes(nominal),
       });
       if (reg.error) return resposta({ erro: "O registro de acessos não está disponível (migration 20261027200000 pendente): o relatório com nomes não foi gerado. Tire os blocos com nomes para enviar só os números." }, 503);
     }
@@ -101,11 +101,11 @@ Deno.serve(async (req) => {
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia });
+    const montado = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base: resumoDaBase, nominal, cabecalho, tendencia, ordenacao: pedido.ordenacao });
     const email = { ...montado, html: aplicarNotaDeResposta(montado.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(montado.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
-    const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias };
+    const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao };
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, ...informacoes });
 
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       const r = await supabase.from("comunicacao_envios").insert({
         tipo: "relatorio_contribuicoes", origem, solicitante: usuario.id, solicitante_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null,
         remetente: REMETENTE, reply_to: replyTo, assunto: origem === "teste" ? `[TESTE] ${email.assunto}` : email.assunto, destinatarios: destinos,
-        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido) }, resumo,
+        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao, versao: VERSAO_DOS_CRITERIOS, chave: chaveDoEnvio(pedido) }, resumo,
         resultado: ok === destinos.length ? "enviado" : ok === 0 ? "falhou" : "parcial", resend_ids: ids,
       });
       return !r.error;

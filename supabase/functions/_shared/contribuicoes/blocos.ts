@@ -35,6 +35,28 @@ export const MODELOS_DE_RELATORIO: { id: IdDoModelo; rotulo: string; descricao: 
   { id: "tesouraria", rotulo: "Tesouraria", descricao: "Tudo o que é agregado (sem nomes)", blocos: [...IDS_AGREGADOS] },
 ];
 
+// ── a ORDENAÇÃO das listas com nomes (27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// Pedido dela: o padrão deixa de ser alfabético. Passa a ser a QUANTIDADE de contribuições no período (maior para menor), com a coluna "#" de classificação, e o construtor deixa escolher.
+// Desempate do padrão: quantidade → data da última contribuição (mais recente primeiro) → nome. "Valor total contribuído" só ORDENA: o valor nunca aparece na lista.
+export type OrdenacaoDasListas = "quantidade" | "valor_total" | "ultima_contribuicao" | "nome_az" | "nome_za" | "tempo_sem_contribuir";
+export const ORDENACOES_DAS_LISTAS: { id: OrdenacaoDasListas; rotulo: string; descricao: string }[] = [
+  { id: "quantidade", rotulo: "Quantidade de contribuições", descricao: "Maior para menor; desempate pela última contribuição e pelo nome" },
+  { id: "valor_total", rotulo: "Valor total contribuído", descricao: "Maior para menor; os valores não aparecem na lista, só ordenam; desempate pela quantidade, pela última contribuição e pelo nome" },
+  { id: "ultima_contribuicao", rotulo: "Última contribuição", descricao: "Mais recente primeiro; desempate pela quantidade e pelo nome" },
+  { id: "nome_az", rotulo: "Nome A–Z", descricao: "Ordem alfabética" },
+  { id: "nome_za", rotulo: "Nome Z–A", descricao: "Ordem alfabética inversa" },
+  { id: "tempo_sem_contribuir", rotulo: "Tempo sem contribuir", descricao: "Quem está há mais tempo sem contribuir primeiro (nenhuma desde 01/01/2026 vem antes); desempate pelo nome" },
+];
+export const ORDENACAO_PADRAO: OrdenacaoDasListas = "quantidade";
+
+export interface ResultadoDaOrdenacao { ok: boolean; ordenacao?: OrdenacaoDasListas; erro?: string }
+/** Ausente = o padrão (quantidade de contribuições). Só valores da lista. */
+export function validarOrdenacao(bruto: unknown): ResultadoDaOrdenacao {
+  if (bruto === undefined || bruto === null) return { ok: true, ordenacao: ORDENACAO_PADRAO };
+  const achada = ORDENACOES_DAS_LISTAS.find(o => o.id === bruto);
+  return achada ? { ok: true, ordenacao: achada.id } : { ok: false, erro: "Ordenação inválida." };
+}
+
 export const modeloPadrao: IdDoModelo = "pastor";
 export const blocosDoModelo = (id: IdDoModelo): IdDoBloco[] => [...MODELOS_DE_RELATORIO.find(m => m.id === id)!.blocos];
 

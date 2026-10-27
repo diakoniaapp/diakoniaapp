@@ -8,10 +8,10 @@ export interface PreviaDoRelatorio { assunto: string; html: string; texto: strin
 export interface ResultadoDoEnvio { enviados: number; falharam: number; historicoGravado: boolean; motivo?: "enviado_ha_pouco" }
 
 /** Os filtros globais do relatório: a base analisada e as contribuições consideradas. */
-export interface FiltrosDoRelatorio { base: string; categorias: string[] }
+export interface FiltrosDoRelatorio { base: string; categorias: string[]; ordenacao: string }
 
 async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios?: string[]) {
-  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, base: filtros.base, categorias: filtros.categorias, ...(destinatarios ? { destinatarios } : {}) } });
+  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, base: filtros.base, categorias: filtros.categorias, ordenacao: filtros.ordenacao, ...(destinatarios ? { destinatarios } : {}) } });
   if (error) {
     let msg = error.message;
     try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }
@@ -40,7 +40,7 @@ export async function enviarRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio
 // ── o histórico ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 export interface EnvioDoHistorico {
   id: string; em: string; tipo: string; origem: "sob_demanda" | "teste"; solicitante_nome: string | null; assunto: string | null;
-  destinatarios: { email: string; ok: boolean; erro: string | null }[]; parametros: { ini?: string; fim?: string; blocos?: string[]; base?: string; categorias?: string[]; versao?: string }; resultado: "enviado" | "parcial" | "falhou";
+  destinatarios: { email: string; ok: boolean; erro: string | null }[]; parametros: { ini?: string; fim?: string; blocos?: string[]; base?: string; categorias?: string[]; ordenacao?: string; versao?: string }; resultado: "enviado" | "parcial" | "falhou";
 }
 export interface HistoricoDosEnvios { envios: EnvioDoHistorico[]; /** a tabela ainda não existe (migration 20261027180000 não aplicada) */ indisponivel: boolean }
 
