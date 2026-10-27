@@ -23,6 +23,8 @@ export interface ContribuicaoParaTriagem {
   forma_pagamento: string | null;
   pessoa_id: string | null;
   familia_id: string | null;
+  /** a pessoa a que o FAVORECIDO do lançamento está ligado (Favorecido → Pessoas), quando o lançamento tem favorecido ligado; nunca grava sozinho, só sugere */
+  fornecedor_pessoa_id?: string | null;
 }
 
 // ── (1) o nome do remetente ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -47,7 +49,8 @@ export function remetenteDoLancamento(descricao: string | null | undefined, obse
 
 // ── (2) a sugestão ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 export type Confianca = "alta" | "media";
-export interface Sugestao { pessoaId: string; nome: string; nivel: NivelDoCasamento; confianca: Confianca }
+/** `favorecido`: a sugestão vem do favorecido ligado a uma pessoa, não do nome no extrato — sem nenhuma inferência (decisão dela, 27/10/2026: sugerir, nunca vincular sozinho). */
+export interface Sugestao { pessoaId: string; nome: string; nivel: NivelDoCasamento | "favorecido"; confianca: Confianca }
 export type Dificuldade = "facil" | "media" | "dificil";
 
 /** exato, subsequência de tokens e nome truncado são seguros; digitação e "nome contido no outro" pedem que a pessoa CONFIRME. */
@@ -64,10 +67,17 @@ export const dificuldadeDe = (s: Sugestao | null): Dificuldade => (s === null ? 
 
 export interface PendenteComSugestao { contribuicao: ContribuicaoParaTriagem; remetente: string | null; sugestao: Sugestao | null; dificuldade: Dificuldade }
 
+/** O favorecido ligado a uma pessoa que está no cadastro: a sugestão mais segura (alta confiança), antes do nome no extrato. */
+export function sugerirPeloFavorecido(pessoaId: string | null | undefined, candidatos: CandidatoNome[]): Sugestao | null {
+  if (!pessoaId) return null;
+  const c = candidatos.find(x => x.id === pessoaId);
+  return c ? { pessoaId: c.id, nome: c.nome, nivel: "favorecido", confianca: "alta" } : null;
+}
+
 export function prepararPendentes(contribuicoes: ContribuicaoParaTriagem[], candidatos: CandidatoNome[]): PendenteComSugestao[] {
   return contribuicoes.map(c => {
     const remetente = remetenteDoLancamento(c.descricao, c.observacoes);
-    const sugestao = sugerirPessoa(remetente, candidatos);
+    const sugestao = sugerirPeloFavorecido(c.fornecedor_pessoa_id, candidatos) ?? sugerirPessoa(remetente, candidatos);
     return { contribuicao: c, remetente, sugestao, dificuldade: dificuldadeDe(sugestao) };
   });
 }

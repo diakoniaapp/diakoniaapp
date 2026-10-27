@@ -28,11 +28,20 @@ export async function carregarContribuicoesParaTriagem(): Promise<ContribuicaoPa
   const nomePorId = new Map<string, string>();
   for (const c of cats ?? []) if (tipoDaContribuicao(c.nome) !== null) nomePorId.set(c.id, c.nome);
   if (nomePorId.size === 0) return [];
-  const brutas = await paginar<{ id: string; data: string; valor: number; categoria_id: string; descricao: string | null; observacoes: string | null; origem: string | null; forma_pagamento: string | null; pessoa_id: string | null; familia_id: string | null }>((de, ate) =>
-    supabase.from("fin_lancamentos").select("id, data, valor, categoria_id, descricao, observacoes, origem, forma_pagamento, pessoa_id, familia_id")
+  const brutas = await paginar<{ id: string; data: string; valor: number; categoria_id: string; descricao: string | null; observacoes: string | null; origem: string | null; forma_pagamento: string | null; pessoa_id: string | null; familia_id: string | null; fornecedor_id: string | null }>((de, ate) =>
+    supabase.from("fin_lancamentos").select("id, data, valor, categoria_id, descricao, observacoes, origem, forma_pagamento, pessoa_id, familia_id, fornecedor_id")
       .eq("tipo", "entrada").in("status", ["realizado", "conciliado"]).in("categoria_id", [...nomePorId.keys()]).gte("data", PISO_DE_IDENTIFICACAO)
       .order("data", { ascending: false }).order("id", { ascending: true }).range(de, ate));
-  return brutas.map(l => ({ id: l.id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null, descricao: l.descricao, observacoes: l.observacoes, origem: l.origem, forma_pagamento: l.forma_pagamento, pessoa_id: l.pessoa_id, familia_id: l.familia_id }));
+  // o favorecido ligado a uma pessoa: só dos lançamentos SEM pessoa (é para eles que a fila sugere), em blocos de 200 para a URL não estourar
+  const idsDeFavorecido = [...new Set(brutas.filter(l => !l.pessoa_id && l.fornecedor_id).map(l => l.fornecedor_id!))];
+  const pessoaDoFavorecido = new Map<string, string>();
+  for (let i = 0; i < idsDeFavorecido.length; i += 200) {
+    // `pessoa_id` de fin_fornecedores ainda não está no types.ts gerado (a coluna existe no banco desde o Favorecido Financeiro): leitura tipada à mão, como em finService
+    const r = (await supabase.from("fin_fornecedores").select("id, pessoa_id" as never).in("id", idsDeFavorecido.slice(i, i + 200)).not("pessoa_id" as never, "is", null)) as unknown as { data: { id: string; pessoa_id: string | null }[] | null; error: { message: string } | null };
+    if (r.error) throw new Error(r.error.message);
+    for (const f of r.data ?? []) if (f.pessoa_id) pessoaDoFavorecido.set(f.id, f.pessoa_id);
+  }
+  return brutas.map(l => ({ id: l.id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null, descricao: l.descricao, observacoes: l.observacoes, origem: l.origem, forma_pagamento: l.forma_pagamento, pessoa_id: l.pessoa_id, familia_id: l.familia_id, fornecedor_pessoa_id: l.fornecedor_id ? pessoaDoFavorecido.get(l.fornecedor_id) ?? null : null }));
 }
 
 export interface TriagemVigente { lancamento_id: string; decisao: DecisaoDeTriagem; motivo: string | null; por_nome: string | null; em: string }

@@ -222,7 +222,7 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
                     </div>
                     <p className="text-xs text-muted-foreground break-words" data-remetente>
                       {p.remetente ? <>No extrato: <strong className="text-foreground">{p.remetente}</strong></> : "Sem nome no extrato"}
-                      {p.sugestao && <> · <span data-sugestao>Sugestão: <strong className="text-foreground">{p.sugestao.nome}</strong> ({p.sugestao.confianca === "alta" ? "alta confiança" : "confirme"})</span></>}
+                      {p.sugestao && <> · <span data-sugestao>Sugestão: <strong className="text-foreground">{p.sugestao.nome}</strong> ({p.sugestao.nivel === "favorecido" ? "favorecido ligado à pessoa" : p.sugestao.confianca === "alta" ? "alta confiança" : "confirme"})</span></>}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {p.sugestao && <Button size="sm" className="h-7 gap-1 text-xs" disabled={trabalhando} data-acao="aceitar" onClick={() => vincular(p, { id: p.sugestao!.pessoaId, nome: p.sugestao!.nome }, null)}><UserCheck className="w-3.5 h-3.5" /> Aceitar sugestão</Button>}

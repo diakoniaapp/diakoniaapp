@@ -73,6 +73,28 @@ describe("prepararPendentes — tudo junto", () => {
   });
 });
 
+describe("sugestão pelo FAVORECIDO ligado a uma pessoa (decisão dela, 27/10/2026: sugerir, nunca vincular sozinho)", () => {
+  const C = (id: string, o: Partial<ContribuicaoParaTriagem> = {}): ContribuicaoParaTriagem => ({ id, data: "2026-09-01", valor: 100, categoria: "Dizimos", descricao: null, observacoes: null, origem: "manual", forma_pagamento: "pix", pessoa_id: null, familia_id: null, ...o });
+  const cadastro = [{ id: "1", nome: "Sandra Maria Silva" }, { id: "2", nome: "Joana Alves" }];
+  it("lançamento sem texto algum, mas com favorecido ligado à pessoa: vira sugestão de alta confiança (antes era 'difícil')", () => {
+    const r = prepararPendentes([C("a", { fornecedor_pessoa_id: "2" })], cadastro);
+    expect(r[0].sugestao).toMatchObject({ pessoaId: "2", nome: "Joana Alves", nivel: "favorecido", confianca: "alta" });
+    expect(r[0].dificuldade).toBe("facil");
+  });
+  it("o favorecido vem ANTES do nome no extrato (é o vínculo que a Tesouraria já fez)", () => {
+    const r = prepararPendentes([C("a", { observacoes: "pix rem Sandra Maria Silva 1101", fornecedor_pessoa_id: "2" })], cadastro);
+    expect(r[0].sugestao?.pessoaId).toBe("2");
+  });
+  it("favorecido ligado a alguém que não está no cadastro lido: cai para o nome do extrato, sem inventar", () => {
+    const r = prepararPendentes([C("a", { observacoes: "pix rem Sandra Maria Silva 1101", fornecedor_pessoa_id: "999" })], cadastro);
+    expect(r[0].sugestao).toMatchObject({ pessoaId: "1", nivel: "exato" });
+    expect(prepararPendentes([C("b", { fornecedor_pessoa_id: "999" })], cadastro)[0].sugestao).toBeNull();
+  });
+  it("sem favorecido ligado, nada muda", () => {
+    expect(prepararPendentes([C("a", { fornecedor_pessoa_id: null })], cadastro)[0].sugestao).toBeNull();
+  });
+});
+
 describe("taxaDeIdentificacao — quatro partes e a meta de 95%", () => {
   const L = (id: string, valor: number, pessoa: string | null) => ({ id, valor, pessoa_id: pessoa });
   const lancs = [L("1", 600, "p"), L("2", 200, "p"), L("3", 100, null), L("4", 50, null), L("5", 50, null)];
