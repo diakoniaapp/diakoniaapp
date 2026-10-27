@@ -13,7 +13,7 @@ const DATA = (ymd: string | null): Celula => (ymd ? { v: serialDoExcel(ymd), est
 export function textoDoPeriodo(ini: string, fim: string) { return `${dataBr(ini)} a ${dataBr(fim)}`; }
 
 /** O resumo e as semanas/meses — só agregados. */
-export function abasDoPainel(a: AnaliseDoPeriodo, emitidoPor: string, hoje: string): Aba[] {
+export function abasDoPainel(a: AnaliseDoPeriodo, emitidoPor: string, hoje: string, criterios: { rotulo: string; valor: string }[] = []): Aba[] {
   const c = a.cobertura;
   return [
     {
@@ -21,7 +21,8 @@ export function abasDoPainel(a: AnaliseDoPeriodo, emitidoPor: string, hoje: stri
       linhas: [
         [{ v: "CONTRIBUIÇÕES — RESUMO", estilo: "titulo" }],
         [`Período: ${textoDoPeriodo(a.periodo.ini, a.periodo.fim)} (a análise começa em ${dataBr(PISO_DE_IDENTIFICACAO)})`],
-        [`Emitido em ${dataBr(hoje)} por ${emitidoPor || "Sistema"}`], [],
+        [`Emitido em ${dataBr(hoje)} por ${emitidoPor || "Sistema"}`],
+        ...criterios.map((c): Celula[] => [`${c.rotulo}: ${c.valor}`]), [],
         cab("Indicador", "Valor"),
         ["Dizimistas (dízimo identificado)", INT(a.dizimistas)],
         ["Doadores (dízimos, ofertas ou missões)", INT(a.doadores)],
@@ -47,16 +48,16 @@ export function abasDoPainel(a: AnaliseDoPeriodo, emitidoPor: string, hoje: stri
   ];
 }
 
-export interface LinhaDePessoa { nome: string; quantidade: number; ultima: string; total: number; dizimista: boolean; recorrente: boolean | null; nova: boolean | null }
+export interface LinhaDePessoa { posicao: number; nome: string; quantidade: number; ultima: string; total: number; mediaMensal: number; valorMedio: number; dizimista: boolean; recorrente: boolean | null; nova: boolean | null }
 
 export function abaDePessoas(linhas: LinhaDePessoa[], periodo: { ini: string; fim: string }): Aba {
   const sn = (v: boolean | null) => (v === null ? "—" : v ? "Sim" : "Não");
   return {
-    nome: "Pessoas", larguras: [38, 14, 16, 16, 12, 12, 10], linhaDoCabecalho: 3,
+    nome: "Pessoas", larguras: [6, 38, 14, 16, 16, 16, 16, 12, 12, 10], linhaDoCabecalho: 3,
     linhas: [
       [{ v: "CONTRIBUIÇÕES POR PESSOA", estilo: "titulo" }], [`Período: ${textoDoPeriodo(periodo.ini, periodo.fim)}`], [],
-      cab("Nome", "Contribuições", "Última", "Total", "Dizimista", "Recorrente", "Novo"),
-      ...linhas.map((p): Celula[] => [p.nome, INT(p.quantidade), DATA(p.ultima), MOEDA(p.total), sn(p.dizimista), sn(p.recorrente), sn(p.nova)]),
+      cab("#", "Nome", "Contribuições", "Última", "Total", "Média mensal", "Valor médio", "Dizimista", "Recorrente", "Novo"),
+      ...linhas.map((p): Celula[] => [INT(p.posicao), p.nome, INT(p.quantidade), DATA(p.ultima), MOEDA(p.total), MOEDA(p.mediaMensal), MOEDA(p.valorMedio), sn(p.dizimista), sn(p.recorrente), sn(p.nova)]),
     ],
   };
 }
@@ -72,7 +73,7 @@ export function abasDosSemContribuicao(a: AnaliseDosSemContribuicao, periodo: { 
         [{ v: "SEM CONTRIBUIÇÃO REGISTRADA NO PERÍODO", estilo: "titulo" }], [`Período: ${textoDoPeriodo(periodo.ini, periodo.fim)} · ${quemEntra}`],
         ["Lista para cuidado pastoral. Quem contribui por outra pessoa da família, em espécie ou sem identificação pode aparecer aqui."], [],
         cab("Nome", "Tipo", "Situação", "Última contribuição", "Dias", "Observação"),
-        ...a.lista.map((p): Celula[] => [p.nome, p.tipo === "membro" ? "Membro" : "Congregado", SITUACAO[p.classificacao], DATA(p.ultima), INT(p.dias), observacao(p)]),
+        ...a.lista.map((p): Celula[] => [p.nome, p.tipo === "membro" ? "Membro" : p.tipo === "visitante" ? "Visitante" : "Congregado", SITUACAO[p.classificacao], DATA(p.ultima), INT(p.dias), observacao(p)]),
       ],
     },
     {

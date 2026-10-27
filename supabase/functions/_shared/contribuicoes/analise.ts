@@ -15,7 +15,7 @@
 //   · Semana = segunda a domingo (identificada pela segunda-feira).
 
 export const PISO_DE_IDENTIFICACAO = "2026-01-01";
-const DIAS_NO_MES_MEDIO = 30.4375;
+export const DIAS_NO_MES_MEDIO = 30.4375;
 
 export type TipoDeContribuicao = "dizimo" | "oferta" | "missoes";
 

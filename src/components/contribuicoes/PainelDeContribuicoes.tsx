@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Info } from "lucide-react";
 import { brl } from "@/services/finService";
-import type { AnaliseDoPeriodo, SemanaDeContribuicao } from "@/lib/contribuicoes";
+import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ForaDaBase, type ResumoDaBase, type SemanaDeContribuicao } from "@/lib/contribuicoes";
 
 const dm = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -40,7 +40,36 @@ const COR = "hsl(var(--gold))";
 const GRADE = "hsl(var(--border))";
 const eixo = { fontSize: 11, fill: "hsl(var(--muted-foreground))" };
 
-export function PainelDeContribuicoes({ analise }: { analise: AnaliseDoPeriodo }) {
+const dataBrCompleta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+
+/** O card fixo "Saúde da base contribuinte": a participação da igreja de relance, antes dos gráficos (pedido dela, 27/10/2026). Só números. */
+function CardSaudeDaBase({ saude, analise, rotuloDaBase, foraDaBase }: { saude: ResumoDaBase; analise: AnaliseDoPeriodo; rotuloDaBase: string; foraDaBase?: ForaDaBase }) {
+  return (
+    <Card className="shadow-card-soft border-gold/30" data-card="saude-da-base">
+      <CardHeader className="pb-2"><CardTitle className="font-serif text-base">Saúde da base contribuinte</CardTitle><p className="text-xs text-muted-foreground">{rotuloDaBase} (ativos); menores de 18 anos ficam fora da conta de quem não contribuiu.</p></CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2" data-saude-indicadores>
+          {[
+            ["base", "Membros ativos", num(saude.base)], ["contribuiram", "Contribuíram", num(saude.contribuiram)], ["nao", "Sem contribuição registrada", num(saude.naoContribuiram)],
+            ["adesao", "Adesão da base", pct(saude.adesaoPct)], ["novos", "Novos dizimistas", analise.novos === null ? "—" : num(analise.novos)], ["recorrentes", "Dizimistas recorrentes", analise.recorrentes ? num(analise.recorrentes.pessoas) : "—"],
+          ].map(([id, rotulo, valor]) => (
+            <div key={id} data-saude={id} className="rounded-md border bg-muted/20 px-2.5 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground leading-tight">{rotulo}</p>
+              <p className="font-serif text-xl font-semibold tabular-nums" data-valor>{valor}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-xs text-muted-foreground space-y-0.5" data-saude-ausencia>
+          <p>Sem contribuição há mais de: <strong>30 dias {num(saude.haMaisDe.dias30)}</strong> · <strong>60 dias {num(saude.haMaisDe.dias60)}</strong> · <strong>90 dias {num(saude.haMaisDe.dias90)}</strong> · <strong>180 dias {num(saude.haMaisDe.dias180)}</strong></p>
+          <p>Nenhuma contribuição registrada desde {dataBrCompleta(PISO_DE_IDENTIFICACAO)}: <strong>{num(saude.nuncaDesdeOPiso)}</strong> · contribuíram anteriormente, mas não no período: <strong>{num(saude.jaContribuiuAntes)}</strong></p>
+          {foraDaBase && <p data-fora-da-base>Contribuintes fora da base: <strong>{num(foraDaBase.pessoas)}</strong>{foraDaBase.pessoas > 0 ? ` (${brl(foraDaBase.valor)}, fora dos indicadores)` : ""}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function PainelDeContribuicoes({ analise, saude, rotuloDaBase, foraDaBase }: { analise: AnaliseDoPeriodo; saude?: ResumoDaBase | null; rotuloDaBase?: string; foraDaBase?: ForaDaBase }) {
   const { periodo, destaques: d } = analise;
   // período longo → barras por mês; curto → por semana (o gráfico semanal de um ano seria uma cerca)
   const porSemana = periodo.dias <= 140;
@@ -53,11 +82,18 @@ export function PainelDeContribuicoes({ analise }: { analise: AnaliseDoPeriodo }
   const semana = (s: SemanaDeContribuicao) => `semana de ${dm(s.inicio)}`;
 
   if (analise.arrecadado === 0) {
-    return <Card className="border-dashed"><CardContent className="py-8 text-center text-sm text-muted-foreground" data-vazio>Nenhuma contribuição registrada neste período.</CardContent></Card>;
+    return (
+      <div className="space-y-4">
+        {saude && <CardSaudeDaBase saude={saude} analise={analise} rotuloDaBase={rotuloDaBase ?? "Membros e congregados"} foraDaBase={foraDaBase} />}
+        <Card className="border-dashed"><CardContent className="py-8 text-center text-sm text-muted-foreground" data-vazio>Nenhuma contribuição registrada neste período.</CardContent></Card>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4" data-painel>
+      {saude && <CardSaudeDaBase saude={saude} analise={analise} rotuloDaBase={rotuloDaBase ?? "Membros e congregados"} foraDaBase={foraDaBase} />}
+
       <div className="flex items-start gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed" data-cobertura>
         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
         <p>

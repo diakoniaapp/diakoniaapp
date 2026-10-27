@@ -14,7 +14,7 @@ import { FAIXAS_SEM_CONTRIBUICAO, type AnaliseDosSemContribuicao, type FaixaSemC
 import { textoDoRegistro, type EstadoDoRegistro } from "./useRegistroDeAcesso";
 
 export type FiltroDeClasse = "todos" | "nunca" | "antes";
-export interface FiltrosDosSem { considerar: "qualquer" | "dizimo"; incluirMenores: boolean; tipo: "todos" | "membro" | "congregado"; classe: FiltroDeClasse; faixa: FaixaSemContribuicao | ""; semFamilia: boolean }
+export interface FiltrosDosSem { considerar: "qualquer" | "dizimo"; incluirMenores: boolean; tipo: "todos" | "membro" | "congregado" | "visitante"; classe: FiltroDeClasse; faixa: FaixaSemContribuicao | ""; semFamilia: boolean }
 
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 
@@ -48,7 +48,7 @@ interface Props {
 
 export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro, aoExportar, exportando, coberturaDoPeriodo }: Props) {
   const visiveis = useMemo(() => filtrarSemContribuicao(a.lista, filtros), [a.lista, filtros]);
-  const oQue = filtros.considerar === "dizimo" ? "dízimo" : "contribuição";
+  const oQue = "contribuição";   // o que conta como contribuir é o filtro global de categorias (barra no alto da tela)
 
   return (
     <div className="space-y-4" data-bloco="sem-contribuicao">
@@ -70,16 +70,11 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
       </div>
 
       <Card><CardContent className="py-3 px-3 space-y-3" data-filtros-sem>
-        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-4">
-          <div className="space-y-1"><Label className="text-xs">O que conta como contribuir</Label>
-            <Select value={filtros.considerar} onValueChange={v => aoMudarFiltros({ considerar: v as FiltrosDosSem["considerar"] })}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="qualquer">Dízimo, oferta ou missões</SelectItem><SelectItem value="dizimo">Só dízimo</SelectItem></SelectContent>
-            </Select></div>
+        <div className="grid gap-2 sm:grid-cols-3">
           <div className="space-y-1"><Label className="text-xs">Vínculo</Label>
             <Select value={filtros.tipo} onValueChange={v => aoMudarFiltros({ tipo: v as FiltrosDosSem["tipo"] })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="todos">Membros e congregados</SelectItem><SelectItem value="membro">Só membros</SelectItem><SelectItem value="congregado">Só congregados</SelectItem></SelectContent>
+              <SelectContent><SelectItem value="todos">Toda a base escolhida</SelectItem><SelectItem value="membro">Só membros</SelectItem><SelectItem value="congregado">Só congregados</SelectItem><SelectItem value="visitante">Só visitantes</SelectItem></SelectContent>
             </Select></div>
           <div className="space-y-1"><Label className="text-xs">Situação</Label>
             <Select value={filtros.classe} onValueChange={v => aoMudarFiltros({ classe: v as FiltroDeClasse })}>
@@ -124,7 +119,7 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
                 <div key={p.id} data-pessoa={p.id} className="border rounded-md px-3 py-2 min-w-0">
                   <div className="flex items-center justify-between gap-2 min-w-0">
                     <NomePessoa id={p.id} nome={p.nome} somenteLeitura className="font-medium text-sm truncate min-w-0" />
-                    <span className="text-xs text-muted-foreground shrink-0">{p.tipo === "membro" ? "Membro" : "Congregado"}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{p.tipo === "membro" ? "Membro" : p.tipo === "visitante" ? "Visitante" : "Congregado"}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {p.ultima ? `Última contribuição${filtros.considerar === "dizimo" ? " de dízimo" : ""}: ${dataBr(p.ultima)} (há ${p.dias} dias)` : "Nenhuma contribuição desde 01/01/2026"}
