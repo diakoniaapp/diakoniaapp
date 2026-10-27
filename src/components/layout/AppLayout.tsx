@@ -490,9 +490,9 @@ export default function AppLayout() {
                           <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
                             Sistema
                           </DropdownMenuLabel>
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/resumo-semanal")}>
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/comunicacao")}>
                             <Mail className="w-4 h-4 mr-2 text-muted-foreground" />
-                            Resumo Semanal por E-mail
+                            Comunicação e Relatórios
                           </DropdownMenuItem>
                         </div>
                       )}

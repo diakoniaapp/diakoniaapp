@@ -179,9 +179,9 @@ export function UserMenuButton() {
                       Sistema
                     </DropdownMenuLabel>
                     <DropdownMenuItem className="gap-2 cursor-pointer py-2.5"
-                      onClick={() => navigate("/admin/resumo-semanal")}>
+                      onClick={() => navigate("/comunicacao")}>
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span>Resumo Semanal por E-mail</span>
+                      <span>Comunicação e Relatórios</span>
                     </DropdownMenuItem>
                   </div>
                 )}

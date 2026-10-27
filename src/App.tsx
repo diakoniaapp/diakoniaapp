@@ -24,7 +24,7 @@ import LgpdAdmin from "./pages/LgpdAdmin.tsx";
 import IdentidadeAdmin from "./pages/IdentidadeAdmin.tsx";
 import BoasVindasVisitanteAdmin from "./pages/BoasVindasVisitanteAdmin.tsx";
 import MensagensVisitanteAdmin from "./pages/MensagensVisitanteAdmin.tsx";
-import ResumoSemanalAdmin from "./pages/ResumoSemanalAdmin.tsx";
+import ComunicacaoERelatorios from "./pages/ComunicacaoERelatorios.tsx";
 import DocumentosAdmin from "./pages/DocumentosAdmin.tsx";
 import ImportacaoMembros from "./pages/ImportacaoMembros.tsx";
 import ExportacaoAdmin from "./pages/ExportacaoAdmin.tsx";
@@ -268,7 +268,8 @@ const App = () => (
                   <Route path="/admin/importacao" element={<ImportacaoMembros />} />
                   <Route path="/admin/exportacao" element={<ExportacaoAdmin />} />
                   <Route path="/admin/campanhas" element={<CampanhasAdmin />} />
-                  <Route path="/admin/resumo-semanal" element={<ResumoSemanalAdmin />} />
+                  <Route path="/comunicacao" element={<ComunicacaoERelatorios />} />
+                  <Route path="/admin/resumo-semanal" element={<Navigate to="/comunicacao?aba=agendamentos" replace />} />
                 </Route>
 
                 {/* Redirecionar /dashboard para a raiz */}

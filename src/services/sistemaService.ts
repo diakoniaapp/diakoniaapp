@@ -210,3 +210,18 @@ export async function enviarResumoDiarioAgora(): Promise<ResultadoDoEnvioAgora> 
   const r = await chamarPreviaDoDiario("agora");
   return { enviados: r.enviados ?? 0, falharam: r.falharam ?? 0, itens: r.itens ?? 0, reembolsos: r.reembolsos ?? 0, motivo: r.motivo, destinatarios: r.destinatarios };
 }
+
+/**
+ * Os endereços da Identidade da Igreja que decidem para onde vai a RESPOSTA dos e-mails automáticos (aba Configurações da Central de Comunicação).
+ * Sem a coluna `email_resposta` (migration 20261027120000 não aplicada) lê só `email_contato`; nunca lança: a aba mostra "não informado".
+ */
+export async function carregarEnderecosDeResposta(): Promise<{ email_resposta: string | null; email_contato: string | null }> {
+  const ler = async (colunas: string) => {
+    const r = await supabase.from("identidade_igreja").select(colunas).eq("ativa", true).order("created_at", { ascending: true }).limit(1).maybeSingle();
+    return r.error ? null : (r.data as unknown as Record<string, string | null> | null);
+  };
+  const completa = await ler("email_resposta, email_contato");
+  if (completa) return { email_resposta: completa.email_resposta ?? null, email_contato: completa.email_contato ?? null };
+  const so = await ler("email_contato");
+  return { email_resposta: null, email_contato: so?.email_contato ?? null };
+}

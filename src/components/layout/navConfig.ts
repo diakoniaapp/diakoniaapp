@@ -468,7 +468,8 @@ export const pageTitles: Record<string, string> = {
   "/admin/importacao":        "Importação",
   "/admin/exportacao":        "Exportação",
   "/admin/campanhas":         "Campanhas Espirituais",
-  "/admin/resumo-semanal":    "Resumo Semanal por E-mail",
+  "/admin/resumo-semanal":    "Comunicação e Relatórios",
+  "/comunicacao":            "Comunicação e Relatórios",
 };
 
 export const ROUTE_ROLES: Record<string, AppRole[]> = {
@@ -559,6 +560,7 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // telas) — casamento por prefixo já resolve a precedência: a entrada
   // mais específica (mais comprida) vence, ver `papeisExigidosPara()`.
   "/admin/resumo-semanal": ROLES_DONO_SISTEMA,
+  "/comunicacao": ROLES_DONO_SISTEMA,
   "/areas":              ROLES_LIDERES_SEM_TITULAR,
   // Sem guarda, a secretaria continuaria chegando pela URL, pelo atalho
   // /ebd/acompanhamento e pela paleta — esconder o item do menu esconderia

@@ -118,7 +118,7 @@ describe("as ações", () => {
   });
   it("Configurar leva à tela de configuração; o envio manual fecha o painel e abre o 'Preparar envio'", async () => {
     await abrir();
-    expect(botao("Configurar")?.getAttribute("href")).toBe("/admin/resumo-semanal");
+    expect(botao("Configurar")?.getAttribute("href")).toBe("/comunicacao?aba=agendamentos");
     await clicar(botao("Envio manual"));
     expect(fechou).toHaveBeenCalled();
     expect(manual).toHaveBeenCalledTimes(1);

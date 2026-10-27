@@ -179,7 +179,7 @@ export const TELAS: Tela[] = [
   T("/admin/documentos", "Documentos", "sistema"),
   T("/admin/importacao", "Importação de membros", "sistema"),
   T("/admin/exportacao", "Exportação", "sistema"),
-  T("/admin/resumo-semanal", "Resumo semanal por e-mail", "sistema"),
+  T("/comunicacao", "Comunicação e Relatórios", "sistema"),
 ];
 
 // ── casamento de rota ───────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import {
   GraduationCap, Sprout, Sparkles, FileText, Gavel, CheckSquare, ShoppingBag,
   DollarSign, CalendarDays, MapPin, Church, ScrollText, Flame,
   Network, Building2, BarChart2, Upload, Download, KeyRound,
-  ShieldAlert, UserPlus, type LucideIcon,
+  ShieldAlert, UserPlus, Mail, type LucideIcon,
 } from "lucide-react";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { ROLES_PAINEL_PASTORAL, papeisExigidosPara } from "@/components/layout/navConfig";
@@ -107,6 +107,7 @@ const ROUTES: CommandRoute[] = [
   // ── Configurações (raramente buscadas mas indexadas) ──────────────
   { to: "/admin/identidade",        label: "Identidade da igreja", icon: Church,      group: "Configurações", keywords: ["estatuto","missao","visao"] },
   { to: "/admin/boas-vindas-visitante", label: "Boas-vindas ao visitante", icon: HeartHandshake, group: "Configurações", keywords: ["acolhimento","visitante","qr","redes sociais","instagram","banner"] },
+  { to: "/comunicacao",            label: "Comunicação e Relatórios", icon: Mail, group: "Configurações", keywords: ["email","e-mail","resumo","semanal","diario","relatorio","reply","responder","agendamento","historico"] },
   { to: "/admin/mensagens-visitante", label: "Mensagens ao visitante", icon: HeartHandshake, group: "Configurações", keywords: ["acolhimento","visitante","whatsapp","email","mensagem","modelo","boas-vindas","retorno"] },
   { to: "/admin/documentos",        label: "Documentos institucionais", icon: ScrollText, group: "Configurações", keywords: ["regimento","atas"] },
   { to: "/admin/campanhas",         label: "Campanhas",            icon: Flame,       group: "Configurações", keywords: ["natal","missoes","ofertas"] },

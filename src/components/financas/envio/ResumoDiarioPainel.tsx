@@ -152,7 +152,7 @@ export function ResumoDiarioPainel({ aberto, onFechar, onEnvioManual, servico = 
               <div className="flex flex-wrap gap-2 pt-3">
                 <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={visualizar}><Eye className="w-3.5 h-3.5" /> Visualizar</Button>
                 <Button type="button" size="sm" className="gap-1.5" onClick={() => setConfirmando(true)} disabled={destinatarios.length === 0}><Send className="w-3.5 h-3.5" /> Enviar agora</Button>
-                <Button asChild size="sm" variant="outline" className="gap-1.5"><Link to="/admin/resumo-semanal" onClick={onFechar}><Settings className="w-3.5 h-3.5" /> Configurar</Link></Button>
+                <Button asChild size="sm" variant="outline" className="gap-1.5"><Link to="/comunicacao?aba=agendamentos" onClick={onFechar}><Settings className="w-3.5 h-3.5" /> Configurar</Link></Button>
               </div>
             </div>
           )}
