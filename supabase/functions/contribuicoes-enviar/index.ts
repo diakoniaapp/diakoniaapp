@@ -3,7 +3,7 @@
 // Decisão dela: o pastor recebe por e-mail só o relatório agregado (período, dizimistas identificados, total, média mensal, semana de maior adesão, novos, recorrentes); a lista com NOMES fica só dentro
 // do sistema. Aqui não há como um nome entrar no e-mail: o módulo que o monta (`_shared/contribuicoes/email.ts`) só recebe números.
 //
-//   { acao: "previa",  periodo: { ini, fim } }                          → { assunto, html, texto, resumo } — como o e-mail sairia, com os dados de AGORA. Nada é enviado nem registrado.
+//   { acao: "previa",  periodo: { ini, fim }, blocos?: ["indicadores", …] }                          → { assunto, html, texto, resumo } — como o e-mail sairia, com os dados de AGORA. Nada é enviado nem registrado.
 //   { acao: "teste",   periodo }                                         → manda o e-mail marcado "[TESTE]" SÓ para o e-mail cadastrado de quem pediu (nunca um endereço vindo da chamada). Registra origem "teste".
 //   { acao: "enviar",  periodo, destinatarios: ["a@b.com", …] }          → envia UM e-mail para cada destinatário (ninguém vê os outros), registra no histórico (`comunicacao_envios`).
 //
@@ -13,8 +13,8 @@
 // Implantação: `supabase functions deploy contribuicoes-enviar` (com verificação de JWT, o padrão). Ver docs/CONTRIBUICOES_EMAIL_IMPLANTACAO.md.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { analisarContribuicoes } from "../_shared/contribuicoes/analise.ts";
-import { lerContribuicoesDoPiso } from "../_shared/contribuicoes/carregar.ts";
+import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type ResumoDaBase } from "../_shared/contribuicoes/analise.ts";
+import { lerBaseDePessoas, lerContribuicoesDoPiso } from "../_shared/contribuicoes/carregar.ts";
 import { montarEmailDeContribuicoes } from "../_shared/contribuicoes/email.ts";
 import { chaveDoEnvio, validarPedido } from "../_shared/contribuicoes/pedido.ts";
 import { aplicarNotaDeResposta, aplicarNotaDeRespostaNoTexto } from "../_shared/email/desenho.ts";
@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
   if (!supabaseUrl || !serviceRoleKey) return resposta({ erro: "Configuração do Supabase ausente" }, 500);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown };
+  const corpo = await req.json().catch(() => ({})) as { acao?: string; periodo?: { ini?: string; fim?: string }; destinatarios?: unknown; blocos?: unknown };
   if (corpo.acao !== "previa" && corpo.acao !== "teste" && corpo.acao !== "enviar") return resposta({ erro: "Ação desconhecida." }, 400);
 
   // quem chama: sessão válida E papel de admin ou diakonia
@@ -58,14 +58,19 @@ Deno.serve(async (req) => {
   try {
     const linhas = await lerContribuicoesDoPiso(supabase, pedido.periodo.fim);
     const analise = analisarContribuicoes(linhas, pedido.periodo);
+    // a saúde da base usa a lista de pessoas SÓ para contar: o módulo do e-mail recebe o resumo (números), nunca a lista
+    let base: ResumoDaBase | null = null;
+    if (pedido.blocos.includes("saude_da_base")) {
+      base = resumirBase(analisarSemContribuicao(linhas, await lerBaseDePessoas(supabase), pedido.periodo, { considerar: "qualquer", incluirMenores: false }));
+    }
     const replyTo = await lerEnderecoDeResposta(supabase);
     const igreja = await lerNomeDaIgreja(supabase);
     const aviso = corpo.acao === "previa" ? "PRÉVIA — nada foi enviado" : corpo.acao === "teste" ? "TESTE — e-mail de teste do relatório de contribuições" : undefined;
-    const base = montarEmailDeContribuicoes(analise, { igreja, aviso });
+    const base = montarEmailDeContribuicoes(analise, { igreja, aviso, blocos: pedido.blocos, base });
     const email = { ...base, html: aplicarNotaDeResposta(base.html, replyTo), texto: aplicarNotaDeRespostaNoTexto(base.texto, replyTo) };
     // o que vai para o histórico: só números agregados
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null };
-    const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado };
+    const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos };
 
     if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, ...informacoes });
 
@@ -79,7 +84,7 @@ Deno.serve(async (req) => {
       const r = await supabase.from("comunicacao_envios").insert({
         tipo: "relatorio_contribuicoes", origem, solicitante: usuario.id, solicitante_nome: typeof nomeDoUsuario === "string" ? nomeDoUsuario : null,
         remetente: REMETENTE, reply_to: replyTo, assunto: origem === "teste" ? `[TESTE] ${email.assunto}` : email.assunto, destinatarios: destinos,
-        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, chave: chaveDoEnvio(pedido) }, resumo,
+        parametros: { ini: pedido.periodo.ini, fim: pedido.periodo.fim, blocos: pedido.blocos, chave: chaveDoEnvio(pedido) }, resumo,
         resultado: ok === destinos.length ? "enviado" : ok === 0 ? "falhou" : "parcial", resend_ids: ids,
       });
       return !r.error;

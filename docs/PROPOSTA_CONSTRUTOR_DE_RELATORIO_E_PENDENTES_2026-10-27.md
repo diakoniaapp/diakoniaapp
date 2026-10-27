@@ -108,3 +108,11 @@ Duas correções ao texto colado: o banco guarda a **data** do extrato, não a h
 7. **Anônimo e ignorado:** contam na taxa ou ficam à parte (recomendado: à parte)?
 8. **Contato e ministério** na lista nominal (só dentro do sistema): quer?
 9. **Quem atua nas pendentes:** admin, diakonia e tesouraria?
+
+## 6. Decisões dela (27/10/2026) e o que foi implementado
+
+**Decididas:** construtor primeiro (2A), depois Pendentes (2B); **adesão da base entra no e-mail** (agregada); meta de identificação **95%**; anônimo e ignorado **separados** (identificados / anônimos / ignorados / pendentes); contato (telefone/e-mail) **fora por enquanto**; modelos **Pastor, Diretoria e Tesouraria**, sem modelos por usuário nesta fase; novo bloco **"Saúde da base contribuinte"** (contribuíram, não contribuíram, novos, recorrentes, sem contribuir há mais de 30/60/90/180 dias).
+
+**Em aberto — nomes por e-mail:** ela decidiu "não" (agregado) e depois perguntou "por que não posso ter os nomes no e-mail?". A resposta recebida diz que pode, que o cuidado maior é com o **valor individual**, e sugere um modelo Pastor "nominal sem valores". **Não é uma limitação técnica: é uma decisão de governança dela.** Nada nominal foi implementado por e-mail; o construtor foi feito de modo que isso seja um bloco novo, de nível "nominal", com confirmação, registro e papéis — sem brecha no registro atual (a validação do servidor recusa qualquer bloco fora da lista agregada).
+
+**Implementado (2A):** registro de blocos e 3 modelos (`_shared/contribuicoes/blocos.ts`); bloco "Saúde da base contribuinte" só com quantidades (`resumirBase`); validação no servidor; gaveta com modelos e caixas por bloco, prévia que perde a validade se o período OU os blocos mudam; histórico registra quais blocos foram. Sem migration. Falta reimplantar `contribuicoes-enviar`.

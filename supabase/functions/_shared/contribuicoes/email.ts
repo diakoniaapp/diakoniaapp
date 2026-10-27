@@ -1,10 +1,11 @@
 // ─── email — o relatório de contribuições AGREGADO, para o pastor (27/10/2026) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 //
 // Decisão dela: o pastor recebe por e-mail só o relatório AGREGADO — período, dizimistas identificados, total, média mensal, semana de maior adesão, novos, recorrentes — e a lista com NOMES fica só
-// dentro do sistema, com registro de quem viu. Por isso ESTE módulo recebe apenas a `AnaliseDoPeriodo` (números) e nunca uma lista de pessoas: não há como um nome entrar no e-mail. Os gráficos são
-// barras em tabela HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`).
+// dentro do sistema. Por isso ESTE módulo recebe apenas números (`AnaliseDoPeriodo` e `ResumoDaBase`) e nunca uma lista de pessoas: não há como um nome entrar no e-mail. Os gráficos são barras em tabela
+// HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
-import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo } from "./analise.ts";
+import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ResumoDaBase } from "./analise.ts";
+import { IDS_DOS_BLOCOS, type IdDoBloco } from "./blocos.ts";
 
 const ddmmaaaa = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const ddmm = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
@@ -57,47 +58,89 @@ function colunasDeAdesao(semanas: AnaliseDoPeriodo["semanas"]): string {
     + `<td align="right" style="padding-top:4px;font-size:11px;color:${D.COR.suave}">semana de ${ddmm(semanas[semanas.length - 1].inicio)}</td></tr></table>`;
 }
 
-export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: { igreja?: string | null; aviso?: string } = {}): EmailDeContribuicoes {
+/** O bloco "Saúde da base contribuinte": adesão da base, novos, recorrentes e quem não contribuiu — só QUANTIDADES, nunca nomes. */
+function blocoSaudeDaBase(a: AnaliseDoPeriodo, b: ResumoDaBase | null): string {
+  let h = D.secao("Saúde da base contribuinte", "Membros e congregados ativos; menores de 18 anos ficam fora.");
+  if (!b) return h + D.blocoDeObservacao("A adesão da base não pôde ser calculada neste envio.");
+  h += D.indicadores([
+    { icone: "🏛️", rotulo: "Membros ativos", valor: n(b.base) },
+    { icone: "✅", rotulo: "Contribuíram", valor: n(b.contribuiram) },
+    { icone: "🕊️", rotulo: "Sem contribuição registrada", valor: n(b.naoContribuiram) },
+    { icone: "📈", rotulo: "Adesão da base", valor: b.adesaoPct === null ? "—" : `${n(b.adesaoPct, 1)}%` },
+    { icone: "🌱", rotulo: "Novos dizimistas", valor: a.novos === null ? "—" : n(a.novos) },
+    { icone: "🔁", rotulo: "Recorrentes", valor: a.recorrentes ? n(a.recorrentes.pessoas) : "—" },
+  ]);
+  const linhas = [
+    `Nenhuma contribuição desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`,
+    `Contribuíram antes do período, mas não nele: ${n(b.jaContribuiuAntes)}`,
+    `Sem contribuir há mais de 30 dias: ${n(b.haMaisDe.dias30)} · de 60: ${n(b.haMaisDe.dias60)} · de 90: ${n(b.haMaisDe.dias90)} · de 180: ${n(b.haMaisDe.dias180)}`,
+  ];
+  h += D.cartaoDeLista({ titulo: "Quem ainda não contribuiu no período", frase: "Quantidades para acompanhamento pastoral. Quem contribui por outra pessoa da família, em espécie ou sem identificação pode estar aqui.", itens: linhas, tom: "info" });
+  return h;
+}
+
+export interface OpcoesDoEmailDeContribuicoes {
+  igreja?: string | null;
+  aviso?: string;
+  /** os blocos escolhidos; ausente = todos */
+  blocos?: IdDoBloco[];
+  /** o resumo da base (SÓ números), necessário ao bloco "Saúde da base contribuinte" */
+  base?: ResumoDaBase | null;
+}
+
+export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = {}): EmailDeContribuicoes {
+  const escolhidos = new Set<IdDoBloco>(o.blocos ?? IDS_DOS_BLOCOS);
+  const tem = (id: IdDoBloco) => escolhidos.has(id);
   const periodo = `${ddmmaaaa(a.periodo.ini)} a ${ddmmaaaa(a.periodo.fim)}`;
   const assunto = `Relatório de contribuições — ${periodo}`;
   const resumo = resumoExecutivo(a);
   const preheader = a.arrecadado === 0 ? "Sem contribuições no período." : `${plural(a.dizimistas, "dizimista", "dizimistas")} · ${brl(a.arrecadado)} arrecadados`;
   const d = a.destaques;
 
-  let corpo = D.saudacao("Relatório de contribuições") + D.paragrafo(`Período analisado: ${periodo}.`) + D.paragrafo(resumo);
+  let corpo = D.saudacao("Relatório de contribuições") + D.paragrafo(`Período analisado: ${periodo}.`);
+  if (tem("resumo")) corpo += D.paragrafo(resumo);
 
   if (a.arrecadado > 0) {
-    corpo += D.secao("Em números", "Só contam pessoas identificadas; o valor sem identificação aparece abaixo.");
-    corpo += D.indicadores([
-      { icone: "👥", rotulo: "Dizimistas", valor: n(a.dizimistas) },
-      { icone: "🤝", rotulo: "Doadores", valor: n(a.doadores) },
-      { icone: "💰", rotulo: "Arrecadado", valor: brl(a.arrecadado) },
-      { icone: "📅", rotulo: "Média mensal", valor: brl(a.mediaMensal) },
-      { icone: "📊", rotulo: "Média por doador", valor: a.mediaPorDoador === null ? "—" : brl(a.mediaPorDoador) },
-      { icone: "🔁", rotulo: "Recorrência", valor: a.recorrentes ? `${n(a.recorrentes.pct ?? 0, 1)}%` : "—" },
-      { icone: "🌱", rotulo: "Novos", valor: a.novos === null ? "—" : n(a.novos) },
-      { icone: "🧾", rotulo: "Frequência média", valor: a.frequenciaMedia === null ? "—" : n(a.frequenciaMedia, 1) },
-    ]);
-
-    corpo += D.secao("Por categoria");
-    corpo += D.cartao(null, barrasHorizontais([
-      { rotulo: "Dízimos", valor: a.porTipo.dizimo, texto: brl(a.porTipo.dizimo) },
-      { rotulo: "Ofertas", valor: a.porTipo.oferta, texto: brl(a.porTipo.oferta) },
-      { rotulo: "Missões", valor: a.porTipo.missoes, texto: brl(a.porTipo.missoes) },
-    ]));
-
-    corpo += D.secao("Curva de adesão", "Pessoas diferentes que contribuíram em cada semana (segunda a domingo).");
-    corpo += D.cartao(null, colunasDeAdesao(a.semanas));
-
-    corpo += D.secao("Distribuição mensal", "Valor arrecadado em cada mês; o primeiro e o último podem estar incompletos.");
-    corpo += D.cartao(null, barrasHorizontais(a.meses.map(m => ({ rotulo: mesCurto(m.mes), valor: m.valor, texto: brl(m.valor) }))));
-
-    const destaques: string[] = [];
-    if (d.maiorAdesao) destaques.push(`Maior adesão: ${plural(d.maiorAdesao.contribuintes, "pessoa", "pessoas")} na semana de ${ddmm(d.maiorAdesao.inicio)}.`);
-    if (d.maiorArrecadacao) destaques.push(`Maior arrecadação: ${brl(d.maiorArrecadacao.valor)} na semana de ${ddmm(d.maiorArrecadacao.inicio)}.`);
-    if (d.maiorCrescimento) destaques.push(`Maior crescimento: +${n(d.maiorCrescimento.variacao, 0)}% na semana de ${ddmm(d.maiorCrescimento.semana.inicio)}, sobre a semana anterior.`);
-    if (destaques.length) corpo += D.secao("Destaques") + D.cartaoDeLista({ titulo: "Semanas de destaque", frase: "O que mais se destacou no período:", itens: destaques, tom: "info" });
-
+    if (tem("indicadores")) {
+      corpo += D.secao("Em números", "Só contam pessoas identificadas; o valor sem identificação aparece no fim.");
+      corpo += D.indicadores([
+        { icone: "👥", rotulo: "Dizimistas", valor: n(a.dizimistas) },
+        { icone: "🤝", rotulo: "Doadores", valor: n(a.doadores) },
+        { icone: "💰", rotulo: "Arrecadado", valor: brl(a.arrecadado) },
+        { icone: "📅", rotulo: "Média mensal", valor: brl(a.mediaMensal) },
+        { icone: "📊", rotulo: "Média por doador", valor: a.mediaPorDoador === null ? "—" : brl(a.mediaPorDoador) },
+        { icone: "🔁", rotulo: "Recorrência", valor: a.recorrentes ? `${n(a.recorrentes.pct ?? 0, 1)}%` : "—" },
+        { icone: "🌱", rotulo: "Novos", valor: a.novos === null ? "—" : n(a.novos) },
+        { icone: "🧾", rotulo: "Frequência média", valor: a.frequenciaMedia === null ? "—" : n(a.frequenciaMedia, 1) },
+      ]);
+    }
+    if (tem("categorias")) {
+      corpo += D.secao("Por categoria");
+      corpo += D.cartao(null, barrasHorizontais([
+        { rotulo: "Dízimos", valor: a.porTipo.dizimo, texto: brl(a.porTipo.dizimo) },
+        { rotulo: "Ofertas", valor: a.porTipo.oferta, texto: brl(a.porTipo.oferta) },
+        { rotulo: "Missões", valor: a.porTipo.missoes, texto: brl(a.porTipo.missoes) },
+      ]));
+    }
+    if (tem("curva_adesao")) {
+      corpo += D.secao("Curva de adesão", "Pessoas diferentes que contribuíram em cada semana (segunda a domingo).");
+      corpo += D.cartao(null, colunasDeAdesao(a.semanas));
+    }
+    if (tem("distribuicao_mensal")) {
+      corpo += D.secao("Distribuição mensal", "Valor arrecadado em cada mês; o primeiro e o último podem estar incompletos.");
+      corpo += D.cartao(null, barrasHorizontais(a.meses.map(m => ({ rotulo: mesCurto(m.mes), valor: m.valor, texto: brl(m.valor) }))));
+    }
+    if (tem("destaques")) {
+      const destaques: string[] = [];
+      if (d.maiorAdesao) destaques.push(`Maior adesão: ${plural(d.maiorAdesao.contribuintes, "pessoa", "pessoas")} na semana de ${ddmm(d.maiorAdesao.inicio)}.`);
+      if (d.maiorArrecadacao) destaques.push(`Maior arrecadação: ${brl(d.maiorArrecadacao.valor)} na semana de ${ddmm(d.maiorArrecadacao.inicio)}.`);
+      if (d.maiorCrescimento) destaques.push(`Maior crescimento: +${n(d.maiorCrescimento.variacao, 0)}% na semana de ${ddmm(d.maiorCrescimento.semana.inicio)}, sobre a semana anterior.`);
+      if (destaques.length) corpo += D.secao("Destaques") + D.cartaoDeLista({ titulo: "Semanas de destaque", frase: "O que mais se destacou no período:", itens: destaques, tom: "info" });
+    }
+  }
+  // a saúde da base independe de haver arrecadação no período: "ninguém contribuiu" também é informação
+  if (tem("saude_da_base")) corpo += blocoSaudeDaBase(a, o.base ?? null);
+  if (tem("cobertura") && a.arrecadado > 0) {
     const c = a.cobertura;
     corpo += D.blocoDeObservacao(
       `Identificação: ${c.pctDoValor === null ? "—" : n(c.pctDoValor, 1) + "%"} do valor tem pessoa identificada; ${brl(c.valorNaoIdentificado)} em ${plural(c.entradasSemPessoa, "entrada", "entradas")} ficou sem identificação. `
@@ -108,12 +151,20 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: { igreja?: st
 
   const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
-  const linhas = [`Relatório de contribuições`, `Período analisado: ${periodo}`, "", resumo];
+  const linhas = ["Relatório de contribuições", `Período analisado: ${periodo}`];
+  if (tem("resumo")) linhas.push("", resumo);
   if (a.arrecadado > 0) {
-    linhas.push("", `Dizimistas: ${n(a.dizimistas)}`, `Doadores: ${n(a.doadores)}`, `Arrecadado: ${brl(a.arrecadado)} (dízimos ${brl(a.porTipo.dizimo)}, ofertas ${brl(a.porTipo.oferta)}, missões ${brl(a.porTipo.missoes)})`,
-      `Média mensal: ${brl(a.mediaMensal)}`, `Recorrência: ${a.recorrentes ? n(a.recorrentes.pct ?? 0, 1) + "%" : "—"}`, `Novos: ${a.novos === null ? "—" : n(a.novos)}`);
-    linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);
+    if (tem("indicadores")) linhas.push("", `Dizimistas: ${n(a.dizimistas)}`, `Doadores: ${n(a.doadores)}`, `Arrecadado: ${brl(a.arrecadado)}`, `Média mensal: ${brl(a.mediaMensal)}`,
+      `Recorrência: ${a.recorrentes ? n(a.recorrentes.pct ?? 0, 1) + "%" : "—"}`, `Novos: ${a.novos === null ? "—" : n(a.novos)}`);
+    if (tem("categorias")) linhas.push("", `Dízimos ${brl(a.porTipo.dizimo)} · Ofertas ${brl(a.porTipo.oferta)} · Missões ${brl(a.porTipo.missoes)}`);
   }
+  if (tem("saude_da_base") && o.base) {
+    const b = o.base;
+    linhas.push("", "Saúde da base contribuinte", `Membros ativos: ${n(b.base)}`, `Contribuíram: ${n(b.contribuiram)}`, `Sem contribuição registrada: ${n(b.naoContribuiram)}`,
+      `Adesão da base: ${b.adesaoPct === null ? "—" : n(b.adesaoPct, 1) + "%"}`,
+      `Sem contribuir há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
+  }
+  if (tem("cobertura") && a.arrecadado > 0) linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);
   linhas.push("", "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema.");
   return { assunto, preheader, html, texto: linhas.join("\n"), resumo };
 }

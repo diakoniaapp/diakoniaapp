@@ -370,3 +370,28 @@ export function resumirPessoas(linhas: LinhaDeContribuicao[], periodo: { ini: st
     nova: ini > PISO_DE_IDENTIFICACAO ? !antes.has(pessoaId) : null,
   }));
 }
+
+// ── o resumo da base, SEM nomes (o que o e-mail pode levar) ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/** Só números: a lista nominal (`lista`) nunca sai daqui. É o que o e-mail ao pastor recebe no bloco "Saúde da base contribuinte". */
+export interface ResumoDaBase {
+  base: number;
+  contribuiram: number;
+  naoContribuiram: number;
+  adesaoPct: number | null;
+  nuncaDesdeOPiso: number;
+  jaContribuiuAntes: number;
+  /** quantas pessoas (que contribuíram antes, mas não no período) estão sem contribuir há MAIS de 30, 60, 90 e 180 dias — acumulado, como ela pediu */
+  haMaisDe: { dias30: number; dias60: number; dias90: number; dias180: number };
+  menoresFora: number;
+}
+
+export function resumirBase(a: AnaliseDosSemContribuicao): ResumoDaBase {
+  const f = a.faixas;
+  const mais180 = f.mais180, ate180 = f.de91a180 + mais180, ate90 = f.de61a90 + ate180, ate60 = f.de31a60 + ate90;
+  return {
+    base: a.base, contribuiram: a.contribuiram, naoContribuiram: a.naoContribuiram, adesaoPct: a.adesaoPct,
+    nuncaDesdeOPiso: a.nuncaDesdeOPiso, jaContribuiuAntes: a.jaContribuiuAntes,
+    haMaisDe: { dias30: ate60, dias60: ate90, dias90: ate180, dias180: mais180 },
+    menoresFora: a.menoresFora,
+  };
+}

@@ -14,6 +14,7 @@ import { Eye, Loader2, Send, X } from "lucide-react";
 import { hojeLocal } from "@/lib/data";
 import { PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ajustarAoPiso, intervaloDoPreset, type PresetDePeriodo } from "@/lib/contribuicoes";
 import { emailDeRespostaValido } from "@/lib/comunicacao";
+import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, MODELOS_DE_RELATORIO, blocosDoModelo, modeloDaSelecao, modeloPadrao, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
 import {
   enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
   type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
@@ -21,9 +22,9 @@ import {
 
 export const MAXIMO_DE_DESTINATARIOS = 10;
 export interface ServicoDoEnvio {
-  previa: (p: PeriodoDoRelatorio) => Promise<PreviaDoRelatorio>;
-  teste: (p: PeriodoDoRelatorio) => Promise<{ enviadoPara: string }>;
-  enviar: (p: PeriodoDoRelatorio, destinatarios: string[]) => Promise<ResultadoDoEnvio>;
+  previa: (p: PeriodoDoRelatorio, blocos: string[]) => Promise<PreviaDoRelatorio>;
+  teste: (p: PeriodoDoRelatorio, blocos: string[]) => Promise<{ enviadoPara: string }>;
+  enviar: (p: PeriodoDoRelatorio, blocos: string[], destinatarios: string[]) => Promise<ResultadoDoEnvio>;
 }
 const SERVICO_REAL: ServicoDoEnvio = { previa: previaDoRelatorioDeContribuicoes, teste: enviarTesteDoRelatorioDeContribuicoes, enviar: enviarRelatorioDeContribuicoes };
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
@@ -40,6 +41,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const [preset, setPreset] = useState<PresetDePeriodo>(periodoInicial ? "personalizado" : "6m");
   const [de, setDe] = useState(periodoInicial?.ini ?? PISO_DE_IDENTIFICACAO);
   const [ate, setAte] = useState(periodoInicial?.fim ?? hoje);
+  const [blocos, setBlocos] = useState<IdDoBloco[]>(() => blocosDoModelo(modeloPadrao));
   const [destinatarios, setDestinatarios] = useState<string[]>([]);
   const [campo, setCampo] = useState("");
   const [erroDoCampo, setErroDoCampo] = useState("");
@@ -52,8 +54,14 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
     const p = ajustarAoPiso(bruto.ini, bruto.fim > hoje ? hoje : bruto.fim);
     return { ini: p.ini, fim: p.fim, ajustado: p.ajustado, vazio: p.vazio || !/^\d{4}-\d{2}-\d{2}$/.test(p.ini) || !/^\d{4}-\d{2}-\d{2}$/.test(p.fim) };
   }, [preset, de, ate, hoje]);
-  const chave = `${pedido.ini}|${pedido.fim}`;
+  const chave = `${pedido.ini}|${pedido.fim}|${[...blocos].sort().join("+")}`;   // período E blocos: mudou qualquer um, a prévia perde a validade
+  const modeloAtual = modeloDaSelecao(blocos);
   const previaValida = previa?.chave === chave;
+
+  /** os blocos na ordem canônica (a mesma que o servidor usa) */
+  const ordenados = IDS_DOS_BLOCOS.filter(id => blocos.includes(id));
+  const alternar = (id: IdDoBloco) => setBlocos(atual => (atual.includes(id) ? atual.filter(b => b !== id) : [...atual, id]));
+  const escolherModelo = (id: IdDoModelo) => setBlocos(blocosDoModelo(id));
 
   function adicionar(texto: string) {
     const partes = texto.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
@@ -70,20 +78,20 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
 
   async function visualizar() {
     setOcupado("previa");
-    try { setPrevia({ chave, dados: await servico.previa({ ini: pedido.ini, fim: pedido.fim }) }); }
+    try { setPrevia({ chave, dados: await servico.previa({ ini: pedido.ini, fim: pedido.fim }, ordenados) }); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível montar a prévia."); }
     finally { setOcupado(""); }
   }
   async function testar() {
     setOcupado("teste");
-    try { const r = await servico.teste({ ini: pedido.ini, fim: pedido.fim }); toast.success(`Teste enviado para ${r.enviadoPara}`); }
+    try { const r = await servico.teste({ ini: pedido.ini, fim: pedido.fim }, ordenados); toast.success(`Teste enviado para ${r.enviadoPara}`); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível enviar o teste."); }
     finally { setOcupado(""); }
   }
   async function enviar() {
     setConfirmando(false); setOcupado("enviar");
     try {
-      const r = await servico.enviar({ ini: pedido.ini, fim: pedido.fim }, destinatarios);
+      const r = await servico.enviar({ ini: pedido.ini, fim: pedido.fim }, ordenados, destinatarios);
       if (r.motivo === "enviado_ha_pouco") { toast.info("Este mesmo relatório já foi enviado há menos de 10 minutos. Nada foi enviado de novo."); return; }
       if (r.falharam > 0) toast.warning(`Enviado para ${r.enviados}; falhou para ${r.falharam}. Veja o Histórico.`); else toast.success(`Relatório enviado para ${r.enviados} ${r.enviados === 1 ? "destinatário" : "destinatários"}`);
       if (!r.historicoGravado) toast.warning("O envio saiu, mas o histórico não foi gravado (migration pendente).");
@@ -121,6 +129,27 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                 : <p className="text-xs text-muted-foreground" data-periodo>Período do relatório: <strong>{dataBr(pedido.ini)} a {dataBr(pedido.fim)}</strong>{pedido.ajustado ? ` (ajustado: a análise começa em ${dataBr(PISO_DE_IDENTIFICACAO)})` : ""}</p>}
             </div>
 
+            <div className="space-y-2" data-secao="conteudo">
+              <Label className="text-xs">O que mostrar</Label>
+              <div className="flex flex-wrap gap-1.5" data-modelos>
+                {MODELOS_DE_RELATORIO.map(m => (
+                  <button key={m.id} type="button" data-modelo={m.id} aria-pressed={modeloAtual === m.id} title={m.descricao} onClick={() => escolherModelo(m.id)}
+                    className={`rounded-full border px-3 py-1 text-xs transition-colors ${modeloAtual === m.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted/50"}`}>{m.rotulo}</button>
+                ))}
+                <span className={`rounded-full border px-3 py-1 text-xs ${modeloAtual === null ? "bg-primary text-primary-foreground border-primary" : "opacity-60"}`} data-modelo="personalizado" aria-pressed={modeloAtual === null}>Personalizado</span>
+              </div>
+              <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2" data-blocos>
+                {BLOCOS_DE_CONTRIBUICOES.map(b => (
+                  <label key={b.id} className="flex items-start gap-2 text-xs cursor-pointer" title={b.descricao}>
+                    <input type="checkbox" className="mt-0.5" checked={blocos.includes(b.id)} onChange={() => alternar(b.id)} data-bloco={b.id} />
+                    <span><strong className="font-medium">{b.titulo}</strong><span className="block text-muted-foreground">{b.descricao}</span></span>
+                  </label>
+                ))}
+              </div>
+              {blocos.length === 0 && <p className="text-xs text-warning-text" data-aviso="sem-blocos">Escolha ao menos um bloco.</p>}
+              <p className="text-xs text-muted-foreground" data-aviso="so-agregado">O e-mail leva só números agregados. Nomes, valores individuais, telefone e e-mail não são blocos do e-mail: ficam dentro do sistema, com registro de quem consulta.</p>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs" htmlFor="destinatario-novo">Destinatários</Label>
               <div className="flex flex-wrap gap-1.5" data-destinatarios>
@@ -141,10 +170,10 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={visualizar} disabled={pedido.vazio || !!ocupado} data-acao="visualizar">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={visualizar} disabled={pedido.vazio || blocos.length === 0 || !!ocupado} data-acao="visualizar">
                   {ocupado === "previa" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />} Visualizar e-mail
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={testar} disabled={pedido.vazio || !!ocupado} data-acao="teste">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={testar} disabled={pedido.vazio || blocos.length === 0 || !!ocupado} data-acao="teste">
                   {ocupado === "teste" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar teste para mim
                 </Button>
                 {!previaValida && <span className="text-xs text-muted-foreground" data-aviso="previa-obrigatoria">Visualize o e-mail para liberar o envio.</span>}
@@ -156,7 +185,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                   <iframe title="Prévia do e-mail" srcDoc={previa.dados.html} sandbox="" className="w-full h-[360px] bg-white" />
                 </div>
               )}
-              {previa && !previaValida && <p className="text-xs text-warning-text">O período mudou depois desta prévia: visualize de novo.</p>}
+              {previa && !previaValida && <p className="text-xs text-warning-text">O período ou os blocos mudaram depois desta prévia: visualize de novo.</p>}
             </div>
           </div>
 
@@ -174,7 +203,7 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
           <AlertDialogHeader>
             <AlertDialogTitle>Enviar o relatório agora?</AlertDialogTitle>
             <AlertDialogDescription>
-              Período {dataBr(pedido.ini)} a {dataBr(pedido.fim)}, para {destinatarios.join(", ")}. O e-mail leva só números agregados, sem nomes. O envio fica registrado no Histórico e não dá para desfazer.
+              Período {dataBr(pedido.ini)} a {dataBr(pedido.fim)}, {ordenados.length} {ordenados.length === 1 ? "bloco" : "blocos"}, para {destinatarios.join(", ")}. O e-mail leva só números agregados, sem nomes. O envio fica registrado no Histórico e não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

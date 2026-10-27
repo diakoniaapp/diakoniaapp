@@ -3,7 +3,7 @@
 // usará). Medido em 27/10/2026: 1.309 contribuições identificadas desde o piso = 2 páginas de 1.000; cabe em memória. A consulta NÃO usa `listarLancamentos` (teto de 300 linhas — o defeito que
 // `doadorService` registra); pagina de 1.000 em 1.000, com `id` como desempate para a paginação não repetir nem pular linha de mesma data.
 import { supabase } from "@/integrations/supabase/client";
-import { lerContribuicoesDoPiso } from "../../supabase/functions/_shared/contribuicoes/carregar";
+import { lerBaseDePessoas, lerContribuicoesDoPiso } from "../../supabase/functions/_shared/contribuicoes/carregar";
 import type { LinhaDeContribuicao, PessoaDaBase } from "@/lib/contribuicoes";
 
 const PAGINA = 1000;
@@ -24,15 +24,9 @@ export async function carregarContribuicoes(fim: string): Promise<LinhaDeContrib
   return lerContribuicoesDoPiso(supabase, fim);
 }
 
-/** Membros e congregados ATIVOS, com a família (vínculos familiares) de cada um. Quem não está na base (inativo, ex-membro, visitante) volta só pelo nome, em `carregarNomes`. */
+/** Membros e congregados ATIVOS, com a família de cada um. A MESMA consulta do e-mail ao pastor (`_shared/contribuicoes/carregar.ts`). Quem não está na base (inativo, ex-membro, visitante) volta só pelo nome, em `carregarNomes`. */
 export async function carregarBaseDePessoas(): Promise<PessoaDaBase[]> {
-  const pessoas = await paginar<{ id: string; nome_completo: string; tipo_pessoa: string; status: string; data_nascimento: string | null }>((de, ate) =>
-    supabase.from("membros").select("id, nome_completo, tipo_pessoa, status, data_nascimento")
-      .eq("status", "ativo").in("tipo_pessoa", ["membro", "congregado"]).order("id", { ascending: true }).range(de, ate));
-  const vinculos = await paginar<{ membro_id: string; familia_id: string }>((de, ate) =>
-    supabase.from("vinculos_familiares").select("membro_id, familia_id").order("id", { ascending: true }).range(de, ate));
-  const familiaDe = new Map(vinculos.map(v => [v.membro_id, v.familia_id]));
-  return pessoas.map(p => ({ id: p.id, nome: p.nome_completo, tipo_pessoa: p.tipo_pessoa, status: p.status, data_nascimento: p.data_nascimento, familia_id: familiaDe.get(p.id) ?? null }));
+  return lerBaseDePessoas(supabase);
 }
 
 /** Os nomes de quem contribuiu e não está na base (inativos, ex-membros…). Em blocos, para a URL do `in()` não estourar. */

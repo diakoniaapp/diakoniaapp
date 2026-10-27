@@ -13,6 +13,7 @@ vi.mock("@/lib/data", async orig => ({ ...(await orig<typeof import("@/lib/data"
 
 import { EnviarRelatorioDeContribuicoes, type ServicoDoEnvio } from "./EnviarRelatorioDeContribuicoes";
 import { HistoricoDeEnvios } from "./HistoricoDeEnvios";
+import { blocosDoModelo, IDS_DOS_BLOCOS } from "@/lib/contribuicoesBlocos";
 import { CatalogoDeRelatorios } from "./CatalogoDeRelatorios";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -20,6 +21,7 @@ let raiz: Root | null = null;
 beforeAll(() => { (Element.prototype as unknown as { hasPointerCapture?: () => boolean }).hasPointerCapture ??= () => false; });
 afterEach(() => { act(() => raiz?.unmount()); raiz = null; document.body.innerHTML = ""; vi.clearAllMocks(); });
 
+const PASTOR = IDS_DOS_BLOCOS.filter(id => blocosDoModelo("pastor").includes(id));   // na ordem canônica, a que a gaveta envia
 const PREVIA = { assunto: "Relatório de contribuições — 28/04/2026 a 27/10/2026", html: "<p>corpo</p>", texto: "corpo", resumo: "resumo", periodo: { ini: "2026-04-28", fim: "2026-10-27", ajustado: false } };
 function servico(o: Partial<ServicoDoEnvio> = {}) {
   const s = {
@@ -75,7 +77,7 @@ describe("a gaveta de envio", () => {
     await abrirGaveta(s);
     await digitar("pastor@qibrj.org.br");
     await clicar(q('[data-acao="visualizar"]'));
-    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" });
+    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR);
     const frame = q("iframe") as HTMLIFrameElement;
     expect(frame.getAttribute("sandbox")).toBe("");
     expect(frame.getAttribute("srcdoc")).toBe("<p>corpo</p>");
@@ -94,6 +96,66 @@ describe("a gaveta de envio", () => {
     await abrirGaveta(servico());
     await clicar(q('[data-acao="visualizar"]'));
     expect(botaoEnviar()!.disabled).toBe(true);
+  });
+});
+
+describe("o que mostrar: modelos e blocos", () => {
+  const marcados = () => qa("[data-bloco]").filter(c => (c as HTMLInputElement).checked).map(c => c.getAttribute("data-bloco"));
+  it("abre no modelo Pastor, com os blocos do modelo marcados, e diz que só vão números agregados", async () => {
+    await abrirGaveta(servico());
+    expect(q('[data-modelo="pastor"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(marcados()).toEqual(IDS_DOS_BLOCOS.filter(id => PASTOR.includes(id)));
+    expect(marcados()).toContain("saude_da_base");
+    expect(q('[data-aviso="so-agregado"]')?.textContent).toContain("Nomes, valores individuais, telefone e e-mail não são blocos do e-mail");
+  });
+  it("os três modelos: Pastor, Diretoria e Tesouraria; Diretoria não leva a saúde da base, Tesouraria leva tudo", async () => {
+    await abrirGaveta(servico());
+    expect(qa("[data-modelo]").map(b => b.getAttribute("data-modelo"))).toEqual(["pastor", "diretoria", "tesouraria", "personalizado"]);
+    await clicar(q('[data-modelo="diretoria"]'));
+    expect(marcados()).toContain("categorias");
+    expect(marcados()).not.toContain("saude_da_base");
+    await clicar(q('[data-modelo="tesouraria"]'));
+    expect(marcados()).toEqual(IDS_DOS_BLOCOS);
+  });
+  it("desmarcar um bloco vira 'Personalizado'; e voltar à seleção de um modelo o reconhece", async () => {
+    await abrirGaveta(servico());
+    await clicar(q('[data-bloco="curva_adesao"]'));
+    expect(q('[data-modelo="personalizado"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(q('[data-modelo="pastor"]')?.getAttribute("aria-pressed")).toBe("false");
+    await clicar(q('[data-bloco="curva_adesao"]'));
+    expect(q('[data-modelo="pastor"]')?.getAttribute("aria-pressed")).toBe("true");
+  });
+  it("mudar um bloco depois da prévia tira a validade dela e trava o Enviar", async () => {
+    await abrirGaveta(servico());
+    await digitar("pastor@qibrj.org.br");
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(botaoEnviar()!.disabled).toBe(false);
+    await clicar(q('[data-bloco="destaques"]'));
+    expect(botaoEnviar()!.disabled).toBe(true);
+    expect(q('[data-previa="antiga"]')).not.toBeNull();
+  });
+  it("o pedido leva os blocos escolhidos, na ordem canônica", async () => {
+    const s = servico();
+    await abrirGaveta(s);
+    await clicar(q('[data-modelo="diretoria"]'));
+    await clicar(q('[data-bloco="categorias"]'));   // tira categorias
+    await clicar(q('[data-acao="visualizar"]'));
+    const blocos = s.previa.mock.calls[0][1] as string[];
+    expect(blocos).not.toContain("categorias");
+    expect(blocos).toEqual(IDS_DOS_BLOCOS.filter(id => blocos.includes(id)));
+  });
+  it("sem nenhum bloco: avisa e não deixa visualizar nem testar", async () => {
+    await abrirGaveta(servico());
+    for (const id of qa("[data-bloco]").filter(c => (c as HTMLInputElement).checked).map(c => c.getAttribute("data-bloco"))) await clicar(q(`[data-bloco="${id}"]`));
+    expect(q('[data-aviso="sem-blocos"]')).not.toBeNull();
+    expect((q('[data-acao="visualizar"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((q('[data-acao="teste"]') as HTMLButtonElement).disabled).toBe(true);
+  });
+  it("não existe bloco com nome, valor individual, telefone ou e-mail de pessoa no construtor", async () => {
+    await abrirGaveta(servico());
+    const texto = qa("[data-bloco]").map(c => c.parentElement?.textContent ?? "").join(" ").toLowerCase();
+    expect(texto).not.toMatch(/telefone|lista nominal|valor individual/);
+    expect(IDS_DOS_BLOCOS).not.toContain("nomes" as never);
   });
 });
 
@@ -136,7 +198,7 @@ describe("enviar", () => {
     expect(confirmacao.textContent).toContain("sem nomes");
     expect(s.enviar).not.toHaveBeenCalled();
     await clicar([...confirmacao.querySelectorAll("button")].find(b => b.textContent === "Enviar"));
-    expect(s.enviar).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, ["pastor@qibrj.org.br"]);
+    expect(s.enviar).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, ["pastor@qibrj.org.br"]);
     expect(toast.success).toHaveBeenCalledWith("Relatório enviado para 1 destinatário");
     expect(aoEnviar).toHaveBeenCalled();
     expect(aoFechar).toHaveBeenCalled();
@@ -176,8 +238,8 @@ describe("enviar", () => {
     const s = servico();
     await abrirGaveta(s);
     await clicar(q('[data-acao="teste"]'));
-    expect(s.teste).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" });
-    expect(s.teste.mock.calls[0].length).toBe(1);
+    expect(s.teste).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR);
+    expect(s.teste.mock.calls[0].length).toBe(2);   // período e blocos — nunca destinatários
     expect(toast.success).toHaveBeenCalledWith("Teste enviado para telma@qibrj.org.br");
   });
   it("período antes do piso: avisa, ajusta e o pedido sai a partir de 01/01/2026", async () => {
@@ -186,7 +248,7 @@ describe("enviar", () => {
     expect(q("[data-periodo]")?.textContent).toContain("01/01/2026 a 31/03/2026");
     expect(q("[data-periodo]")?.textContent).toContain("ajustado");
     await clicar(q('[data-acao="visualizar"]'));
-    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-01-01", fim: "2026-03-31" });
+    expect(s.previa).toHaveBeenCalledWith({ ini: "2026-01-01", fim: "2026-03-31" }, PASTOR);
   });
 });
 

@@ -7,8 +7,8 @@ export interface PeriodoDoRelatorio { ini: string; fim: string }
 export interface PreviaDoRelatorio { assunto: string; html: string; texto: string; resumo: string; periodo: { ini: string; fim: string; ajustado: boolean } }
 export interface ResultadoDoEnvio { enviados: number; falharam: number; historicoGravado: boolean; motivo?: "enviado_ha_pouco" }
 
-async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, destinatarios?: string[]) {
-  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, ...(destinatarios ? { destinatarios } : {}) } });
+async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, blocos: string[], destinatarios?: string[]) {
+  const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, ...(destinatarios ? { destinatarios } : {}) } });
   if (error) {
     let msg = error.message;
     try { const j = await (error as unknown as { context?: Response }).context?.json?.(); if (j?.erro) msg = j.erro; } catch { /* fica a mensagem genérica */ }
@@ -18,26 +18,26 @@ async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRel
   return data as Record<string, any>;
 }
 
-export async function previaDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio): Promise<PreviaDoRelatorio> {
-  const r = await chamar("previa", periodo);
+export async function previaDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[]): Promise<PreviaDoRelatorio> {
+  const r = await chamar("previa", periodo, blocos);
   return { assunto: r.assunto ?? "", html: r.html ?? "", texto: r.texto ?? "", resumo: r.resumo ?? "", periodo: r.periodo ?? { ...periodo, ajustado: false } };
 }
 
 /** Manda o e-mail marcado [TESTE] SÓ para o e-mail cadastrado de quem está logado. */
-export async function enviarTesteDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio): Promise<{ enviadoPara: string }> {
-  const r = await chamar("teste", periodo);
+export async function enviarTesteDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[]): Promise<{ enviadoPara: string }> {
+  const r = await chamar("teste", periodo, blocos);
   return { enviadoPara: r.enviadoPara ?? "" };
 }
 
-export async function enviarRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, destinatarios: string[]): Promise<ResultadoDoEnvio> {
-  const r = await chamar("enviar", periodo, destinatarios);
+export async function enviarRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], destinatarios: string[]): Promise<ResultadoDoEnvio> {
+  const r = await chamar("enviar", periodo, blocos, destinatarios);
   return { enviados: r.enviados ?? 0, falharam: r.falharam ?? 0, historicoGravado: r.historicoGravado !== false, motivo: r.motivo };
 }
 
 // ── o histórico ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 export interface EnvioDoHistorico {
   id: string; em: string; tipo: string; origem: "sob_demanda" | "teste"; solicitante_nome: string | null; assunto: string | null;
-  destinatarios: { email: string; ok: boolean; erro: string | null }[]; parametros: { ini?: string; fim?: string }; resultado: "enviado" | "parcial" | "falhou";
+  destinatarios: { email: string; ok: boolean; erro: string | null }[]; parametros: { ini?: string; fim?: string; blocos?: string[] }; resultado: "enviado" | "parcial" | "falhou";
 }
 export interface HistoricoDosEnvios { envios: EnvioDoHistorico[]; /** a tabela ainda não existe (migration 20261027180000 não aplicada) */ indisponivel: boolean }
 
