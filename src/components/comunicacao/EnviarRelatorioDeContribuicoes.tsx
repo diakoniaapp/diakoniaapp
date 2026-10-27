@@ -1,7 +1,7 @@
 // ─── EnviarRelatorioDeContribuicoes — a gaveta "Enviar por e-mail" do relatório de Doadores e dizimistas (27/10/2026) ────────────────────────────────────────────────────────────────────────
 // Escolher o período → destinatários → VISUALIZAR (obrigatório) → enviar. O botão Enviar só habilita depois de abrir a prévia DO MESMO período (mudou o período, a prévia perde a validade). O e-mail leva
 // só números agregados — nenhum nome —, e a tela diz isso antes de enviar. Os números são calculados pela Edge Function, não por esta tela.
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -69,6 +69,11 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const semCategoria = categorias.length === 0;
   const alternar = (id: IdDoBloco) => setBlocos(atual => (atual.includes(id) ? atual.filter(b => b !== id) : [...atual, id]));
   const escolherModelo = (id: IdDoModelo) => setBlocos(blocosDoModelo(id));
+  /** "Exibir nomes": liga e desliga as DUAS listas juntas (quem contribuiu e quem não contribuiu); dentro dá para tirar uma delas */
+  const alternarNomes = () => setBlocos(atual => (temBlocoNominal(atual) ? atual.filter(b => !IDS_NOMINAIS.includes(b)) : [...atual, ...IDS_NOMINAIS]));
+  const quadroDaPrevia = useRef<HTMLIFrameElement>(null);
+  /** rola a prévia até a lista de nomes (a âncora está no e-mail; o quadro não executa script, mas deixa a tela ler o documento) */
+  const irParaOsNomes = () => { try { quadroDaPrevia.current?.contentDocument?.getElementById("lista-de-nomes")?.scrollIntoView({ block: "start" }); } catch { /* sem acesso: a pessoa rola */ } };
 
   function adicionar(texto: string) {
     const partes = texto.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
@@ -167,12 +172,29 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
                 <span className={`rounded-full border px-3 py-1 text-xs ${modeloAtual === null ? "bg-primary text-primary-foreground border-primary" : "opacity-60"}`} data-modelo="personalizado" aria-pressed={modeloAtual === null}>Personalizado</span>
               </div>
               <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2" data-blocos>
-                {BLOCOS_DE_CONTRIBUICOES.map(b => (
+                {BLOCOS_DE_CONTRIBUICOES.filter(b => !IDS_NOMINAIS.includes(b.id)).map(b => (
                   <label key={b.id} className="flex items-start gap-2 text-xs cursor-pointer" title={b.descricao}>
                     <input type="checkbox" className="mt-0.5" checked={blocos.includes(b.id)} onChange={() => alternar(b.id)} data-bloco={b.id} />
-                    <span><strong className="font-medium">{IDS_NOMINAIS.includes(b.id) ? "⚠ " : ""}{b.titulo}</strong><span className="block text-muted-foreground">{b.descricao}</span></span>
+                    <span><strong className="font-medium">{b.titulo}</strong><span className="block text-muted-foreground">{b.descricao}</span></span>
                   </label>
                 ))}
+              </div>
+              <div className="rounded-md border p-3 space-y-2" data-secao="exibir-nomes">
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" checked={comNomes} onChange={alternarNomes} data-acao="exibir-nomes" />
+                  <span><strong>Exibir nomes (lista nominal)</strong>
+                    <span className="block text-xs text-muted-foreground">Uma classificação com # posição, nome, quantidade de contribuições e perfil de contribuição, do maior número de contribuições para o menor. Sem valores. Respeita a base e as contribuições escolhidas acima.</span></span>
+                </label>
+                {comNomes && (
+                  <div className="pl-6 space-y-1" data-nomes-opcoes>
+                    {BLOCOS_DE_CONTRIBUICOES.filter(b => IDS_NOMINAIS.includes(b.id)).map(b => (
+                      <label key={b.id} className="flex items-start gap-2 text-xs cursor-pointer" title={b.descricao}>
+                        <input type="checkbox" className="mt-0.5" checked={blocos.includes(b.id)} onChange={() => alternar(b.id)} data-bloco={b.id} />
+                        <span><strong className="font-medium">⚠ {b.titulo}</strong><span className="block text-muted-foreground">{b.descricao}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
               {blocos.length === 0 && <p className="text-xs text-warning-text" data-aviso="sem-blocos">Escolha ao menos um bloco.</p>}
               {comNomes && (
@@ -220,10 +242,23 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
               {previa && (
                 <div className={`rounded-md border overflow-hidden ${previaValida ? "" : "opacity-50"}`} data-previa={previaValida ? "valida" : "antiga"}>
                   <p className="px-3 py-1.5 text-xs bg-muted/40 border-b truncate">Assunto: <strong>{previa.dados.assunto}</strong></p>
-                  {/* sandbox sem permissões: o HTML do e-mail não executa nada */}
-                  <iframe title="Prévia do e-mail" srcDoc={previa.dados.html} sandbox="" className="w-full h-[360px] bg-white" />
+                  {/* sem "allow-scripts": o HTML do e-mail não executa nada; "allow-same-origin" só deixa esta tela rolar a prévia até a lista de nomes */}
+                  <iframe ref={quadroDaPrevia} title="Prévia do e-mail" srcDoc={previa.dados.html} sandbox="allow-same-origin" className="w-full h-[520px] bg-white" />
                 </div>
               )}
+              {previa && previaValida && comNomes && (
+                previa.dados.nomes ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs" data-previa-nomes>
+                    <span>A prévia inclui a <strong>lista de nomes</strong>: <strong>{previa.dados.nomes.contribuiram}</strong> {previa.dados.nomes.contribuiram === 1 ? "pessoa que contribuiu" : "pessoas que contribuíram"} e <strong>{previa.dados.nomes.semContribuicao}</strong> sem contribuição registrada, da maior quantidade de contribuições para a menor.</span>
+                    <Button type="button" size="sm" variant="outline" className="h-7 ml-auto" onClick={irParaOsNomes} data-acao="ir-para-nomes">Ir para a lista de nomes</Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-warning-text" data-aviso="funcao-sem-nomes">A função de envio no servidor ainda não devolveu a lista de nomes (versão antiga): reimplante contribuicoes-enviar.</p>
+                )
+              )}
+              {previa && previaValida && previa.dados.nomes && previa.dados.nomes.contribuiram + previa.dados.nomes.semContribuicao === 0 && <p className="text-xs text-warning-text" data-aviso="sem-nomes">Nenhum nome neste recorte: confira a base, as contribuições e o período.</p>}
+              {previa && previaValida && previa.dados.listasCortadas && <p className="text-xs text-warning-text" data-aviso="listas-cortadas">As listas com nomes foram encurtadas (só as primeiras, as de mais contribuições) para o e-mail caber no Gmail, que corta mensagens longas. A lista completa fica no sistema e no Excel.</p>}
+              {previa && previaValida && (previa.dados.tamanhoDoHtml ?? 0) > 100000 && <p className="text-xs text-warning-text" data-aviso="email-grande">Este e-mail tem {Math.round((previa.dados.tamanhoDoHtml ?? 0) / 1000)} mil caracteres e o Gmail corta acima de ~102 mil: tire blocos ou reduza o período para a lista aparecer inteira.</p>}
               {previa && !previaValida && <p className="text-xs text-warning-text">O período, a base, as contribuições ou os blocos mudaram depois desta prévia: visualize de novo.</p>}
             </div>
           </div>

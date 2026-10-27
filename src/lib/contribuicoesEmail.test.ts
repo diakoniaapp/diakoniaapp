@@ -34,9 +34,11 @@ describe("o conteúdo do e-mail", () => {
     expect(email.html).toContain("Distribuição mensal");
     expect(email.html).toContain("Destaques");
   });
-  it("diz a cobertura da identificação e que a análise começa em 01/01/2026", () => {
+  it("diz a cobertura da identificação, e NUNCA cita uma data fixa: só as datas do período escolhido (decisão dela, 27/10/2026)", () => {
     expect(email.html).toContain("sem identificação");
-    expect(email.html).toContain("01/01/2026");
+    expect(email.html).not.toContain("01/01/2026");   // o período deste e-mail é 01/03/2026 a 30/04/2026
+    expect(email.texto).not.toContain("01/01/2026");
+    expect(email.html).toContain("01/03/2026");
   });
   it("NUNCA leva um identificador de pessoa, nem valor individual de quem contribuiu", () => {
     expect(email.html).not.toMatch(/pessoa-secreta/);

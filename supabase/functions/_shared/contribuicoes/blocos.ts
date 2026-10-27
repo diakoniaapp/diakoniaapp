@@ -9,7 +9,7 @@ export const BLOCOS_DE_CONTRIBUICOES = [
   { id: "indicadores", titulo: "Indicadores principais", grupo: "Indicadores", descricao: "Dizimistas, doadores, arrecadado, médias, recorrência, novos, frequência" },
   { id: "categorias", titulo: "Arrecadação por categoria", grupo: "Indicadores", descricao: "Dízimos, ofertas e missões" },
   { id: "saude_da_base", titulo: "Saúde da base contribuinte", grupo: "Pastoral", descricao: "Membros ativos, contribuíram, sem contribuição registrada, adesão, novos e recorrentes" },
-  { id: "nao_contribuiram", titulo: "Não contribuíram no período", grupo: "Pastoral", descricao: "Nenhuma desde 01/01/2026, contribuíram antes e não agora, e há quanto tempo (30/60/90/180 dias)" },
+  { id: "nao_contribuiram", titulo: "Não contribuíram no período", grupo: "Pastoral", descricao: "Sem contribuição no período e sem registro anterior, contribuíram antes e não agora, e há quanto tempo (30/60/90/180 dias)" },
   { id: "tendencias", titulo: "Tendências", grupo: "Gráficos", descricao: "Comparação com o período anterior ou direção da série" },
   { id: "curva_adesao", titulo: "Curva de adesão", grupo: "Gráficos", descricao: "Pessoas diferentes que contribuíram em cada semana" },
   { id: "distribuicao_mensal", titulo: "Distribuição mensal", grupo: "Gráficos", descricao: "Valor arrecadado em cada mês" },
@@ -17,7 +17,7 @@ export const BLOCOS_DE_CONTRIBUICOES = [
   { id: "criterios", titulo: "Critérios da análise", grupo: "Qualidade dos dados", descricao: "As definições usadas: piso, contribuição, dizimista, recorrente, novo, base" },
   { id: "cobertura", titulo: "Cobertura da identificação", grupo: "Qualidade dos dados", descricao: "Quanto do valor tem pessoa identificada" },
   { id: "contribuintes_nominal", titulo: "Quem contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome, última contribuição, quantidade de contribuições e situação (recorrente, novo). Sem valores." },
-  { id: "sem_contribuicao_nominal", titulo: "Quem não contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome, última contribuição e situação (nenhuma desde 01/01/2026, sem contribuição há mais de 90 ou 180 dias). Sem valores." },
+  { id: "sem_contribuicao_nominal", titulo: "Quem não contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome e perfil de contribuição (sem contribuições no período; sem registro anterior ou última há mais de 90 ou 180 dias). Sem valores." },
 ] as const;
 
 export type IdDoBloco = typeof BLOCOS_DE_CONTRIBUICOES[number]["id"];
@@ -45,7 +45,7 @@ export const ORDENACOES_DAS_LISTAS: { id: OrdenacaoDasListas; rotulo: string; de
   { id: "ultima_contribuicao", rotulo: "Última contribuição", descricao: "Mais recente primeiro; desempate pela quantidade e pelo nome" },
   { id: "nome_az", rotulo: "Nome A–Z", descricao: "Ordem alfabética" },
   { id: "nome_za", rotulo: "Nome Z–A", descricao: "Ordem alfabética inversa" },
-  { id: "tempo_sem_contribuir", rotulo: "Tempo sem contribuir", descricao: "Quem está há mais tempo sem contribuir primeiro (nenhuma desde 01/01/2026 vem antes); desempate pelo nome" },
+  { id: "tempo_sem_contribuir", rotulo: "Tempo sem contribuir", descricao: "Quem está há mais tempo sem contribuir primeiro (quem não tem registro anterior vem antes); desempate pelo nome" },
 ];
 export const ORDENACAO_PADRAO: OrdenacaoDasListas = "quantidade";
 

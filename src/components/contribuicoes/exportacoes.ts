@@ -20,7 +20,7 @@ export function abasDoPainel(a: AnaliseDoPeriodo, emitidoPor: string, hoje: stri
       nome: "Resumo", larguras: [34, 18],
       linhas: [
         [{ v: "CONTRIBUIÇÕES — RESUMO", estilo: "titulo" }],
-        [`Período: ${textoDoPeriodo(a.periodo.ini, a.periodo.fim)} (a análise começa em ${dataBr(PISO_DE_IDENTIFICACAO)})`],
+        [`Período: ${textoDoPeriodo(a.periodo.ini, a.periodo.fim)}`],
         [`Emitido em ${dataBr(hoje)} por ${emitidoPor || "Sistema"}`],
         ...criterios.map((c): Celula[] => [`${c.rotulo}: ${c.valor}`]), [],
         cab("Indicador", "Valor"),
@@ -62,7 +62,7 @@ export function abaDePessoas(linhas: LinhaDePessoa[], periodo: { ini: string; fi
   };
 }
 
-const SITUACAO = { nunca: "Nenhuma contribuição desde 01/01/2026", antes: "Contribuiu antes do período" } as const;
+const SITUACAO = { nunca: "Sem registro anterior ao período", antes: "Contribuiu antes do período" } as const;
 const observacao = (p: PessoaSemContribuicao) => [p.menor ? "menor de 18 anos" : "", p.semNascimento ? "sem data de nascimento" : "", p.familiaContribui ? "alguém da família contribuiu no período" : ""].filter(Boolean).join("; ");
 
 export function abasDosSemContribuicao(a: AnaliseDosSemContribuicao, periodo: { ini: string; fim: string }, quemEntra: string): Aba[] {
@@ -81,7 +81,7 @@ export function abasDosSemContribuicao(a: AnaliseDosSemContribuicao, periodo: { 
       linhas: [
         cab("Indicador", "Valor"),
         ["Base (membros e congregados ativos)", INT(a.base)], ["Contribuíram no período", INT(a.contribuiram)], ["Não contribuíram", INT(a.naoContribuiram)],
-        ["Adesão", a.adesaoPct === null ? null : a.adesaoPct / 100], ["Nenhuma contribuição desde 01/01/2026", INT(a.nuncaDesdeOPiso)], ["Contribuíram antes do período", INT(a.jaContribuiuAntes)],
+        ["Adesão", a.adesaoPct === null ? null : a.adesaoPct / 100], ["Sem contribuição no período e sem registro anterior", INT(a.nuncaDesdeOPiso)], ["Contribuíram antes do período", INT(a.jaContribuiuAntes)],
         ["Com alguém da família que contribuiu", INT(a.comFamiliaQueContribui)], ["Menores de 18 anos fora da base", INT(a.menoresFora)],
       ],
     },

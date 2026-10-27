@@ -240,7 +240,7 @@ export interface PessoaSemContribuicao {
   nome: string;
   tipo: string;
   classificacao: ClassificacaoSemContribuicao;
-  /** a última contribuição identificada (desde o piso) ANTES do período; `null` = nenhuma desde 01/01/2026 */
+  /** a última contribuição identificada (desde o piso) ANTES do período; `null` = sem registro anterior ao período */
   ultima: string | null;
   /** dias entre a última contribuição e o fim do período */
   dias: number | null;
@@ -514,7 +514,7 @@ const dataBrCompleta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/
 /** As linhas do cabeçalho obrigatório, em texto (tela, Excel, e-mail e impressão usam as mesmas). `geradoEmTexto` já vem formatado em Brasília. */
 export function linhasDoCabecalho(c: CabecalhoDoRelatorio, geradoEmTexto: string): { rotulo: string; valor: string }[] {
   const linhas = [
-    { rotulo: "Período analisado", valor: `${dataBrCompleta(c.periodo.ini)} a ${dataBrCompleta(c.periodo.fim)} (a análise começa em ${dataBrCompleta(PISO_DE_IDENTIFICACAO)})` },
+    { rotulo: "Período analisado", valor: `${dataBrCompleta(c.periodo.ini)} a ${dataBrCompleta(c.periodo.fim)}` },
     { rotulo: "Base analisada", valor: `${ROTULO_DA_BASE[c.base]} (ativos)` },
     { rotulo: "Contribuições consideradas", valor: rotuloDasCategorias(c.categorias) },
   ];

@@ -73,14 +73,14 @@ describe("a gaveta de envio", () => {
     expect(botaoEnviar()!.disabled).toBe(true);
     expect(q('[data-aviso="previa-obrigatoria"]')).not.toBeNull();
   });
-  it("depois de visualizar, com destinatário, o Enviar habilita; a prévia aparece num iframe sem permissões", async () => {
+  it("depois de visualizar, com destinatário, o Enviar habilita; a prévia aparece num iframe que não executa script", async () => {
     const s = servico();
     await abrirGaveta(s);
     await digitar("pastor@qibrj.org.br");
     await clicar(q('[data-acao="visualizar"]'));
     expect(s.previa).toHaveBeenCalledWith({ ini: "2026-04-28", fim: "2026-10-27" }, PASTOR, FILTROS);
     const frame = q("iframe") as HTMLIFrameElement;
-    expect(frame.getAttribute("sandbox")).toBe("");
+    expect(frame.getAttribute("sandbox")).toBe("allow-same-origin");   // sem allow-scripts: o e-mail não executa nada
     expect(frame.getAttribute("srcdoc")).toBe("<p>corpo</p>");
     expect(botaoEnviar()!.disabled).toBe(false);
   });
@@ -157,8 +157,10 @@ describe("o que mostrar: modelos e blocos", () => {
     expect((q('[data-acao="visualizar"]') as HTMLButtonElement).disabled).toBe(true);
     expect((q('[data-acao="teste"]') as HTMLButtonElement).disabled).toBe(true);
   });
-  it("os dois blocos com nomes vêm marcados com ⚠; não existe bloco de valor individual, telefone ou e-mail de pessoa", async () => {
+  it("os dois blocos com nomes vêm marcados com ⚠ (dentro de 'Exibir nomes'); não existe bloco de valor individual, telefone ou e-mail de pessoa", async () => {
     await abrirGaveta(servico());
+    expect(qa("[data-bloco]").length).toBe(IDS_AGREGADOS.length);   // desligado: só os agregados
+    await clicar(q('[data-acao="exibir-nomes"]'));
     for (const id of IDS_NOMINAIS) expect(q(`[data-bloco="${id}"]`)?.parentElement?.textContent).toContain("⚠");
     const texto = qa("[data-bloco]").map(c => c.parentElement?.textContent ?? "").join(" ").toLowerCase();
     expect(texto).not.toMatch(/telefone|valor individual|total contribu|e-mail de pessoa/);
@@ -167,18 +169,89 @@ describe("o que mostrar: modelos e blocos", () => {
   it("a lista nominal é OPÇÃO: marcar mostra o aviso de dados nominais e a confirmação diz ATENÇÃO; desmarcar tira os dois", async () => {
     await abrirGaveta(servico());
     await digitar("pastor@qibrj.org.br");
-    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));
+    await clicar(q('[data-acao="exibir-nomes"]'));
     expect(q('[data-aviso="nominal"]')?.textContent).toContain("dados nominais");
     expect(q('[data-aviso="nominal"]')?.textContent).toContain("registrados para auditoria");
     await clicar(q('[data-acao="visualizar"]'));
     await clicar(botaoEnviar());
     expect(q('[data-confirmacao="envio"]')?.textContent).toContain("ATENÇÃO: o e-mail contém NOMES de pessoas (sem valores)");
     await clicar([...q('[data-confirmacao="envio"]')!.querySelectorAll("button")].find(b => b.textContent === "Cancelar"));
-    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));   // desmarca
+    await clicar(q('[data-acao="exibir-nomes"]'));   // desliga as duas
     expect(q('[data-aviso="nominal"]')).toBeNull();
     await clicar(q('[data-acao="visualizar"]'));
     await clicar(botaoEnviar());
     expect(q('[data-confirmacao="envio"]')?.textContent).toContain("só números agregados, sem nomes");
+  });
+});
+
+describe("Exibir nomes: a lista aparece na prévia", () => {
+  const PREVIA_COM_NOMES = { ...PREVIA, nomes: { contribuiram: 135, semContribuicao: 133 }, tamanhoDoHtml: 72000 };
+  it("é um interruptor claro, desligado por padrão, com a descrição da lista: # posição, nome, quantidade e perfil, do maior para o menor, sem valores", async () => {
+    await abrirGaveta(servico());
+    const caixa = q('[data-acao="exibir-nomes"]') as HTMLInputElement;
+    expect(caixa.checked).toBe(false);
+    const t = q('[data-secao="exibir-nomes"]')!.textContent!;
+    for (const x of ["Exibir nomes (lista nominal)", "# posição", "nome", "quantidade de contribuições", "perfil de contribuição", "maior número de contribuições para o menor", "Sem valores"]) expect(t).toContain(x);
+  });
+  it("ligar traz as DUAS listas (quem contribuiu e quem não contribuiu), o aviso e a ordenação; dá para tirar uma delas sem desligar", async () => {
+    await abrirGaveta(servico());
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    expect((q('[data-bloco="contribuintes_nominal"]') as HTMLInputElement).checked).toBe(true);
+    expect((q('[data-bloco="sem_contribuicao_nominal"]') as HTMLInputElement).checked).toBe(true);
+    expect(q('[data-aviso="nominal"]')).not.toBeNull();
+    expect(q('[data-campo="ordenacao"]')).not.toBeNull();
+    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));
+    expect((q('[data-acao="exibir-nomes"]') as HTMLInputElement).checked).toBe(true);   // ainda há uma lista
+    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    expect((q('[data-acao="exibir-nomes"]') as HTMLInputElement).checked).toBe(false);   // nenhuma: desligou
+  });
+  it("o pedido leva os dois blocos com nomes, junto dos filtros escolhidos", async () => {
+    const s = servico();
+    await abrirGaveta(s);
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await clicar(q('[data-base="membros"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(s.previa.mock.calls[0][1]).toEqual(expect.arrayContaining(["contribuintes_nominal", "sem_contribuicao_nominal"]));
+    expect(s.previa.mock.calls[0][2]).toMatchObject({ base: "membros", ordenacao: "quantidade" });
+  });
+  it("a prévia CONFIRMA que a lista está lá: quantos nomes em cada lista, com o botão 'Ir para a lista de nomes'", async () => {
+    await abrirGaveta(servico({ previa: vi.fn(async () => PREVIA_COM_NOMES) as never }));
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    const t = q("[data-previa-nomes]")!.textContent!;
+    expect(t).toContain("lista de nomes");
+    expect(t).toContain("135");
+    expect(t).toContain("133");
+    expect(t).toContain("da maior quantidade de contribuições para a menor");
+    expect(q('[data-acao="ir-para-nomes"]')).not.toBeNull();
+  });
+  it("sem nomes marcados, a prévia não mostra o painel da lista", async () => {
+    await abrirGaveta(servico());
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q("[data-previa-nomes]")).toBeNull();
+  });
+  it("função antiga no servidor (não devolve a contagem de nomes): a tela avisa para reimplantar, em vez de deixar a lista 'sumir'", async () => {
+    await abrirGaveta(servico());   // a prévia padrão do teste não traz "nomes"
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q('[data-aviso="funcao-sem-nomes"]')?.textContent).toContain("reimplante contribuicoes-enviar");
+  });
+  it("recorte sem nenhum nome: avisa para conferir base, contribuições e período", async () => {
+    await abrirGaveta(servico({ previa: vi.fn(async () => ({ ...PREVIA, nomes: { contribuiram: 0, semContribuicao: 0 } })) as never }));
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q('[data-aviso="sem-nomes"]')?.textContent).toContain("Nenhum nome neste recorte");
+  });
+  it("e-mail acima de 100 mil caracteres: avisa que o Gmail corta (a lista ficaria escondida)", async () => {
+    await abrirGaveta(servico({ previa: vi.fn(async () => ({ ...PREVIA_COM_NOMES, tamanhoDoHtml: 124000 })) as never }));
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q('[data-aviso="email-grande"]')?.textContent).toContain("Gmail corta");
+  });
+  it("a prévia é maior (520 px) para a lista não ficar escondida num quadro pequeno", async () => {
+    await abrirGaveta(servico());
+    await clicar(q('[data-acao="visualizar"]'));
+    expect((q("iframe") as HTMLIFrameElement).className).toContain("h-[520px]");
   });
 });
 
@@ -188,14 +261,14 @@ describe("a ordenação das listas com nomes", () => {
   it("só aparece quando uma lista com nomes é marcada; o padrão é a quantidade de contribuições", async () => {
     await abrirGaveta(servico());
     expect(select()).toBeNull();
-    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    await clicar(q('[data-acao="exibir-nomes"]'));
     expect(select()?.value).toBe("quantidade");
     expect(q("[data-ordem-descricao]")?.textContent).toContain("desempate pela última contribuição e pelo nome");
     expect(q("[data-ordem-descricao]")?.textContent).toContain("classificação (#)");
   });
   it("tem as seis opções pedidas, na ordem", async () => {
     await abrirGaveta(servico());
-    await clicar(q('[data-bloco="sem_contribuicao_nominal"]'));
+    await clicar(q('[data-acao="exibir-nomes"]'));
     expect([...select()!.options].map(o => o.value)).toEqual(["quantidade", "valor_total", "ultima_contribuicao", "nome_az", "nome_za", "tempo_sem_contribuir"]);
     expect([...select()!.options].map(o => o.textContent)).toEqual(["Quantidade de contribuições", "Valor total contribuído", "Última contribuição", "Nome A–Z", "Nome Z–A", "Tempo sem contribuir"]);
   });
@@ -203,7 +276,7 @@ describe("a ordenação das listas com nomes", () => {
     const s = servico();
     await abrirGaveta(s);
     await digitar("pastor@qibrj.org.br");
-    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    await clicar(q('[data-acao="exibir-nomes"]'));
     await clicar(q('[data-acao="visualizar"]'));
     expect(s.previa.mock.calls[0][2]).toMatchObject({ ordenacao: "quantidade" });
     expect(botaoEnviar()!.disabled).toBe(false);
@@ -215,7 +288,7 @@ describe("a ordenação das listas com nomes", () => {
   });
   it("valor total contribuído avisa que os valores não aparecem na lista, só ordenam", async () => {
     await abrirGaveta(servico());
-    await clicar(q('[data-bloco="contribuintes_nominal"]'));
+    await clicar(q('[data-acao="exibir-nomes"]'));
     await escolher("valor_total");
     expect(q("[data-ordem-descricao]")?.textContent).toContain("os valores não aparecem na lista");
   });

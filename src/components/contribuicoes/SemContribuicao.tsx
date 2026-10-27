@@ -56,7 +56,7 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
         <Peca id="base" rotulo="Membros e congregados ativos" valor={String(a.base)} legenda={a.menoresFora > 0 ? `${a.menoresFora} menores de 18 anos fora da base` : "base considerada"} />
         <Peca id="contribuiram" rotulo={`Com ${oQue} no período`} valor={String(a.contribuiram)} legenda={a.adesaoPct === null ? "—" : `${a.adesaoPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da base`} />
         <Peca id="nao" rotulo={`Sem ${oQue} registrada`} valor={String(a.naoContribuiram)} legenda="no período filtrado" />
-        <Peca id="nunca" rotulo="Nenhuma desde 01/01/2026" valor={String(a.nuncaDesdeOPiso)} legenda="antes disso a identificação não é confiável" />
+        <Peca id="nunca" rotulo="Sem registro anterior" valor={String(a.nuncaDesdeOPiso)} legenda="sem contribuição no período nem antes dele" />
         <Peca id="antes" rotulo="Contribuíram antes do período" valor={String(a.jaContribuiuAntes)} legenda="e não neste período" />
         <Peca id="familia" rotulo="Com família que contribuiu" valor={String(a.comFamiliaQueContribui)} legenda="podem contribuir por outra pessoa" />
       </div>
@@ -79,7 +79,7 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
           <div className="space-y-1"><Label className="text-xs">Situação</Label>
             <Select value={filtros.classe} onValueChange={v => aoMudarFiltros({ classe: v as FiltroDeClasse })}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="todos">Todas</SelectItem><SelectItem value="nunca">Nenhuma desde 01/01/2026</SelectItem><SelectItem value="antes">Contribuiu antes do período</SelectItem></SelectContent>
+              <SelectContent><SelectItem value="todos">Todas</SelectItem><SelectItem value="nunca">Sem registro anterior</SelectItem><SelectItem value="antes">Contribuiu antes do período</SelectItem></SelectContent>
             </Select></div>
           <div className="space-y-1"><Label className="text-xs">Tempo sem contribuir</Label>
             <Select value={filtros.faixa || "__todas__"} onValueChange={v => aoMudarFiltros({ faixa: v === "__todas__" ? "" : (v as FaixaSemContribuicao) })}>
@@ -122,7 +122,7 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
                     <span className="text-xs text-muted-foreground shrink-0">{p.tipo === "membro" ? "Membro" : p.tipo === "visitante" ? "Visitante" : "Congregado"}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {p.ultima ? `Última contribuição${filtros.considerar === "dizimo" ? " de dízimo" : ""}: ${dataBr(p.ultima)} (há ${p.dias} dias)` : "Nenhuma contribuição desde 01/01/2026"}
+                    {p.ultima ? `Última contribuição${filtros.considerar === "dizimo" ? " de dízimo" : ""}: ${dataBr(p.ultima)} (há ${p.dias} dias)` : "Sem contribuição no período e sem registro anterior"}
                     {p.familiaContribui ? " · alguém da família contribuiu" : ""}{p.menor ? " · menor de 18 anos" : ""}{p.semNascimento ? " · sem data de nascimento" : ""}
                   </p>
                 </div>

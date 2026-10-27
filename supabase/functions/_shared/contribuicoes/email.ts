@@ -17,7 +17,10 @@ export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency",
 const n = (v: number, casas = 0) => v.toLocaleString("pt-BR", { maximumFractionDigits: casas });
 const plural = (q: number, um: string, varios: string) => `${n(q)} ${q === 1 ? um : varios}`;
 
-export interface EmailDeContribuicoes { assunto: string; preheader: string; html: string; texto: string; resumo: string }
+export interface EmailDeContribuicoes { assunto: string; preheader: string; html: string; texto: string; resumo: string; /** as listas com nomes foram encurtadas para o e-mail caber no Gmail */ listasCortadas?: boolean }
+
+/** O Gmail corta a mensagem acima de ~102 KB; ficamos um pouco abaixo. */
+export const LIMITE_DO_HTML = 100_000;
 
 /** O parágrafo que o pastor lê primeiro: o período em poucas frases, só com o que o cálculo sustenta. Determinístico (sem IA): testável. */
 export function resumoExecutivo(a: AnaliseDoPeriodo): string {
@@ -80,7 +83,7 @@ function blocoNaoContribuiram(b: ResumoDaBase | null): string {
   let h = D.secao("Não contribuíram no período", "Quantidades para acompanhamento pastoral.");
   if (!b) return h + D.blocoDeObservacao("Esta informação não pôde ser calculada neste envio.");
   const linhas = [
-    `Nenhuma contribuição registrada desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`,
+    `Sem contribuição no período e sem registro anterior: ${n(b.nuncaDesdeOPiso)}`,
     `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
     `Sem contribuição há mais de 30 dias: ${n(b.haMaisDe.dias30)} · 60 dias: ${n(b.haMaisDe.dias60)} · 90 dias: ${n(b.haMaisDe.dias90)} · 180 dias: ${n(b.haMaisDe.dias180)}`,
   ];
@@ -104,19 +107,19 @@ function blocoTendencias(t: TendenciaDoPeriodo | null | undefined): string {
   const direcao = t.direcao === "alta" ? "em alta" : t.direcao === "queda" ? "em queda" : "estável";
   return h + D.cartaoDeLista({ titulo: `Arrecadação ${direcao}`, frase: "", tom: "info", itens: [
     `A média semanal da segunda metade do período em relação à primeira: ${sinal(t.variacaoPct ?? null)}.`,
-    `O período anterior equivalente começaria antes de ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}, quando a identificação ainda não era confiável; por isso a tendência é a da própria série.`,
+    "O período anterior equivalente começaria antes do início da identificação confiável das contribuições por pessoa; por isso a tendência é a da própria série.",
   ] });
 }
 
 /** O bloco "Critérios da análise": as definições usadas, em frases. */
 function blocoCriterios(): string {
   return D.secao("Critérios da análise", "Como cada número é calculado.") + D.cartaoDeLista({ titulo: "Definições", frase: "", tom: "info", itens: [
-    `A análise começa em ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: antes disso só cerca de um terço das contribuições tem pessoa identificada.`,
+    "A análise só usa o período em que a identificação das contribuições por pessoa é confiável: antes dele só cerca de um terço das contribuições tem pessoa identificada.",
     "Contribuição: dízimo, oferta ou oferta para missões, realizada ou conciliada; transferências e rendimentos ficam de fora.",
     "Dizimista: pessoa da base com dízimo identificado no período. Doador: qualquer das contribuições escolhidas.",
     "Recorrente: dizimista que deu dízimo em todos os meses completos do período. Novo: primeira contribuição identificada dentro do período.",
     "Base: pessoas ativas do vínculo escolhido; quem contribuiu e está fora da base aparece à parte e não entra nos indicadores.",
-    "Sem contribuição \"nunca\" significa nenhuma contribuição registrada desde o início da análise, não na vida.",
+    "\"Sem registro anterior\" significa nenhuma contribuição registrada no sistema antes do período analisado, não na vida.",
   ] });
 }
 
@@ -136,19 +139,20 @@ const mesPorExtenso = (m: string) => `${MESES_POR_EXTENSO[Number(m.slice(5, 7)) 
 export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada): { titulo: string; texto: string }[] {
   const { ini, fim } = a.periodo;
   const p = `${ddmmaaaa(ini)} a ${ddmmaaaa(fim)}`;
+  const entre = `entre ${ddmmaaaa(ini)} e ${ddmmaaaa(fim)}`;   // SEMPRE as datas do filtro escolhido: nunca uma data fixa (decisão dela, 27/10/2026)
   const completos = mesesCompletos(ini, fim);
   const meses = completos.length === 0 ? "" : completos.length === 1 ? mesPorExtenso(completos[0]) : `${mesPorExtenso(completos[0])} a ${mesPorExtenso(completos[completos.length - 1])}`;
   const recorrente = completos.length === 0
-    ? `Pessoa que contribuiu em todos os meses do período analisado. O período de ${p} não tem nenhum mês completo; por isso ninguém é classificado como recorrente.`
-    : `Pessoa que contribuiu em todos os meses do período analisado: ${completos.length === 1 ? "o único mês completo" : `os ${completos.length} meses completos`} entre ${p} (${meses}). O primeiro e o último mês, quando incompletos, não entram nessa conta.`;
+    ? `Pessoa que contribuiu em todos os meses do período analisado. O período ${entre} não tem nenhum mês completo; por isso ninguém é classificado como recorrente.`
+    : `Pessoa que contribuiu em todos os meses do período analisado: ${completos.length === 1 ? "o único mês completo" : `os ${completos.length} meses completos`} ${entre} (${meses}). O primeiro e o último mês, quando incompletos, não entram nessa conta.`;
   const novo = ini <= PISO_DE_IDENTIFICACAO
-    ? `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado. Como o período começa em ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}, ainda não há histórico anterior confiável; por isso ninguém é classificado como novo dizimista neste relatório.`
-    : `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado (${p}), sem nenhuma contribuição identificada desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)} até a véspera do período.`;
+    ? `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado. Como o período começa em ${ddmmaaaa(ini)}, ainda não há histórico anterior confiável; por isso ninguém é classificado como novo dizimista neste relatório.`
+    : `Pessoa cuja primeira contribuição identificada ocorreu dentro do período analisado (${p}), sem nenhuma contribuição identificada antes de ${ddmmaaaa(ini)}.`;
   return [
     { titulo: "Recorrente", texto: recorrente },
-    { titulo: "Contribuiu no período", texto: `Pessoa que realizou uma ou mais contribuições entre ${p}, mas não em todos os meses.` },
+    { titulo: "Contribuiu no período", texto: `Pessoa que realizou uma ou mais contribuições ${entre}, mas não em todos os meses.` },
     { titulo: "Novo dizimista", texto: novo },
-    { titulo: "Sem contribuição registrada", texto: `Pessoa da base analisada (${ROTULO_DA_BASE[base].toLowerCase()}, ativos) sem contribuições entre ${p}. O complemento diz há quanto tempo: nenhuma desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)} (início da análise), ou mais de 90 ou de 180 dias desde a última contribuição.` },
+    { titulo: "Sem contribuições no período analisado", texto: `Pessoa da base analisada (${ROTULO_DA_BASE[base].toLowerCase()}, ativos) sem contribuições ${entre}. O complemento diz se também não há registro anterior ao período ou há quanto tempo foi a última contribuição (mais de 90 ou de 180 dias).` },
   ];
 }
 
@@ -159,14 +163,18 @@ function blocoComoInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada): string 
 }
 
 /** Uma lista com nomes: nome, última contribuição, quantidade (só de quem contribuiu) e situação. Nenhum valor. */
-function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[], comQuantidade: boolean, ordenacao: OrdenacaoDasListas): string {
+function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[], comQuantidade: boolean, ordenacao: OrdenacaoDasListas, totalReal?: number): string {
   const ordem = ORDENACOES_DAS_LISTAS.find(x => x.id === ordenacao)!;
   let h = D.secao(titulo, `${subtitulo} Ordem: ${ordem.rotulo.toLowerCase()}. ${ordem.descricao}.`);
   if (linhas.length === 0) return h + D.blocoDeObservacao("Ninguém nesta situação no período.");
-  const cel = (t: string, extra = "") => `<td style="padding:5px 6px;font-size:12px;border-bottom:1px solid ${D.COR.linha};${extra}">${t}</td>`;
-  const cab = `<tr>${["#", "Nome", ...(comQuantidade ? ["Contribuições"] : []), "Perfil de contribuição"].map(t => `<td style="padding:5px 6px;font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
-  const corpo = linhas.map(l => `<tr>${cel(n(l.posicao), `color:${D.COR.suave};text-align:right;width:28px`)}${cel(`<strong>${D.esc(l.nome)}</strong>`)}${comQuantidade ? cel(l.contribuicoes === null ? "—" : n(l.contribuicoes), "text-align:center") : ""}${cel(D.esc(l.perfil), `color:${D.COR.suave}`)}</tr>`).join("");
-  return h + D.cartao(null, `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cab}${corpo}</table>`);
+  // MARCAÇÃO ENXUTA DE PROPÓSITO: o Gmail CORTA o e-mail acima de ~102 KB ("[Mensagem cortada]") e a lista é a parte mais longa — com 268 nomes, 4 estilos por linha chegavam a 124 KB e a lista ficava
+  // escondida. Aqui o estilo mora UMA vez na tabela; a linha leva só os dados (≈ 110 bytes), e o zebrado usa o atributo bgcolor.
+  const cab = `<tr>${["#", "Nome", ...(comQuantidade ? ["Contribuições"] : []), "Perfil de contribuição"].map(t => `<td style="font-size:11px;font-weight:bold;color:${D.COR.suave};border-bottom:2px solid ${D.COR.linha}">${D.esc(t)}</td>`).join("")}</tr>`;
+  const corpo = linhas.map((l, k) => `<tr${k % 2 === 1 ? ` bgcolor="${D.COR.fundo}"` : ""}><td align="right" width="28">${n(l.posicao)}</td><td><b>${D.esc(l.nome)}</b></td>${comQuantidade ? `<td align="center">${l.contribuicoes === null ? "—" : n(l.contribuicoes)}</td>` : ""}<td>${D.esc(l.perfil)}</td></tr>`).join("");
+  const aviso = totalReal !== undefined && totalReal > linhas.length
+    ? D.blocoDeObservacao(`Mostrando os ${n(linhas.length)} primeiros de ${n(totalReal)}, para o e-mail caber no Gmail (que corta mensagens longas). A lista completa está no sistema (Doadores) e no Excel.`)
+    : "";
+  return h + D.cartao(null, `<table role="presentation" width="100%" cellpadding="4" cellspacing="0" style="font-size:12px;color:${D.COR.texto}">${cab}${corpo}</table>`) + aviso;
 }
 
 export interface OpcoesDoEmailDeContribuicoes {
@@ -184,11 +192,30 @@ export interface OpcoesDoEmailDeContribuicoes {
   baseAnalisada?: BaseAnalisada;
   /** a ordenação das listas com nomes (a mesma com que as listas foram montadas); ausente = quantidade de contribuições */
   ordenacao?: OrdenacaoDasListas;
+  /** quantos nomes cada lista TEM de verdade, quando `nominal` veio encurtado (para o aviso "mostrando os N primeiros de M") */
+  totaisDasListas?: { contribuiram: number; semContribuicao: number };
   /** a tendência do período, para o bloco "Tendências" */
   tendencia?: TendenciaDoPeriodo | null;
 }
 
+/**
+ * Monta o e-mail e GARANTE que ele cabe no Gmail: se a lista de nomes o leva além de `LIMITE_DO_HTML`, encurta a CAUDA das duas listas (quem tem menos contribuições, que é a ordem padrão) até caber
+ * e diz isso no próprio e-mail ("mostrando os N primeiros de M"). Sem isso o Gmail corta a mensagem e a lista, que é a parte mais longa e a última, ficaria escondida.
+ */
 export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = {}): EmailDeContribuicoes {
+  const cheio = montarSemLimite(a, o);
+  if (!o.nominal || cheio.html.length <= LIMITE_DO_HTML) return cheio;
+  const total = { contribuiram: o.nominal.contribuiram.length, semContribuicao: o.nominal.semContribuicao.length };
+  let ultimo = cheio;
+  for (let fator = 0.9, i = 0; i < 16; fator *= 0.85, i++) {
+    const cortada: ListasNominais = { contribuiram: o.nominal.contribuiram.slice(0, Math.floor(total.contribuiram * fator)), semContribuicao: o.nominal.semContribuicao.slice(0, Math.floor(total.semContribuicao * fator)) };
+    ultimo = { ...montarSemLimite(a, { ...o, nominal: cortada, totaisDasListas: total }), listasCortadas: true };
+    if (ultimo.html.length <= LIMITE_DO_HTML) break;
+  }
+  return ultimo;
+}
+
+function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = {}): EmailDeContribuicoes {
   const escolhidos = new Set<IdDoBloco>(o.blocos ?? IDS_AGREGADOS);   // sem escolha explícita, só os agregados: nomes nunca entram por omissão
   const tem = (id: IdDoBloco) => escolhidos.has(id);
   const periodo = `${ddmmaaaa(a.periodo.ini)} a ${ddmmaaaa(a.periodo.fim)}`;
@@ -245,14 +272,14 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   if (tem("nao_contribuiram")) corpo += blocoNaoContribuiram(o.base ?? null);
   if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
   if (tem("criterios")) corpo += blocoCriterios();
-  if (comNomes) corpo += blocoComoInterpretar(a, o.baseAnalisada ?? "membros_congregados");   // as definições vêm ANTES da primeira lista com nomes
-  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, quantidade de contribuições e perfil de contribuição. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO);
-  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Pessoas da base analisada sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO);
+  if (comNomes) corpo += `<div id="lista-de-nomes"></div>` + blocoComoInterpretar(a, o.baseAnalisada ?? "membros_congregados");   // as definições vêm ANTES da primeira lista com nomes
+  if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, quantidade de contribuições e perfil de contribuição. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.contribuiram);
+  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal("Quem não contribuiu", "Pessoas da base analisada sem contribuição registrada no período, para acompanhamento pastoral.", o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.semContribuicao);
   if (tem("cobertura") && a.arrecadado > 0) {
     const c = a.cobertura;
     corpo += D.blocoDeObservacao(
       `Identificação: ${c.pctDoValor === null ? "—" : n(c.pctDoValor, 1) + "%"} do valor tem pessoa identificada; ${brl(c.valorNaoIdentificado)} em ${plural(c.entradasSemPessoa, "entrada", "entradas")} ficou sem identificação. `
-      + `A análise começa em ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}, quando a identificação das contribuições passou a ser confiável.`,
+      + "A análise usa apenas o período em que a identificação das contribuições por pessoa é confiável.",
     );
   }
   corpo += D.blocoDeObservacao(comNomes
@@ -275,7 +302,7 @@ export function montarEmailDeContribuicoes(a: AnaliseDoPeriodo, o: OpcoesDoEmail
   }
   if (tem("nao_contribuiram") && o.base) {
     const b = o.base;
-    linhas.push("", "Não contribuíram no período", `Nenhuma contribuição registrada desde ${ddmmaaaa(PISO_DE_IDENTIFICACAO)}: ${n(b.nuncaDesdeOPiso)}`, `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
+    linhas.push("", "Não contribuíram no período", `Sem contribuição no período e sem registro anterior: ${n(b.nuncaDesdeOPiso)}`, `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
       `Sem contribuição há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
   }
   const linhaNominal = (l: LinhaNominal) => `${l.posicao}. ${l.nome}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`} — ${l.perfil}`;

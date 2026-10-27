@@ -4,7 +4,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PeriodoDoRelatorio { ini: string; fim: string }
-export interface PreviaDoRelatorio { assunto: string; html: string; texto: string; resumo: string; periodo: { ini: string; fim: string; ajustado: boolean } }
+export interface PreviaDoRelatorio {
+  assunto: string; html: string; texto: string; resumo: string; periodo: { ini: string; fim: string; ajustado: boolean };
+  /** quantos nomes cada lista leva (só contagens); `null` quando nenhum bloco com nomes foi escolhido */
+  nomes?: { contribuiram: number; semContribuicao: number } | null;
+  /** o tamanho do HTML em caracteres: o Gmail corta acima de ~102 mil */
+  tamanhoDoHtml?: number;
+  /** as listas com nomes foram encurtadas (só as primeiras) para o e-mail caber no Gmail */
+  listasCortadas?: boolean;
+}
 export interface ResultadoDoEnvio { enviados: number; falharam: number; historicoGravado: boolean; motivo?: "enviado_ha_pouco" }
 
 /** Os filtros globais do relatório: a base analisada e as contribuições consideradas. */
@@ -23,7 +31,7 @@ async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRel
 
 export async function previaDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio): Promise<PreviaDoRelatorio> {
   const r = await chamar("previa", periodo, blocos, filtros);
-  return { assunto: r.assunto ?? "", html: r.html ?? "", texto: r.texto ?? "", resumo: r.resumo ?? "", periodo: r.periodo ?? { ...periodo, ajustado: false } };
+  return { assunto: r.assunto ?? "", html: r.html ?? "", texto: r.texto ?? "", resumo: r.resumo ?? "", periodo: r.periodo ?? { ...periodo, ajustado: false }, nomes: r.nomes ?? null, tamanhoDoHtml: r.tamanhoDoHtml, listasCortadas: !!r.listasCortadas };
 }
 
 /** Manda o e-mail marcado [TESTE] SÓ para o e-mail cadastrado de quem está logado. */

@@ -61,7 +61,7 @@ function CardSaudeDaBase({ saude, analise, rotuloDaBase, foraDaBase }: { saude: 
         </div>
         <div className="text-xs text-muted-foreground space-y-0.5" data-saude-ausencia>
           <p>Sem contribuição há mais de: <strong>30 dias {num(saude.haMaisDe.dias30)}</strong> · <strong>60 dias {num(saude.haMaisDe.dias60)}</strong> · <strong>90 dias {num(saude.haMaisDe.dias90)}</strong> · <strong>180 dias {num(saude.haMaisDe.dias180)}</strong></p>
-          <p>Nenhuma contribuição registrada desde {dataBrCompleta(PISO_DE_IDENTIFICACAO)}: <strong>{num(saude.nuncaDesdeOPiso)}</strong> · contribuíram anteriormente, mas não no período: <strong>{num(saude.jaContribuiuAntes)}</strong></p>
+          <p>Sem contribuição no período e sem registro anterior: <strong>{num(saude.nuncaDesdeOPiso)}</strong> · contribuíram anteriormente, mas não no período: <strong>{num(saude.jaContribuiuAntes)}</strong></p>
           {foraDaBase && <p data-fora-da-base>Contribuintes fora da base: <strong>{num(foraDaBase.pessoas)}</strong>{foraDaBase.pessoas > 0 ? ` (${brl(foraDaBase.valor)}, fora dos indicadores)` : ""}</p>}
         </div>
       </CardContent>
@@ -112,7 +112,7 @@ export function PainelDeContribuicoes({ analise, saude, rotuloDaBase, foraDaBase
         <Indicador id="recorrencia" rotulo="Recorrência" valor={analise.recorrentes ? pct(analise.recorrentes.pct) : "—"}
           legenda={analise.recorrentes ? `${analise.recorrentes.pessoas} dizimistas deram dízimo em todos os ${analise.recorrentes.meses} meses completos` : "o período não tem mês completo"} />
         <Indicador id="novos" rotulo="Novos" valor={analise.novos === null ? "—" : num(analise.novos)}
-          legenda={analise.novos === null ? "sem histórico anterior confiável (o período começa em 01/01/2026)" : "primeira contribuição identificada no período"} />
+          legenda={analise.novos === null ? `sem histórico anterior confiável (o período começa em ${dataBrCompleta(analise.periodo.ini)})` : "primeira contribuição identificada no período"} />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">

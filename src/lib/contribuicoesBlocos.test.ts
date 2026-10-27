@@ -117,7 +117,8 @@ describe("Saúde da base contribuinte — só quantidades", () => {
   it("o e-mail mostra adesão, não contribuíram e as faixas, sem nenhum nome", () => {
     const a = analisarContribuicoes(linhas, periodo);
     const e = montarEmailDeContribuicoes(a, { blocos: ["saude_da_base", "nao_contribuiram"], base });
-    for (const t of ["Saúde da base contribuinte", "Membros ativos", "Adesão da base", "16,7%", "Sem contribuição registrada", "Não contribuíram no período", "há mais de 30 dias: 3", "180 dias: 1", "Nenhuma contribuição registrada desde 01/01/2026: 2"]) expect(e.html).toContain(t);
+    for (const t of ["Saúde da base contribuinte", "Membros ativos", "Adesão da base", "16,7%", "Sem contribuição registrada", "Não contribuíram no período", "há mais de 30 dias: 3", "180 dias: 1", "Sem contribuição no período e sem registro anterior: 2"]) expect(e.html).toContain(t);
+    expect(e.html).not.toContain("01/01/2026");   // nunca uma data fixa: só o período escolhido
     expect(e.html).not.toMatch(/NOME-SECRETO/);
     expect(e.texto).toContain("Sem contribuição há mais de 30 / 60 / 90 / 180 dias: 3 / 3 / 3 / 1");
     expect(e.texto).not.toMatch(/NOME-SECRETO/);

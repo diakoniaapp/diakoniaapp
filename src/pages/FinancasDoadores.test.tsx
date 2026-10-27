@@ -219,7 +219,7 @@ describe("Fase 2B: filtros globais, card Saúde da base, ordenação e valores",
     expect(valor("adesao")).toBe("40%");
     expect(card.querySelector("[data-saude-ausencia]")!.textContent).toContain("30 dias");
     expect(card.querySelector("[data-saude-ausencia]")!.textContent).toContain("180 dias");
-    expect(card.querySelector("[data-saude-ausencia]")!.textContent).toContain("Nenhuma contribuição registrada desde 01/01/2026");
+    expect(card.querySelector("[data-saude-ausencia]")!.textContent).toContain("Sem contribuição no período e sem registro anterior");
     expect(card.compareDocumentPosition(q('[data-grafico="evolucao"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();   // o card vem ANTES dos gráficos
   });
   it("quem contribuiu fora da base NÃO entra nos indicadores e aparece à parte", async () => {

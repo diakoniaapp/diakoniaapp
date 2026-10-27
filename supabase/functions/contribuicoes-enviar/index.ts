@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     const resumo = { dizimistas: analise.dizimistas, doadores: analise.doadores, arrecadado: analise.arrecadado, novos: analise.novos, recorrentes: analise.recorrentes?.pessoas ?? null, comNomes, nomes: nominal ? totalDeNomes(nominal) : 0 };
     const informacoes = { periodo: pedido.periodo, ajustadoAoPiso: pedido.periodo.ajustado, blocos: pedido.blocos, base: pedido.base, categorias: pedido.categorias, ordenacao: pedido.ordenacao };
 
-    if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, ...informacoes });
+    if (corpo.acao === "previa") return resposta({ ok: true, assunto: email.assunto, html: email.html, texto: email.texto, resumo: email.resumo, tamanhoDoHtml: email.html.length, listasCortadas: !!email.listasCortadas, nomes: nominal ? { contribuiram: nominal.contribuiram.length, semContribuicao: nominal.semContribuicao.length } : null, ...informacoes });
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) return resposta({ erro: "RESEND_API_KEY não configurada — ver Project Settings → Edge Functions → Secrets" }, 500);

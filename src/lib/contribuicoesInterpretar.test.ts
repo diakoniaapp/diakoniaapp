@@ -12,14 +12,14 @@ const texto = (ini: string, fim: string, base: Parameters<typeof textosParaInter
 
 describe("o texto é gerado conforme o período", () => {
   it("traz as quatro definições, na ordem pedida", () => {
-    expect(textosParaInterpretar(analise("2026-07-01", "2026-09-30"), "membros_congregados").map(t => t.titulo)).toEqual(["Recorrente", "Contribuiu no período", "Novo dizimista", "Sem contribuição registrada"]);
+    expect(textosParaInterpretar(analise("2026-07-01", "2026-09-30"), "membros_congregados").map(t => t.titulo)).toEqual(["Recorrente", "Contribuiu no período", "Novo dizimista", "Sem contribuições no período analisado"]);
   });
   it("Recorrente: diz quantos meses completos o período tem e quais são", () => {
     const t = texto("2026-07-01", "2026-09-30");
     expect(t["Recorrente"]).toContain("contribuiu em todos os meses do período analisado");
     expect(t["Recorrente"]).toContain("os 3 meses completos");
     expect(t["Recorrente"]).toContain("julho de 2026 a setembro de 2026");
-    expect(t["Recorrente"]).toContain("01/07/2026 a 30/09/2026");
+    expect(t["Recorrente"]).toContain("entre 01/07/2026 e 30/09/2026");
   });
   it("período com meses incompletos nas pontas: só os completos entram, e o texto avisa", () => {
     const t = texto("2026-04-28", "2026-10-27");
@@ -33,22 +33,23 @@ describe("o texto é gerado conforme o período", () => {
   });
   it("Contribuiu no período: uma ou mais contribuições, mas não em todos os meses", () => {
     const t = texto("2026-07-01", "2026-09-30")["Contribuiu no período"];
-    expect(t).toContain("uma ou mais contribuições entre 01/07/2026 a 30/09/2026");
+    expect(t).toContain("uma ou mais contribuições entre 01/07/2026 e 30/09/2026");
     expect(t).toContain("mas não em todos os meses");
   });
   it("Novo dizimista: com histórico, explica a regra; começando no piso, diz que ninguém é novo (não há histórico)", () => {
-    expect(texto("2026-07-01", "2026-09-30")["Novo dizimista"]).toContain("sem nenhuma contribuição identificada desde 01/01/2026 até a véspera do período");
+    expect(texto("2026-07-01", "2026-09-30")["Novo dizimista"]).toContain("sem nenhuma contribuição identificada antes de 01/07/2026");
     const noPiso = texto("2026-01-01", "2026-06-30")["Novo dizimista"];
     expect(noPiso).toContain("o período começa em 01/01/2026");
     expect(noPiso).toContain("ninguém é classificado como novo dizimista");
   });
-  it("Sem contribuição registrada: cita a base analisada e o período, e como ler 'há mais de 90/180 dias'", () => {
-    const t = texto("2026-07-01", "2026-09-30", "membros")["Sem contribuição registrada"];
+  it("Sem contribuições no período analisado: cita a base analisada e o período escolhido, e como ler 'há mais de 90/180 dias'", () => {
+    const t = texto("2026-07-01", "2026-09-30", "membros")["Sem contribuições no período analisado"];
     expect(t).toContain("membros, ativos");
-    expect(t).toContain("sem contribuições entre 01/07/2026 a 30/09/2026");
-    expect(t).toContain("nenhuma desde 01/01/2026");
+    expect(t).toContain("sem contribuições entre 01/07/2026 e 30/09/2026");
+    expect(t).toContain("registro anterior ao período");
+    expect(t).not.toContain("01/01/2026");
     expect(t).toContain("90 ou de 180 dias");
-    expect(texto("2026-07-01", "2026-09-30", "membros_congregados_visitantes")["Sem contribuição registrada"]).toContain("visitantes ativos");
+    expect(texto("2026-07-01", "2026-09-30", "membros_congregados_visitantes")["Sem contribuições no período analisado"]).toContain("visitantes ativos");
   });
 });
 
@@ -70,7 +71,7 @@ describe("o bloco no e-mail", () => {
   });
   it("traz as quatro definições com o período do relatório", () => {
     const h = email(["sem_contribuicao_nominal"]).html;
-    for (const t of ["Recorrente:", "Contribuiu no período:", "Novo dizimista:", "Sem contribuição registrada:", "01/07/2026 a 30/09/2026", "os 3 meses completos"]) expect(h).toContain(t);
+    for (const t of ["Recorrente:", "Contribuiu no período:", "Novo dizimista:", "Sem contribuições no período analisado:", "01/07/2026 e 30/09/2026", "os 3 meses completos"]) expect(h).toContain(t);
   });
   it("só aparece quando há lista com nomes (sem nomes, o bloco não faz sentido)", () => {
     expect(email(["indicadores", "saude_da_base"]).html).not.toContain("Como interpretar este relatório");
@@ -88,11 +89,42 @@ describe("o bloco no e-mail", () => {
   it("os perfis mostrados são os do bloco explicativo", () => {
     const h = email(["contribuintes_nominal", "sem_contribuicao_nominal"]).html;
     expect(h).toContain(">Recorrente<");
-    expect(h).toContain("Sem contribuição registrada");
+    expect(h).toContain("Sem contribuições no período analisado");
   });
   it("a versão em texto também não tem a última contribuição", () => {
     const t = email(["contribuintes_nominal"]).texto;
     expect(t).toContain("1. Pessoa a — 3 contribuições — Recorrente");
     expect(t).not.toContain("última");
+  });
+});
+
+describe("nenhuma data fixa: só o período escolhido (decisão dela, 27/10/2026)", () => {
+  const L2 = (id: string, data: string): LinhaDeContribuicao => ({ pessoa_id: id, data, valor: 10, categoria: "Dizimos" });
+  const pessoas: PessoaDaBase[] = ["a", "b"].map(id => ({ id, nome: `Pessoa ${id}`, tipo_pessoa: "membro", status: "ativo", data_nascimento: "1980-01-01", familia_id: null }));
+  const nomes = new Map([["a", "Pessoa a"], ["b", "Pessoa b"]]);
+  const gerar = (ini: string, fim: string) => {
+    const linhas = [L2("a", `${ini.slice(0, 7)}-15`)];
+    const periodo = { ini, fim };
+    const sem = analisarSemContribuicao(linhas, pessoas, periodo, { considerar: "qualquer", incluirMenores: true });
+    return montarEmailDeContribuicoes(analisarContribuicoes(linhas, periodo), { blocos: ["resumo", "tendencias", "nao_contribuiram", "criterios", "cobertura", "contribuintes_nominal", "sem_contribuicao_nominal"], nominal: listasNominaisDoEmail(linhas, periodo, nomes, sem), baseAnalisada: "membros_congregados" });
+  };
+  it("período que NÃO começa em 01/01/2026: o e-mail (HTML e texto) nunca cita essa data", () => {
+    for (const [ini, fim] of [["2026-07-01", "2026-09-30"], ["2026-04-28", "2026-10-27"], ["2026-03-01", "2026-03-31"]]) {
+      const e = gerar(ini, fim);
+      expect(e.html).not.toContain("01/01/2026");
+      expect(e.texto).not.toContain("01/01/2026");
+      expect(e.html).not.toMatch(/nenhuma desde|a análise começa em/i);
+    }
+  });
+  it("as datas que aparecem são as do filtro: 'entre 01/07/2026 e 30/09/2026'", () => {
+    const e = gerar("2026-07-01", "2026-09-30");
+    expect(e.html).toContain("entre 01/07/2026 e 30/09/2026");
+  });
+  it("a 01/01/2026 só aparece quando é o início do período escolhido", () => {
+    expect(gerar("2026-01-01", "2026-06-30").html).toContain("01/01/2026");
+  });
+  it("o perfil de quem não contribuiu fala do período, sem data", () => {
+    const e = gerar("2026-07-01", "2026-09-30");
+    expect(e.html).toContain("Sem contribuições no período analisado");
   });
 });

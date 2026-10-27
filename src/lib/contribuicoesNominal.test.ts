@@ -35,12 +35,12 @@ describe("as linhas com nomes não têm valor", () => {
       [3, "Zé Inativo", 1, "Novo dizimista"],     // não está na base, mas o nome vem do cadastro
     ]);
   });
-  it("quem não contribuiu: nome, última contribuição e a situação por tempo (nenhuma desde 01/01/2026, mais de 90, mais de 180)", () => {
+  it("quem não contribuiu: nome, última contribuição e a situação por tempo (sem registro anterior, mais de 90, mais de 180 dias)", () => {
     // todos com 0 contribuições no período: desempata pela última contribuição (mais recente primeiro), depois pelo nome; quem não tem nenhuma fica por último
     expect(listas.semContribuicao.map(l => [l.posicao, l.nome, l.perfil])).toEqual([
-      [1, "Bia Teste", "Sem contribuição registrada · há mais de 90 dias"],
-      [2, "Caio Teste", "Sem contribuição registrada · há mais de 180 dias"],
-      [3, "Duda Teste", "Sem contribuição registrada · nenhuma desde 01/01/2026"],
+      [1, "Bia Teste", "Sem contribuições no período analisado · última há mais de 90 dias"],
+      [2, "Caio Teste", "Sem contribuições no período analisado · última há mais de 180 dias"],
+      [3, "Duda Teste", "Sem contribuições no período analisado · sem registro anterior"],
     ]);
     expect(listas.semContribuicao.every(l => l.contribuicoes === null)).toBe(true);
   });
@@ -60,7 +60,7 @@ describe("as linhas com nomes não têm valor", () => {
 
 describe("o e-mail com nomes", () => {
   it("leva os nomes, as datas e as situações, e o aviso de dados individuais", () => {
-    for (const t of ["Contém dados individuais", "Quem contribuiu", "Quem não contribuiu", "Zeca Teste", "Recorrente", "Duda Teste", "nenhuma desde 01/01/2026", "há mais de 180 dias", "Perfil de contribuição", "Como interpretar este relatório"]) expect(email.html).toContain(t);
+    for (const t of ["Contém dados individuais", "Quem contribuiu", "Quem não contribuiu", "Zeca Teste", "Recorrente", "Duda Teste", "sem registro anterior", "há mais de 180 dias", "Perfil de contribuição", "Como interpretar este relatório"]) expect(email.html).toContain(t);
     for (const fora of [">Última<", ">Situação<", "10/09/2026", "05/09/2026"]) expect(email.html).not.toContain(fora);   // a coluna da última contribuição saiu
     expect(email.html).toContain("nenhum valor individual");
   });

@@ -25,12 +25,15 @@ function perfilDeQuemContribuiu(r: ResumoDePessoa): string {
   return "Contribuiu no período";
 }
 
-/** Todo mundo que não contribuiu é "Sem contribuição registrada"; o complemento diz há quanto tempo (nenhuma desde o piso, mais de 90 ou de 180 dias). */
+/**
+ * Todo mundo que não contribuiu é "Sem contribuições no período analisado"; o complemento diz se também não há registro anterior ou há quanto tempo foi a última contribuição. NUNCA uma data fixa:
+ * o relatório pode ter qualquer período (decisão dela, 27/10/2026), e as datas que aparecem são sempre as do filtro escolhido.
+ */
 function perfilDeQuemNaoContribuiu(p: PessoaSemContribuicao): string {
-  if (p.classificacao === "nunca") return "Sem contribuição registrada · nenhuma desde 01/01/2026";
-  if (p.dias !== null && p.dias > 180) return "Sem contribuição registrada · há mais de 180 dias";
-  if (p.dias !== null && p.dias > 90) return "Sem contribuição registrada · há mais de 90 dias";
-  return "Sem contribuição registrada";
+  if (p.classificacao === "nunca") return "Sem contribuições no período analisado · sem registro anterior";
+  if (p.dias !== null && p.dias > 180) return "Sem contribuições no período analisado · última há mais de 180 dias";
+  if (p.dias !== null && p.dias > 90) return "Sem contribuições no período analisado · última há mais de 90 dias";
+  return "Sem contribuições no período analisado";
 }
 
 /** O que a ordenação enxerga de cada pessoa. O `total` SÓ ordena (opção "valor total contribuído"): nunca chega à linha que sai. */
@@ -41,7 +44,7 @@ const porQuantidade: Comparador = (a, b) => b.quantidade - a.quantidade;
 /** última contribuição, a mais recente primeiro; quem não tem nenhuma (nulo) fica por último */
 const porUltima: Comparador = (a, b) => (b.ultima ?? "").localeCompare(a.ultima ?? "");
 const porValor: Comparador = (a, b) => b.total - a.total;
-/** há mais tempo sem contribuir primeiro; "nenhuma desde 01/01/2026" (nulo) vem antes de todos */
+/** há mais tempo sem contribuir primeiro; quem não tem registro anterior (nulo) vem antes de todos */
 const porTempoSemContribuir: Comparador = (a, b) => (b.dias ?? Number.MAX_SAFE_INTEGER) - (a.dias ?? Number.MAX_SAFE_INTEGER);
 
 const COMPARADORES: Record<OrdenacaoDasListas, Comparador[]> = {
