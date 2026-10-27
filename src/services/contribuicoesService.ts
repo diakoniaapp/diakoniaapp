@@ -3,7 +3,8 @@
 // usará). Medido em 27/10/2026: 1.309 contribuições identificadas desde o piso = 2 páginas de 1.000; cabe em memória. A consulta NÃO usa `listarLancamentos` (teto de 300 linhas — o defeito que
 // `doadorService` registra); pagina de 1.000 em 1.000, com `id` como desempate para a paginação não repetir nem pular linha de mesma data.
 import { supabase } from "@/integrations/supabase/client";
-import { PISO_DE_IDENTIFICACAO, tipoDaContribuicao, type LinhaDeContribuicao, type PessoaDaBase } from "@/lib/contribuicoes";
+import { lerContribuicoesDoPiso } from "../../supabase/functions/_shared/contribuicoes/carregar";
+import type { LinhaDeContribuicao, PessoaDaBase } from "@/lib/contribuicoes";
 
 const PAGINA = 1000;
 
@@ -18,20 +19,9 @@ async function paginar<T>(consulta: (de: number, ate: number) => PromiseLike<{ d
   return todas;
 }
 
-/** As contribuições (Dízimos, Ofertas, Missões) realizadas/conciliadas de 01/01/2026 até `fim`, com ou sem pessoa ligada. Transferências, rendimentos e estornos ficam de fora na origem. */
+/** As contribuições (Dízimos, Ofertas, Missões) realizadas/conciliadas de 01/01/2026 até `fim`, com ou sem pessoa ligada. A consulta é a MESMA do e-mail ao pastor (`_shared/contribuicoes/carregar.ts`). */
 export async function carregarContribuicoes(fim: string): Promise<LinhaDeContribuicao[]> {
-  const { data: cats, error } = await supabase.from("fin_categorias").select("id, nome").eq("tipo", "entrada");
-  if (error) throw new Error(error.message);
-  const nomePorId = new Map<string, string>();
-  for (const c of cats ?? []) if (tipoDaContribuicao(c.nome) !== null) nomePorId.set(c.id, c.nome);
-  if (nomePorId.size === 0) return [];
-
-  const brutas = await paginar<{ pessoa_id: string | null; data: string; valor: number; categoria_id: string }>((de, ate) =>
-    supabase.from("fin_lancamentos").select("pessoa_id, data, valor, categoria_id")
-      .eq("tipo", "entrada").in("status", ["realizado", "conciliado"])
-      .in("categoria_id", [...nomePorId.keys()]).gte("data", PISO_DE_IDENTIFICACAO).lte("data", fim)
-      .order("data", { ascending: true }).order("id", { ascending: true }).range(de, ate));
-  return brutas.map(l => ({ pessoa_id: l.pessoa_id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null }));
+  return lerContribuicoesDoPiso(supabase, fim);
 }
 
 /** Membros e congregados ATIVOS, com a família (vínculos familiares) de cada um. Quem não está na base (inativo, ex-membro, visitante) volta só pelo nome, em `carregarNomes`. */

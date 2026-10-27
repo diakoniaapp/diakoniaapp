@@ -1,21 +1,36 @@
 // ─── CatalogoDeRelatorios — aba Relatórios da Central de Comunicação ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// O envio de relatório por e-mail (escolher → período → destinatários → prévia obrigatória → enviar, com histórico) é a Fase 4 do roadmap e AINDA NÃO EXISTE. Esta aba mostra o catálogo do que será
-// enviado e leva à tela onde cada relatório já funciona hoje; ela diz claramente que o envio está por vir, em vez de exibir um botão que não faz nada.
-import { Link } from "react-router-dom";
+// Cada relatório aponta para a tela onde já funciona. Os que a Central JÁ envia por e-mail (hoje: Doadores e dizimistas, só agregado) ganham o botão "Enviar por e-mail", que abre a gaveta com período,
+// destinatários e prévia obrigatória; os demais dizem claramente que o envio está por vir, em vez de exibir um botão que não faz nada. A gaveta também abre por `?enviar=doadores&de=&ate=` (o botão
+// "Enviar relatório" da tela Doadores leva o período que a pessoa estava vendo).
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, FileText, Info } from "lucide-react";
+import { ArrowRight, FileText, Info, Send } from "lucide-react";
 import { CATALOGO_DE_RELATORIOS } from "@/lib/comunicacao";
+import { EnviarRelatorioDeContribuicoes, type ServicoDoEnvio } from "./EnviarRelatorioDeContribuicoes";
 
-export function CatalogoDeRelatorios() {
+const ehData = (s: string | null) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+export function CatalogoDeRelatorios({ servicoDoEnvio, aoEnviar }: { servicoDoEnvio?: ServicoDoEnvio; aoEnviar?: () => void }) {
+  const [params, setParams] = useSearchParams();
+  const [aberta, setAberta] = useState(params.get("enviar") === "doadores");
+  const de = params.get("de"), ate = params.get("ate");
+  const periodoInicial = ehData(de) && ehData(ate) ? { ini: de!, fim: ate! } : null;
+
+  function fechar() {
+    setAberta(false);
+    if (params.has("enviar")) { const p = new URLSearchParams(params); ["enviar", "de", "ate"].forEach(k => p.delete(k)); setParams(p, { replace: true }); }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed" data-aviso="envio-em-breve">
         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
         <p>
-          O <strong>envio por e-mail</strong> de relatórios, com prévia obrigatória e histórico de quem recebeu, está em construção. Por enquanto cada relatório abre na sua tela, onde dá para
-          visualizar, exportar e imprimir.
+          O <strong>envio por e-mail</strong> já funciona para <strong>Doadores e dizimistas</strong> (só números agregados, com prévia obrigatória e registro no Histórico). Os demais relatórios ainda abrem só na
+          sua tela, onde dá para visualizar, exportar e imprimir; o envio deles está em construção.
         </p>
       </div>
 
@@ -27,17 +42,22 @@ export function CatalogoDeRelatorios() {
                 <p className="font-serif text-base font-semibold flex items-center gap-2 min-w-0">
                   <FileText className="w-4 h-4 text-gold shrink-0" /> <span className="truncate">{r.titulo}</span>
                 </p>
-                <Badge variant="outline" className="shrink-0 text-[10px]">Envio por e-mail em breve</Badge>
+                {r.envioPorEmail === "em_breve" && <Badge variant="outline" className="shrink-0 text-[10px]">Envio por e-mail em breve</Badge>}
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed flex-1">{r.descricao}</p>
-              <p className="text-xs text-muted-foreground">Hoje na tela: {r.formatos.join(" · ")}</p>
-              <Button asChild variant="outline" size="sm" className="self-start gap-1.5">
-                <Link to={r.rota}>Abrir <ArrowRight className="w-3.5 h-3.5" /></Link>
-              </Button>
+              <p className="text-xs text-muted-foreground">Hoje: {r.formatos.join(" · ")}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to={r.rota}>Abrir <ArrowRight className="w-3.5 h-3.5" /></Link></Button>
+                {r.id === "doadores" && r.envioPorEmail === "disponivel" && (
+                  <Button size="sm" className="gap-1.5" onClick={() => setAberta(true)} data-acao="enviar-doadores"><Send className="w-3.5 h-3.5" /> Enviar por e-mail</Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {aberta && <EnviarRelatorioDeContribuicoes aberto aoFechar={fechar} aoEnviar={aoEnviar} periodoInicial={periodoInicial} servico={servicoDoEnvio} />}
     </div>
   );
 }

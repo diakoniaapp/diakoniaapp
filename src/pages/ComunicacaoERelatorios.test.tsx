@@ -16,6 +16,7 @@ vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: () => papeis.ok, 
 vi.mock("react-router-dom", async orig => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => navegar }));
 vi.mock("@/components/sistema/ConteudoDoResumoSemanal", () => ({ ConteudoDoResumoSemanal: () => <div data-filho="perfis-e-blocos" /> }));
 vi.mock("@/components/sistema/ResumoDiarioDaTesouraria", () => ({ ResumoDiarioDaTesouraria: () => <div data-filho="resumo-diario" /> }));
+vi.mock("@/services/comunicacaoService", () => ({ listarEnviosDaComunicacao: async () => ({ envios: [], indisponivel: false }), previaDoRelatorioDeContribuicoes: vi.fn(), enviarTesteDoRelatorioDeContribuicoes: vi.fn(), enviarRelatorioDeContribuicoes: vi.fn() }));
 vi.mock("@/services/sistemaService", () => ({
   carregarStatusResumoSemanal: async () => ({
     ativo: true, dia_semana: 5, hora: 18, minuto: 0, destinatarios: [],
@@ -76,19 +77,21 @@ describe("o conteúdo de cada aba", () => {
     expect(q('[data-filho="perfis-e-blocos"]')).not.toBeNull();
     expect(q('[data-cartao="mensagens-visitante"] a')?.getAttribute("href")).toBe("/admin/mensagens-visitante");
   });
-  it("Relatórios: o catálogo leva a cada tela e DIZ que o envio por e-mail ainda não existe (nenhum botão de enviar)", async () => {
+  it("Relatórios: o catálogo leva a cada tela; só Doadores envia por e-mail e os demais dizem que o envio está por vir", async () => {
     await abrir("/comunicacao?aba=relatorios");
     const cartoes = [...document.body.querySelectorAll("[data-relatorio]")];
     expect(cartoes.map(c => c.getAttribute("data-relatorio"))).toEqual(CATALOGO_DE_RELATORIOS.map(r => r.id));
     for (const r of CATALOGO_DE_RELATORIOS) expect(q(`[data-relatorio="${r.id}"] a`)?.getAttribute("href")).toBe(r.rota);
-    expect(q('[data-aviso="envio-em-breve"]')?.textContent).toContain("em construção");
-    expect([...document.body.querySelectorAll("button")].some(b => /enviar/i.test(b.textContent ?? ""))).toBe(false);
+    expect(q('[data-aviso="envio-em-breve"]')?.textContent).toContain("já funciona para");
+    expect([...document.body.querySelectorAll("button")].filter(b => /enviar por e-mail/i.test(b.textContent ?? "")).length).toBe(1);   // só o de Doadores
+    expect(q('[data-relatorio="doadores"] [data-acao="enviar-doadores"]')).not.toBeNull();
   });
-  it("Histórico: as execuções do agendador e o aviso honesto de que o registro de quem recebeu ainda não existe", async () => {
+  it("Histórico: os relatórios enviados, as execuções do agendador e o aviso honesto de que o registro do resumo diário e do semanal ainda não existe", async () => {
     await abrir("/comunicacao?aba=historico");
     const linhas = q('[data-cartao="historico-execucoes"]')!.textContent!;
     expect(linhas).toContain("enviados 4");
     expect(linhas).toContain("erro de envio");
+    expect(q('[data-cartao="historico-envios"]')).not.toBeNull();
     expect(q('[data-aviso="historico-incompleto"]')?.textContent).toContain("quem enviou, para quem");
   });
   it("Configurações: quem envia, para onde vai a resposta (campo próprio), o rodapé que a pessoa lê e a regra dos 3 dias", async () => {

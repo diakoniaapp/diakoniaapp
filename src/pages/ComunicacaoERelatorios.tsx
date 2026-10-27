@@ -18,6 +18,7 @@ import { AgendamentoSemanal } from "@/components/comunicacao/AgendamentoSemanal"
 import { CatalogoDeRelatorios } from "@/components/comunicacao/CatalogoDeRelatorios";
 import { HistoricoDeExecucoes } from "@/components/comunicacao/HistoricoDeExecucoes";
 import { ConfiguracoesDeComunicacao } from "@/components/comunicacao/ConfiguracoesDeComunicacao";
+import { HistoricoDeEnvios } from "@/components/comunicacao/HistoricoDeEnvios";
 import { carregarStatusResumoSemanal, type ResumoSemanalStatus } from "@/services/sistemaService";
 import { ABAS_DA_COMUNICACAO, ABA_PADRAO, abaValida } from "@/lib/comunicacao";
 
@@ -29,6 +30,7 @@ export default function ComunicacaoERelatorios() {
 
   const [status, setStatus] = useState<ResumoSemanalStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [enviosFeitos, setEnviosFeitos] = useState(0);   // sobe a cada relatório enviado: o Histórico recarrega
 
   useEffect(() => {
     if (rolesCarregados && !hasRole(["admin", "diakonia"])) navigate("/", { replace: true });
@@ -88,8 +90,8 @@ export default function ComunicacaoERelatorios() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="relatorios" className="mt-6"><CatalogoDeRelatorios /></TabsContent>
-          <TabsContent value="historico" className="mt-6"><HistoricoDeExecucoes status={status} /></TabsContent>
+          <TabsContent value="relatorios" className="mt-6"><CatalogoDeRelatorios aoEnviar={() => setEnviosFeitos(n => n + 1)} /></TabsContent>
+          <TabsContent value="historico" className="mt-6 space-y-4"><HistoricoDeEnvios recarregar={enviosFeitos} /><HistoricoDeExecucoes status={status} /></TabsContent>
           <TabsContent value="configuracoes" className="mt-6"><ConfiguracoesDeComunicacao /></TabsContent>
         </Tabs>
       </div>

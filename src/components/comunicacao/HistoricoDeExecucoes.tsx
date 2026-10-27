@@ -39,8 +39,8 @@ export function HistoricoDeExecucoes({ status }: { status: ResumoSemanalStatus |
       <div className="flex items-start gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground leading-relaxed" data-aviso="historico-incompleto">
         <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
         <p>
-          Este histórico mostra só quando o agendador rodou. O registro de <strong>quem enviou, para quem e com que resultado</strong> — inclusive do resumo diário, dos testes e dos relatórios sob demanda —
-          ainda não existe e é a próxima etapa da Central.
+          Esta lista mostra só quando o agendador do resumo semanal rodou. O registro de <strong>quem enviou, para quem e com que resultado</strong> existe hoje para os relatórios sob demanda (acima);
+          para o resumo diário e o semanal ele ainda não existe e é uma etapa futura da Central.
         </p>
       </div>
     </div>

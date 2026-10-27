@@ -13,6 +13,7 @@ const salvar = vi.hoisted(() => vi.fn());
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("file-saver", () => ({ saveAs: salvar }));
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: () => true }) }));
 vi.mock("@/lib/data", async orig => ({ ...(await orig<typeof import("@/lib/data")>()), hojeLocal: () => "2026-10-27" }));
 vi.mock("@/services/finService", () => ({ brl: (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, downloadCSV: baixarCsv }));
 vi.mock("@/lib/xlsxSimples", async orig => ({ ...(await orig<typeof import("@/lib/xlsxSimples")>()), gerarXlsx: async () => new Blob(["x"]) }));
@@ -74,6 +75,10 @@ describe("o painel é só agregado", () => {
     expect(document.body.textContent).not.toContain("Ana Teste");
     expect(document.body.textContent).not.toContain("Zeca Teste");
     expect(registrar).not.toHaveBeenCalled();   // agregado não precisa de registro
+  });
+  it("o botão \"Enviar relatório\" leva à Central com o período que se está vendo", async () => {
+    await abrir();
+    expect(q('[data-acao="enviar-relatorio"]')?.getAttribute("href")).toBe("/comunicacao?aba=relatorios&enviar=doadores&de=2026-04-28&ate=2026-10-27");
   });
   it("três gráficos e os destaques", async () => {
     await abrir();

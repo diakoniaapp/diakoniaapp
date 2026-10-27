@@ -30,8 +30,8 @@ export interface RelatorioDoCatalogo {
   rota: string;
   /** o que a tela já entrega hoje */
   formatos: string[];
-  /** o envio por e-mail a partir da Central ainda não existe — dizer isso claramente em vez de esconder */
-  envioPorEmail: "em_breve";
+  /** `disponivel`: a Central já envia este relatório por e-mail; `em_breve`: ainda não — a tela diz isso claramente em vez de esconder */
+  envioPorEmail: "em_breve" | "disponivel";
 }
 
 /**
@@ -39,7 +39,7 @@ export interface RelatorioDoCatalogo {
  * Só entram aqui relatórios cuja rota existe de verdade (teste confere contra o App.tsx).
  */
 export const CATALOGO_DE_RELATORIOS: RelatorioDoCatalogo[] = [
-  { id: "doadores", titulo: "Doadores e dizimistas", descricao: "Quem contribui, quanto, com que frequência — e quem não registrou contribuição no período.", rota: "/financas/doadores", formatos: ["Tela"], envioPorEmail: "em_breve" },
+  { id: "doadores", titulo: "Doadores e dizimistas", descricao: "Quem contribui, quanto, com que frequência. Por e-mail vai só o agregado (sem nomes); a lista com nomes fica no sistema, com registro de quem consulta.", rota: "/financas/doadores", formatos: ["Tela", "Excel", "CSV", "E-mail (agregado)"], envioPorEmail: "disponivel" },
   { id: "prestacao", titulo: "Prestação de contas", descricao: "O balanço do período para a diretoria e o conselho.", rota: "/financas/prestacao-de-contas", formatos: ["Tela", "PDF (impressão)"], envioPorEmail: "em_breve" },
   { id: "obrigacoes", titulo: "Extrato de obrigações", descricao: "Todas as obrigações do período, inclusive as quitadas por terceiros.", rota: "/financas/extrato-de-obrigacoes", formatos: ["Excel", "CSV", "PDF (impressão)"], envioPorEmail: "em_breve" },
   { id: "dre", titulo: "DRE", descricao: "Resultado do exercício por categoria e centro.", rota: "/financas/dre", formatos: ["Tela", "PDF (impressão)"], envioPorEmail: "em_breve" },

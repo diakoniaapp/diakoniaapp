@@ -10,13 +10,15 @@
 // O que mora na URL: aba, período, filtros — abrir uma pessoa e voltar devolve a tela como estava (`useEstadoNaUrl`). Links antigos com `?ano=&mes=` continuam funcionando.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { saveAs } from "file-saver";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { useEstadoNaUrl } from "@/hooks/useEstadoNaUrl";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { FileSpreadsheet, Info, RefreshCw, Users } from "lucide-react";
+import { FileSpreadsheet, Info, Mail, RefreshCw, Users } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
 import { hojeLocal } from "@/lib/data";
 import { gerarXlsx } from "@/lib/xlsxSimples";
@@ -45,6 +47,8 @@ const PADRAO = {
 
 export default function FinancasDoadores() {
   const hoje = hojeLocal();
+  const { hasRole } = useAuth();
+  const podeEnviar = hasRole(["admin", "diakonia"]);   // a Central de Comunicação é só deles
   const [url, mudar] = useEstadoNaUrl(PADRAO);
   const aba: Aba = ABAS.some(a => a.id === url.aba) ? (url.aba as Aba) : "painel";
 
@@ -154,6 +158,11 @@ export default function FinancasDoadores() {
           <p className="text-xs text-muted-foreground">Contribuições por período, dizimistas e quem ainda não contribuiu — visível só para tesouraria e administração.</p>
         </div>
         <Button size="sm" variant="outline" onClick={carregar} disabled={carregando} className="gap-1.5 shrink-0"><RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} /> Atualizar</Button>
+        {aba === "painel" && podeEnviar && !periodo.vazio && (
+          <Button asChild size="sm" variant="outline" className="gap-1.5 shrink-0" data-acao="enviar-relatorio">
+            <Link to={`/comunicacao?aba=relatorios&enviar=doadores&de=${periodo.ini}&ate=${periodo.fim}`}><Mail className="w-3.5 h-3.5" /> Enviar relatório</Link>
+          </Button>
+        )}
         {aba === "painel" && <Button size="sm" variant="outline" onClick={exportarPainel} disabled={exportando || !analise} className="gap-1.5 shrink-0"><FileSpreadsheet className="w-3.5 h-3.5" /> Excel</Button>}
       </div>
 
