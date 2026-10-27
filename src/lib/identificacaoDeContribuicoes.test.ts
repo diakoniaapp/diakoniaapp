@@ -3,7 +3,7 @@
 // e a taxa em quatro partes (só "tem pessoa" é identificada; anônima e ignorada ficam à parte), com a meta de 95%.
 import { describe, expect, it } from "vitest";
 import {
-  META_DE_IDENTIFICACAO_PCT, dificuldadeDe, prepararPendentes, remetenteDoLancamento, sugerirPessoa, taxaDeIdentificacao, type ContribuicaoParaTriagem,
+  META_DE_IDENTIFICACAO_PCT, dificuldadeDe, motivoDePossivelMovimentacaoInterna, prepararPendentes, remetenteDoLancamento, sugerirPessoa, taxaDeIdentificacao, type ContribuicaoParaTriagem,
 } from "@/lib/identificacaoDeContribuicoes";
 
 describe("remetenteDoLancamento — o nome como o extrato escreveu", () => {
@@ -92,6 +92,22 @@ describe("sugestão pelo FAVORECIDO ligado a uma pessoa (decisão dela, 27/10/20
   });
   it("sem favorecido ligado, nada muda", () => {
     expect(prepararPendentes([C("a", { fornecedor_pessoa_id: null })], cadastro)[0].sugestao).toBeNull();
+  });
+});
+
+describe("possível movimentação interna — só avisa (decisão dela, 27/10/2026)", () => {
+  it("contribuição numa conta de aplicação/poupança: avisa, com o nome da conta", () => {
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Poupança", conta_tipo: "aplicacao", descricao: null, observacoes: null })).toContain("Poupança");
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Caixa de Aplicação", conta_tipo: "aplicacao", descricao: null, observacoes: null })).not.toBeNull();
+  });
+  it("texto que fala de poupança, resgate ou aplicação: avisa (o lote do Omie não conta como texto)", () => {
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Bradesco", conta_tipo: "banco", descricao: "TED da poupança", observacoes: null })).not.toBeNull();
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Bradesco", conta_tipo: "banco", descricao: null, observacoes: "RESGATE INVEST FACIL" })).not.toBeNull();
+  });
+  it("dízimo comum por PIX/transferência no Bradesco NÃO avisa (297 dízimos trazem 'transferência pix' no texto)", () => {
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Bradesco", conta_tipo: "banco", descricao: null, observacoes: "lote omie transferencia pix rem Fulano 0101" })).toBeNull();
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: "Caixa de Envelopes", conta_tipo: "envelope", descricao: null, observacoes: null })).toBeNull();
+    expect(motivoDePossivelMovimentacaoInterna({ conta_nome: null, conta_tipo: null, descricao: null, observacoes: null })).toBeNull();
   });
 });
 

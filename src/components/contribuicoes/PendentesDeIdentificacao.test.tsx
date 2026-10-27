@@ -84,6 +84,25 @@ describe("a taxa de identificação em quatro partes e a meta", () => {
   });
 });
 
+describe("possível movimentação interna", () => {
+  it("avisa (sem alterar nada) a contribuição que caiu numa conta de aplicação, mesmo com pessoa vinculada", async () => {
+    const s = servico({ carregarContribuicoes: vi.fn(async () => [...structuredClone(CONTRIBUICOES), C("c9", { valor: 9108.1, pessoa_id: "p-y", conta_nome: "Poupança", conta_tipo: "aplicacao", origem: "manual" })]) as never });
+    await abrir(s);
+    const card = q('[data-card="movimentacao-interna"]');
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain("Possível movimentação interna");
+    expect(card!.textContent).toContain("Poupança");
+    expect(card!.textContent).toContain("com pessoa vinculada");
+    expect(qa("[data-conferir-item]").length).toBe(1);
+    expect(s.vincular).not.toHaveBeenCalled();
+    expect(s.triar).not.toHaveBeenCalled();
+  });
+  it("sem nenhuma suspeita, o aviso não aparece", async () => {
+    await abrir();
+    expect(q('[data-card="movimentacao-interna"]')).toBeNull();
+  });
+});
+
 describe("a fila", () => {
   it("só tem o que NÃO tem pessoa e ainda não foi classificado; as classificadas ficam à parte", async () => {
     await abrir();

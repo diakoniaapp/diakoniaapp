@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, EyeOff, Info, Loader2, Search, Target, UserCheck, UserX, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, EyeOff, Info, Loader2, Search, Target, UserCheck, UserX, Users } from "lucide-react";
 import { brl } from "@/services/finService";
 import { PISO_DE_IDENTIFICACAO } from "@/lib/contribuicoes";
 import {
-  META_DE_IDENTIFICACAO_PCT, prepararPendentes, taxaDeIdentificacao, type ContribuicaoParaTriagem, type DecisaoDeTriagem, type Dificuldade, type PendenteComSugestao,
+  META_DE_IDENTIFICACAO_PCT, motivoDePossivelMovimentacaoInterna, prepararPendentes, taxaDeIdentificacao, type ContribuicaoParaTriagem, type DecisaoDeTriagem, type Dificuldade, type PendenteComSugestao,
 } from "@/lib/identificacaoDeContribuicoes";
 import type { CandidatoNome } from "@/lib/fuzzyNome";
 import * as servicoReal from "@/services/pendentesDeIdentificacaoService";
@@ -71,6 +71,11 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
   const todosPendentes = useMemo(
     () => (contribuicoes ? prepararPendentes(contribuicoes.filter(c => !c.pessoa_id && !decisoes.has(c.id)), candidatos) : []),
     [contribuicoes, decisoes, candidatos],
+  );
+  /** contribuições que parecem movimentação interna (conta de aplicação/poupança ou texto de resgate): só avisa, a pessoa confere */
+  const paraConferir = useMemo(
+    () => (contribuicoes ?? []).map(c => ({ c, motivo: motivoDePossivelMovimentacaoInterna(c) })).filter(x => x.motivo !== null) as { c: ContribuicaoParaTriagem; motivo: string }[],
+    [contribuicoes],
   );
   const classificadas = useMemo(() => (contribuicoes ?? []).filter(c => !c.pessoa_id && decisoes.has(c.id)), [contribuicoes, decisoes]);
   const contagem = (d: Dificuldade) => todosPendentes.filter(p => p.dificuldade === d).length;
@@ -174,6 +179,23 @@ export function PendentesDeIdentificacao({ servico = SERVICO_REAL, aoMudar }: { 
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {paraConferir.length > 0 && (
+        <Card className="border-warning/40 bg-warning/5" data-card="movimentacao-interna">
+          <CardContent className="p-3.5 space-y-2">
+            <p className="flex items-center gap-1.5 text-sm font-semibold"><AlertTriangle className="w-4 h-4 text-warning-text" />Possível movimentação interna — conferir ({paraConferir.length})</p>
+            <p className="text-xs text-muted-foreground">Estas contribuições parecem dinheiro da própria igreja mudando de conta, não dízimo nem oferta. Nada foi alterado: se for movimentação interna, reclassifique o lançamento (ela não deve contar como contribuição).</p>
+            <ul className="space-y-1" data-conferir>
+              {paraConferir.map(({ c, motivo }) => (
+                <li key={c.id} data-conferir-item={c.id} className="flex items-center justify-between gap-2 text-sm min-w-0">
+                  <span className="min-w-0 truncate"><span className="text-muted-foreground">{dataBr(c.data)}</span> · {c.categoria ?? "—"} · {motivo}{c.pessoa_id ? " · com pessoa vinculada" : ""}</span>
+                  <span className="font-semibold tabular-nums shrink-0">{brl(c.valor)}</span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}

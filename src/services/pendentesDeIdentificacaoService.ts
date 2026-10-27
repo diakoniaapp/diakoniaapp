@@ -28,10 +28,14 @@ export async function carregarContribuicoesParaTriagem(): Promise<ContribuicaoPa
   const nomePorId = new Map<string, string>();
   for (const c of cats ?? []) if (tipoDaContribuicao(c.nome) !== null) nomePorId.set(c.id, c.nome);
   if (nomePorId.size === 0) return [];
-  const brutas = await paginar<{ id: string; data: string; valor: number; categoria_id: string; descricao: string | null; observacoes: string | null; origem: string | null; forma_pagamento: string | null; pessoa_id: string | null; familia_id: string | null; fornecedor_id: string | null }>((de, ate) =>
-    supabase.from("fin_lancamentos").select("id, data, valor, categoria_id, descricao, observacoes, origem, forma_pagamento, pessoa_id, familia_id, fornecedor_id")
+  const brutas = await paginar<{ id: string; data: string; valor: number; categoria_id: string; descricao: string | null; observacoes: string | null; origem: string | null; forma_pagamento: string | null; pessoa_id: string | null; familia_id: string | null; fornecedor_id: string | null; conta_id: string | null }>((de, ate) =>
+    supabase.from("fin_lancamentos").select("id, data, valor, categoria_id, descricao, observacoes, origem, forma_pagamento, pessoa_id, familia_id, fornecedor_id, conta_id")
       .eq("tipo", "entrada").in("status", ["realizado", "conciliado"]).in("categoria_id", [...nomePorId.keys()]).gte("data", PISO_DE_IDENTIFICACAO)
       .order("data", { ascending: false }).order("id", { ascending: true }).range(de, ate));
+  // a conta de cada lançamento (nome e tipo), para o aviso de possível movimentação interna
+  const { data: contas, error: eContas } = await supabase.from("fin_contas").select("id, nome, tipo");
+  if (eContas) throw new Error(eContas.message);
+  const contaPorId = new Map((contas ?? []).map(c => [c.id, c]));
   // o favorecido ligado a uma pessoa: só dos lançamentos SEM pessoa (é para eles que a fila sugere), em blocos de 200 para a URL não estourar
   const idsDeFavorecido = [...new Set(brutas.filter(l => !l.pessoa_id && l.fornecedor_id).map(l => l.fornecedor_id!))];
   const pessoaDoFavorecido = new Map<string, string>();
@@ -41,7 +45,7 @@ export async function carregarContribuicoesParaTriagem(): Promise<ContribuicaoPa
     if (r.error) throw new Error(r.error.message);
     for (const f of r.data ?? []) if (f.pessoa_id) pessoaDoFavorecido.set(f.id, f.pessoa_id);
   }
-  return brutas.map(l => ({ id: l.id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null, descricao: l.descricao, observacoes: l.observacoes, origem: l.origem, forma_pagamento: l.forma_pagamento, pessoa_id: l.pessoa_id, familia_id: l.familia_id, fornecedor_pessoa_id: l.fornecedor_id ? pessoaDoFavorecido.get(l.fornecedor_id) ?? null : null }));
+  return brutas.map(l => ({ id: l.id, data: l.data, valor: Number(l.valor), categoria: nomePorId.get(l.categoria_id) ?? null, descricao: l.descricao, observacoes: l.observacoes, origem: l.origem, forma_pagamento: l.forma_pagamento, pessoa_id: l.pessoa_id, familia_id: l.familia_id, conta_nome: l.conta_id ? contaPorId.get(l.conta_id)?.nome ?? null : null, conta_tipo: l.conta_id ? (contaPorId.get(l.conta_id)?.tipo as string | undefined) ?? null : null, fornecedor_pessoa_id: l.fornecedor_id ? pessoaDoFavorecido.get(l.fornecedor_id) ?? null : null }));
 }
 
 export interface TriagemVigente { lancamento_id: string; decisao: DecisaoDeTriagem; motivo: string | null; por_nome: string | null; em: string }

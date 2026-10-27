@@ -23,6 +23,9 @@ export interface ContribuicaoParaTriagem {
   forma_pagamento: string | null;
   pessoa_id: string | null;
   familia_id: string | null;
+  /** a conta financeira do lançamento (nome e tipo): uma contribuição numa conta de aplicação/poupança é, quase sempre, movimentação interna */
+  conta_nome?: string | null;
+  conta_tipo?: string | null;
   /** a pessoa a que o FAVORECIDO do lançamento está ligado (Favorecido → Pessoas), quando o lançamento tem favorecido ligado; nunca grava sozinho, só sugere */
   fornecedor_pessoa_id?: string | null;
 }
@@ -80,6 +83,16 @@ export function prepararPendentes(contribuicoes: ContribuicaoParaTriagem[], cand
     const sugestao = sugerirPeloFavorecido(c.fornecedor_pessoa_id, candidatos) ?? sugerirPessoa(remetente, candidatos);
     return { contribuicao: c, remetente, sugestao, dificuldade: dificuldadeDe(sugestao) };
   });
+}
+
+// ── (2b) "possível movimentação interna" (decisão dela, 27/10/2026) ──────────────────────────────────────────────────────────────────────────────────
+// Uma contribuição que caiu numa conta de aplicação/poupança, ou cujo texto fala de poupança, resgate ou aplicação, pode ser dinheiro da própria igreja mudando de conta: NÃO é dízimo nem oferta. O sistema só
+// AVISA (a pessoa confere e reclassifica); nada é alterado sozinho. Medido em 27/10/2026: pega 1 lançamento (R$ 9.108,10, dízimo na Poupança) e nenhum falso positivo em 1.686.
+const TEXTO_DE_MOVIMENTACAO_INTERNA = /poupan[cç]a|resgate|aplica[cç][aã]o|\baplic\b/i;
+export function motivoDePossivelMovimentacaoInterna(c: Pick<ContribuicaoParaTriagem, "conta_nome" | "conta_tipo" | "descricao" | "observacoes">): string | null {
+  if (c.conta_tipo === "aplicacao" || /poupan[cç]a|aplica[cç][aã]o/i.test(c.conta_nome ?? "")) return `lançada na conta ${c.conta_nome ?? "de aplicação"}`;
+  if (TEXTO_DE_MOVIMENTACAO_INTERNA.test(`${c.descricao ?? ""} ${(c.observacoes ?? "").replace(/\[LOTE:[^\]]*\]/, "")}`)) return "o texto fala de poupança, resgate ou aplicação";
+  return null;
 }
 
 // ── (3) a taxa de identificação em quatro partes ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
