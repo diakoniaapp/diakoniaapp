@@ -802,7 +802,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
               {/* Origem: missão, visão ou valor */}
               <div>
                 <Label className="text-xs">Esta campanha está baseada em…</Label>
-                <Select value={form.origem_identidade} onValueChange={(v) => setForm({ ...form, origem_identidade: v, origem_valor_id: "" })}>
+                <Select permitirVazio value={form.origem_identidade} onValueChange={(v) => setForm({ ...form, origem_identidade: v, origem_valor_id: "" })}>
                   <SelectTrigger className="mt-1 h-8 text-sm">
                     <SelectValue placeholder="Selecionar origem (opcional)" />
                   </SelectTrigger>

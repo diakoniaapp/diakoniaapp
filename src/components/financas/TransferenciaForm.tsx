@@ -211,7 +211,7 @@ export function TransferenciaForm({
               <div className="grid grid-cols-2 gap-2">
                 <label className="cursor-pointer">
                   <input type="file" accept="image/*" capture="environment"
-                    className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
+                    className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; escolheArquivo(f); }} />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-2 hover:border-gold/40">
                     <Camera className="w-4 h-4 text-muted-foreground" />
                     <span className="text-xs">Foto</span>
@@ -219,7 +219,7 @@ export function TransferenciaForm({
                 </label>
                 <label className="cursor-pointer">
                   <input type="file" accept="image/jpeg,image/png,image/jpg,application/pdf"
-                    className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
+                    className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; escolheArquivo(f); }} />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-2 hover:border-gold/40">
                     <FileUp className="w-4 h-4 text-muted-foreground" />
                     <span className="text-xs">Arquivo</span>

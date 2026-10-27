@@ -64,6 +64,8 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
   const [enviando, setEnviando] = useState(false);
 
   const [arquivo, setArquivo] = useState<File | null>(null);
+  // Campo de arquivo que NÃO limpa (auditoria da Tesouraria, 27/10/2026, F-09): o <input type="file"> não é controlado — zerar o estado não apaga o nome do arquivo que a tela continua mostrando. A `key` o remonta.
+  const [chaveDoArquivo, setChaveDoArquivo] = useState(0);
   const [tipo, setTipo] = useState<FinAnexoTipo>("nota_fiscal");
   // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
   // AlertDialog de confirmação que `DocumentosFiscaisDialog` já usa.
@@ -107,7 +109,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
     return () => { vivo = false; };
   }, [open, lancamentoId]);
 
-  useEffect(() => { if (!open) { setArquivo(null); setLeitura(null); setSugestao(null); } }, [open]);
+  useEffect(() => { if (!open) { setArquivo(null); setLeitura(null); setSugestao(null); setChaveDoArquivo(k => k + 1); } }, [open]);
 
   async function escolherArquivo(file: File | null) {
     setArquivo(file);
@@ -184,7 +186,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
       }
       if (aviso && aviso !== "Aprendi a classificação deste documento para a próxima vez.") toast.warning(`Anexo enviado. ${aviso}`);
       else toast.success(aviso ? `Anexo enviado. ${aviso}` : "Anexo enviado");
-      setArquivo(null); setLeitura(null); setSugestao(null);
+      setArquivo(null); setLeitura(null); setSugestao(null); setChaveDoArquivo(k => k + 1);
       await carregar();
       onChange?.();
     } catch (err: any) {
@@ -238,6 +240,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className="md:col-span-2">
               <Input
+                key={chaveDoArquivo}
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg,.xml"
                 onChange={e => escolherArquivo(e.target.files?.[0] ?? null)}

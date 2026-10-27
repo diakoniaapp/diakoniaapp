@@ -44,6 +44,7 @@ import {
 } from "@/services/documentoPagamentoService";
 import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 import { decodificarBoleto, linhaParaGuardar, type BoletoDecodificado } from "@/lib/boleto";
+import { ofereceConciliado, situacaoInicial } from "@/lib/situacaoDoLancamentoNovo";
 import { CampoData } from "@/components/CampoData";
 import { FaixaDoVinculoBancario, tirarMarcasDoExtrato, useVinculosDoLancamento } from "@/components/financas/VinculoBancario";
 import { Textarea } from "@/components/ui/textarea";
@@ -171,6 +172,10 @@ export function LancamentoForm({
   const [campanha, setCampanha] = useState<CampanhaMissionaria | "">("");
   const [campanhaSugerida, setCampanhaSugerida] = useState<CampanhaMissionaria | null>(null);
   const campanhaTocada = useRef(false);
+  // Situação de um lançamento NOVO (auditoria da Tesouraria, 27/10/2026 — F-07): a despesa nasce PREVISTA, não paga. O padrão antigo ("Realizado" para tudo) registrava "Novo lançamento" de uma conta a pagar como
+  // já paga: mexia no saldo na hora e pulava a liquidação, a documentação e o vínculo com o extrato. Entrada segue "Realizado" (a oferta do dia já entrou) e o rascunho que vem do extrato do banco também
+  // (o movimento JÁ aconteceu). Quem escolheu a situação à mão não é desfeito ao trocar Entrada/Saída.
+  const situacaoTocada = useRef(false);
   const [temCampanha, setTemCampanha] = useState(false);
   const [descricao, setDescricao] = useState("");
   // Fase 3 (15/09/2026), pedido da Telma: "quero que exista um campo de
@@ -339,6 +344,11 @@ export function LancamentoForm({
   // `centroCustoId` estiver vazio — uma vez preenchido (auto ou à mão),
   // nunca sobrescreve.
   useEffect(() => {
+    if (!open || lancamento || situacaoTocada.current) return;
+    setStatus(situacaoInicial(tipo, !!rascunho));
+  }, [tipo, open, lancamento, rascunho]);
+
+  useEffect(() => {
     if (!categoriaId || centroCustoId || !open) return;
     (async () => {
       const sugerido = await sugerirCentroPorCategoria(categoriaId, fornecedorId || undefined);
@@ -442,7 +452,7 @@ export function LancamentoForm({
       setCategoriaId(rascunho?.categoriaId ?? categoriaIdPadrao ?? ""); setCentroCustoId(rascunho?.centroId ?? ""); setProjetoId(rascunho?.projetoId ?? ""); setUsarProjeto(!!rascunho?.projetoId);
       setFornecedorId(rascunho?.fornecedor?.id ?? "");
       setPessoaId(rascunho?.pessoa?.id ?? ""); setFornecedorBusca(rascunho?.pessoa?.nome ?? rascunho?.fornecedor?.nome ?? ""); setPessoasSugeridas([]);
-      setForma(rascunho?.forma ?? ""); setStatus("realizado"); setLiquidacao("manual");
+      setForma(rascunho?.forma ?? ""); setStatus(situacaoInicial(tipoPadrao, !!rascunho)); situacaoTocada.current = false; setLiquidacao("manual");
       setCampanha(""); campanhaTocada.current = false; setCampanhaSugerida(null);
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);
@@ -1177,10 +1187,10 @@ export function LancamentoForm({
             <div>
               {/* "Aguardando aprovação" foi aposentada em 14/10/2026: ninguém a usava (0 lançamentos) e aprovar, ali, era pagar. Só aparece se um lançamento antigo ainda estiver nesse estado. */}
               <Label>Situação</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as FinStatus)}>
+              <Select value={status} onValueChange={(v) => { situacaoTocada.current = true; setStatus(v as FinStatus); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro" && (k !== "aguardando_aprovacao" || status === k) && (!travadoPeloBanco || k === "realizado" || k === "conciliado" || k === status)).map(([k, l]) => (
+                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro" && (k !== "aguardando_aprovacao" || status === k) && (ofereceConciliado(isEdit, !!rascunho) || k !== "conciliado") && (!travadoPeloBanco || k === "realizado" || k === "conciliado" || k === status)).map(([k, l]) => (
                     <SelectItem key={k} value={k}>{l}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1281,7 +1291,7 @@ export function LancamentoForm({
               cada lançamento já salvo (pedido dela, 30/09/2026). */}
           <label className="inline-flex items-center gap-1.5 text-xs text-info-text hover:underline cursor-pointer w-fit">
             <input type="file" accept="image/jpeg,image/png,image/jpg,application/pdf"
-              className="hidden" onChange={(e) => lerComprovante(e.target.files?.[0] ?? null)} />
+              className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; lerComprovante(f); }} />
             <Sparkles className="w-3.5 h-3.5" /> Ler nota/comprovante (preenche automaticamente)
           </label>
 

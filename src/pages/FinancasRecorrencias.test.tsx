@@ -12,9 +12,12 @@ const lista = [
   rec("3", "Prefeitura da Cidade do Rio de Janeiro", { pessoa_nome: "Maria Souza" }),
 ];
 
+const atualizar = vi.hoisted(() => vi.fn(async (..._a: unknown[]) => ({})));
+const aviso = vi.hoisted(() => ({ erro: vi.fn(), sucesso: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { error: (...a: unknown[]) => aviso.erro(...a), success: (...a: unknown[]) => aviso.sucesso(...a), warning: vi.fn() } }));
 vi.mock("@/services/finService", () => ({
   listarRecorrencias: async () => lista,
-  atualizarRecorrencia: async () => ({}), excluirRecorrencia: async () => ({}),
+  atualizarRecorrencia: (...a: unknown[]) => atualizar(...a), excluirRecorrencia: async () => ({}),
   FREQUENCIA_LABEL: { mensal: "Mensal" }, brl: (n: number) => `R$ ${n}`,
 }));
 vi.mock("@/services/recorrenciaService", () => ({ avisoDeJaPagas: async () => null, gerarTodasAsRecorrencias: async () => ({}) }));
@@ -69,5 +72,23 @@ describe("Recorrências — busca pelo nome", () => {
     const alvo = await abrir("/financas/recorrencias?q=registro");
     expect(nomes(alvo)).toHaveLength(1);
     expect((alvo.querySelector("input") as HTMLInputElement).value).toBe("registro");
+  });
+});
+
+describe("Recorrências — ligar e desligar (auditoria, 27/10/2026)", () => {
+  const botao = (alvo: HTMLElement, titulo: string) => alvo.querySelector(`button[title="${titulo}"]`) as HTMLButtonElement;
+  it("desativar com sucesso avisa", async () => {
+    atualizar.mockClear(); aviso.sucesso.mockClear();
+    const alvo = await abrir();
+    await act(async () => { botao(alvo, "Desativar").click(); });
+    expect(atualizar).toHaveBeenCalledWith("1", { ativo: false });
+    expect(aviso.sucesso).toHaveBeenCalledWith("Recorrência desativada");
+  });
+  it("se o banco barrar (RLS), o erro APARECE em vez de o clique não fazer nada", async () => {
+    atualizar.mockReset(); aviso.erro.mockClear();
+    atualizar.mockRejectedValueOnce(new Error("A recorrência não pôde ser alterada (permissão)."));
+    const alvo = await abrir();
+    await act(async () => { botao(alvo, "Desativar").click(); });
+    expect(aviso.erro).toHaveBeenCalledWith("A recorrência não pôde ser alterada (permissão).");
   });
 });

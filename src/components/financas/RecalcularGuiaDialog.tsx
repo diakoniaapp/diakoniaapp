@@ -24,9 +24,9 @@ export function RecalcularGuiaDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
   const [motivo, setMotivo] = useState("");
   const [guia, setGuia] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
-  // Zera a cada ABERTURA (o `alvo` é um objeto novo toda vez que o link do Pagar o define), não só quando muda o id: reabrir a MESMA despesa depois de cancelar ou de um erro mostrava os valores antigos
+  // Zera a cada ABERTURA (de fechado para aberto) e na troca de despesa — não só quando muda o id, e nunca por o pai recriar o objeto a cada renderização: reabrir a MESMA despesa depois de cancelar ou de um erro mostrava os valores antigos
   // e deixava a guia escolhida só no estado — o campo de arquivo, remontado, aparecia vazio com o botão liberado (achado na auditoria de 27/10/2026).
-  useEffect(() => { setNovoValor(""); setJuros(""); setMulta(""); setCorrecao(""); setMotivo(""); setGuia(null); }, [alvo]);
+  useEffect(() => { setNovoValor(""); setJuros(""); setMulta(""); setCorrecao(""); setMotivo(""); setGuia(null); }, [!!alvo, alvo?.id]);
 
   if (!alvo) return null;
   const e = { valorAtual: alvo.valor, novoValor: paraNumero(novoValor), juros: paraNumero(juros), multa: paraNumero(multa), correcao: paraNumero(correcao), motivo, temGuia: !!guia };

@@ -445,23 +445,8 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
             </div>
           )}
 
-          <div className="border rounded-md p-2 bg-muted/20 space-y-1">
-            <p className="text-xs font-medium">🔔 Lembrar antes do vencimento</p>
-            <div className="grid grid-cols-3 gap-1 text-xs">
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input type="checkbox" checked={lembrar5d} onChange={(e) => setLembrar5d(e.target.checked)} />
-                5 dias antes
-              </label>
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input type="checkbox" checked={lembrar1d} onChange={(e) => setLembrar1d(e.target.checked)} />
-                1 dia antes
-              </label>
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input type="checkbox" checked={lembrarDia} onChange={(e) => setLembrarDia(e.target.checked)} />
-                No vencimento
-              </label>
-            </div>
-          </div>
+          {/* "🔔 Lembrar antes do vencimento" (5 dias · 1 dia · no dia) saiu da tela em 27/10/2026: as três marcas são gravadas (`lembrar_5d/1d/dia`) mas NENHUM código ou agendamento as lê — a tela prometia um aviso que
+              nunca chegava (auditoria da Tesouraria, F-04). Os valores seguem no pacote ao salvar (o que já estava gravado se mantém) e o controle volta quando os lembretes forem cumpridos de verdade. */}
 
           <div>
             <Label>Observação</Label>

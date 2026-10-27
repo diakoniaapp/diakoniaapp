@@ -4,7 +4,25 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const Select = SelectPrimitive.Root;
+type SelectRootProps = React.ComponentProps<typeof SelectPrimitive.Root> & {
+  /** Só para o seletor que TEM uma opção de valor vazio de propósito ("— Não definir —"): aí o "" é uma escolha de verdade. Nos demais, é sempre o Radix se autocorrigindo. */
+  permitirVazio?: boolean;
+};
+
+/**
+ * Select com a proteção contra o AUTOCORRETOR do Radix (auditoria da Tesouraria, 27/10/2026).
+ *
+ * O Radix mantém um <select> nativo escondido. Quando o `value` passa de "" para um valor ANTES de as opções existirem (listas que carregam depois — contas, categorias, centros), o navegador não acha a
+ * opção, o valor nativo vira "" e o Radix chama `onValueChange("")` sozinho, o que zerava o campo do formulário: a conta sumia ao editar uma recorrência, na primeira vez da página. Em 06/10 isto foi corrigido
+ * à mão, seletor por seletor, em Categoria e Centro do lançamento (commit 8a6552d); a Conta do lançamento e todo o formulário de recorrência ficaram de fora — são ~30 seletores em ~25 telas.
+ * Aqui a correção é uma só, na raiz: um "" que não veio de uma opção vazia declarada (`permitirVazio`) nunca chega ao formulário. Clicar numa opção sempre entrega o valor dela.
+ */
+const Select = ({ onValueChange, permitirVazio = false, ...props }: SelectRootProps) => (
+  <SelectPrimitive.Root
+    {...props}
+    onValueChange={onValueChange ? (v: string) => { if (v === "" && !permitirVazio) return; onValueChange(v); } : undefined}
+  />
+);
 
 const SelectGroup = SelectPrimitive.Group;
 

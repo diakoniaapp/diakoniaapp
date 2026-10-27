@@ -932,7 +932,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         {!arquivo ? (
           <label className="cursor-pointer block">
             <input type="file" accept=".ofx,.OFX" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) processarArquivo(f); }} />
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) processarArquivo(f); }} />
             <div className="flex flex-col items-center gap-2 border-2 border-dashed rounded-md p-8 hover:border-gold/40">
               <FileUp className="w-6 h-6 text-muted-foreground" />
               <span className="text-sm">Selecionar arquivo .OFX</span>

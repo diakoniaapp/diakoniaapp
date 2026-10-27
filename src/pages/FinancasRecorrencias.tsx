@@ -63,9 +63,15 @@ export default function FinancasRecorrencias() {
     finally { setGerando(false); }
   }
 
+  // Antes sem tratamento de erro: se a RLS barrasse, `atualizarRecorrencia` lançava e o clique não fazia nada, nem avisava (auditoria da Tesouraria, 27/10/2026).
   async function toggle(r: FinRecorrencia) {
-    await atualizarRecorrencia(r.id, { ativo: !r.ativo });
-    await carregar();
+    try {
+      await atualizarRecorrencia(r.id, { ativo: !r.ativo });
+      toast.success(r.ativo ? "Recorrência desativada" : "Recorrência reativada");
+      await carregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível alterar a recorrência");
+    }
   }
 
   async function confirmarExcluir() {
