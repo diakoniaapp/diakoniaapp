@@ -24,10 +24,16 @@ export interface DeclaradoNaDeclaracao {
   tipo_chave_pix: string | null;
 }
 export interface ConteudoDaDeclaracao { declarado: DeclaradoNaDeclaracao; informativo: { centro: string | null; categoria: string | null } }
-export interface IdentificacaoDaVia { numero: string; versao: number; /** os 12 primeiros caracteres do código de verificação */ codigo: string }
+export interface IdentificacaoDaVia {
+  numero: string; versao: number; /** os 12 primeiros caracteres do código de verificação */ codigo: string;
+  /** quando a via foi gerada (`fin_declaracoes.gerada_em`, imutável no banco): é a DATA DA SOLICITAÇÃO do reembolso */
+  geradaEm?: string | null;
+}
 
 export const IGREJA = { nome: "Quarta Igreja Batista do Rio de Janeiro", cnpj: "27.639.285/0001-61" } as const;
 
+/** O dia (no fuso de Brasília) de um instante guardado em UTC: a data da solicitação. */
+const diaDeBrasilia = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 const dataBr = (ymd: string | null) => (ymd ? ymd.slice(0, 10).split("-").reverse().join("/") : "—");
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -106,6 +112,7 @@ export function textoDaDeclaracao(via: IdentificacaoDaVia, c: ConteudoDaDeclarac
     [reembolso ? "Pago ao fornecedor em" : "Data do pagamento", dataBr(d.data_pagamento)],
   ];
   // a chave PIX é "quando aplicável": sem ela, o reembolso se combina com a Tesouraria (espécie com recibo assinado, ou transferência)
+  if (reembolso && via.geradaEm) campos.splice(3, 0, ["Data da solicitação", diaDeBrasilia(via.geradaEm)]);
   if (reembolso) campos.push(d.chave_pix ? ["Chave PIX", d.chave_pix] : ["Recebimento do reembolso", "sem chave PIX informada: forma combinada com a Tesouraria (espécie, com recibo assinado, ou transferência)"]);
   return {
     titulo: reembolso ? "SOLICITAÇÃO E RECIBO DE REEMBOLSO" : "DECLARAÇÃO DO TERCEIRO",
@@ -277,7 +284,7 @@ export function montarDeclaracaoPdf(via: IdentificacaoDaVia, c: ConteudoDaDeclar
 
 /** Baixa o PDF de uma via já gerada (Declaração do Terceiro ou, no reembolso, Solicitação e Recibo). */
 export async function baixarDaVia(via: IdentificacaoDaVia & { conteudo: ConteudoDaDeclaracao }): Promise<void> {
-  const bytes = await montarDeclaracaoPdf({ numero: via.numero, versao: via.versao, codigo: via.codigo }, via.conteudo);
+  const bytes = await montarDeclaracaoPdf({ numero: via.numero, versao: via.versao, codigo: via.codigo, geradaEm: via.geradaEm ?? null }, via.conteudo);
   const { saveAs } = await import("file-saver");
   const nome = via.conteudo.declarado.intencao === "reembolso" ? "Solicitacao_e_Recibo_de_Reembolso" : "Declaracao_do_Terceiro";
   saveAs(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${nome}_${via.numero}_v${via.versao}.pdf`);

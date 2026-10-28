@@ -71,6 +71,12 @@ describe("a Declaração do Terceiro gerada pelo sistema", () => {
     expect(t.recibo?.linhas.join(" ")).toMatch(/Espécie.*PIX.*Transferência.*Outro.*Valor recebido/);
     expect(t.rodape).toMatch(/comprovante do recebimento/);
   });
+  it("REEMBOLSO traz a DATA DA SOLICITAÇÃO (a de geração da via, no fuso de Brasília); a oferta não", () => {
+    const re = textoDaDeclaracao({ ...via, geradaEm: "2026-10-14T01:30:00Z" }, conteudo());
+    expect(re.campos.find(c => c[0] === "Data da solicitação")?.[1]).toBe("13/10/2026");
+    expect(textoDaDeclaracao({ ...via, geradaEm: "2026-10-14T15:00:00Z" }, conteudo({ intencao: "oferta", chave_pix: null })).campos.map(c => c[0])).not.toContain("Data da solicitação");
+    expect(textoDaDeclaracao(via, conteudo()).campos.map(c => c[0])).not.toContain("Data da solicitação");
+  });
   it("no reembolso a forma e a data da COMPRA não se confundem com as do recibo", () => {
     const t = textoDaDeclaracao(via, conteudo());
     expect(t.campos.map(c => c[0])).toEqual(expect.arrayContaining(["Pago ao fornecedor por", "Pago ao fornecedor em"]));
