@@ -359,6 +359,8 @@ export interface ContextoDocumental {
   avisos?: ReadonlySet<string>;
   /** por id do LANÇAMENTO: a linha do banco (OFX/PDF) ligada a ele — a confirmação que substitui o comprovante nos pagamentos automáticos */
   confirmacao?: ReadonlyMap<string, "ofx" | "pdf">;
+  /** ids das OBRIGAÇÕES cuja Declaração do Terceiro foi gerada e espera a assinatura: a regra não a cobra enquanto espera (28/10/2026) */
+  declaracaoAguardando?: ReadonlySet<string>;
 }
 
 export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[], contexto: ContextoDocumental = {}): LinhaAuditoria[] {
@@ -378,6 +380,7 @@ export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacot
       temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: (l as { documento_numero?: string | null }).documento_numero ?? null,
       formaLiquidacao: l.forma_liquidacao ?? null, confirmacaoBancaria: contexto.confirmacao?.get(l.id) ?? null,
       formaPagamento: (l as { forma_pagamento?: string | null }).forma_pagamento ?? null, observacoes: l.observacoes ?? null,
+      declaracaoAguardandoAssinatura: contexto.declaracaoAguardando?.has(l.obrigacao_id ?? l.id) ?? false,
     };
     const documentacao = documentacaoDaSaida(entrada);
     return { lancamento: l, tipos, qtd: lista.length, situacao: documentacao.situacao, documentacao, ...(contexto.avisos?.has(l.id) ? { aviso: true } : {}) };

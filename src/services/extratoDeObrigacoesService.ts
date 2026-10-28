@@ -3,6 +3,7 @@
 // e os cancelados entram TODOS: o relatório não depende de ter havido movimentação financeira. As regras estão em `lib/extratoDeObrigacoes.ts`.
 import { supabase } from "@/integrations/supabase/client";
 import { confirmacoesBancarias, type ConfirmacaoBancaria } from "@/services/confirmacaoBancariaService";
+import { obrigacoesAguardandoAssinatura } from "@/services/declaracaoAguardandoService";
 import { hojeLocal } from "@/lib/data";
 import {
   montarExtratoDeObrigacoes, type LinhaDeObrigacao, type LinhaDoExtrato, type NomesDoExtrato, type QuitacaoDoExtrato,
@@ -153,5 +154,6 @@ export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<
   const confirmadas = await confirmacoesBancarias(linhas.map(l => l.id));
   const confirmacoes = new Map<string, ConfirmacaoBancaria>();
   for (const l of linhas) { const c = confirmadas.get(l.id); if (c && confirmacoes.get(l.obrigacao_id ?? l.id) !== "ofx") confirmacoes.set(l.obrigacao_id ?? l.id, c); }
-  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos: anexos.contagem, tiposDeAnexo: anexos.tipos, confirmacoes });
+  const declaracoesAguardando = await obrigacoesAguardandoAssinatura(chaves).catch(() => new Set<string>());
+  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal(), anexos: anexos.contagem, tiposDeAnexo: anexos.tipos, confirmacoes, declaracoesAguardando });
 }

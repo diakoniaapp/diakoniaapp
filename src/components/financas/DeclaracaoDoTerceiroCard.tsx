@@ -40,6 +40,8 @@ export function DeclaracaoDoTerceiroCard({ q, podeEscrever, aberta, recarga, onM
   // Campo de arquivo que NÃO limpa (auditoria da Tesouraria, 27/10/2026, F-09): o <input type="file"> não é controlado — zerar o estado não apaga o nome do arquivo que a tela continua mostrando. A `key` o remonta.
   const [chaveDoArquivo, setChaveDoArquivo] = useState(0);
   const [data, setData] = useState("");
+  // GERAR e ENVIAR a via assinada são dois momentos (28/10/2026): a tela só gera; o campo de upload aparece quando a pessoa diz que a via assinada VOLTOU ("Recebi a via assinada")
+  const [recebi, setRecebi] = useState(false);
   const [n, setN] = useState(0);
   const recarregar = useCallback(() => { setN(x => x + 1); onMudou?.(); }, [onMudou]);
 
@@ -84,7 +86,7 @@ export function DeclaracaoDoTerceiroCard({ q, podeEscrever, aberta, recarga, onM
       const anexo = await adicionarAnexo(q.obrigacaoId, arquivo, "declaracao_terceiro");
       await registrarAssinaturaDaDeclaracao(s.ultima.id, anexo.id, data);
       toast.success(reembolso ? "Via assinada registrada: vale como prova formal e como comprovante do recebimento." : "Via assinada registrada: a intenção agora tem a prova Formal.");
-      setArquivo(null); setData(""); setChaveDoArquivo(k => k + 1); recarregar();
+      setArquivo(null); setData(""); setRecebi(false); setChaveDoArquivo(k => k + 1); recarregar();
     } catch (err) { toast.error(mensagemErro(err)); } finally { setOcupado(false); }
   }
 
@@ -132,7 +134,13 @@ export function DeclaracaoDoTerceiroCard({ q, podeEscrever, aberta, recarga, onM
         )}
       </div>
 
-      {editavel && s.estado === "aguardando_assinatura" && (
+      {editavel && s.estado === "aguardando_assinatura" && !recebi && (
+        <div className="space-y-1.5 border-t pt-2">
+          <p className="text-xs text-muted-foreground">{reembolso ? "Aguardando o recebedor assinar no ato do pagamento." : "Aguardando a assinatura do responsável. Enquanto a via não volta assinada, a declaração não é cobrada nas pendências."}</p>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setRecebi(true)}><Paperclip className="h-3.5 w-3.5" /> Recebi a via assinada</Button>
+        </div>
+      )}
+      {editavel && s.estado === "aguardando_assinatura" && recebi && (
         <div className="flex flex-wrap items-end gap-2 border-t pt-2">
           <div className="space-y-1">
             <Label htmlFor="decl-arq" className="flex items-center gap-1 text-xs"><Paperclip className="h-3 w-3" /> {reembolso ? "Via assinada pelo recebedor (foto ou PDF)" : "Via assinada (foto ou PDF)"}</Label>
@@ -143,6 +151,7 @@ export function DeclaracaoDoTerceiroCard({ q, podeEscrever, aberta, recarga, onM
             <Input id="decl-data" type="date" className="h-9 w-40" max={hojeLocal()} value={data} onChange={ev => setData(ev.target.value)} />
           </div>
           <Button size="sm" className="h-9" disabled={ocupado || !arquivo || !data} onClick={() => void anexarAssinada()}>Registrar assinatura</Button>
+          <Button size="sm" variant="ghost" className="h-9" disabled={ocupado} onClick={() => { setRecebi(false); setArquivo(null); setData(""); setChaveDoArquivo(k => k + 1); }}>Cancelar</Button>
         </div>
       )}
     </div>

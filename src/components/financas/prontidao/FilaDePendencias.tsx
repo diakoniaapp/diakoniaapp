@@ -15,11 +15,11 @@ import { ORDEM_DA_GRAVIDADE, textoDoQueFalta, type Gravidade, type ResumoDaPront
 import { dataBr, diaDoPagamento, type LinhaAuditoria } from "@/lib/pacoteContabil";
 import { brl, nomeExtrato } from "@/services/finService";
 
-type Vista = "pendencias" | Gravidade | "completas" | "dispensam" | "todas";
+type Vista = "pendencias" | Gravidade | "aguardando" | "completas" | "dispensam" | "todas";
 
 const ROTULO_DA_VISTA: Record<Vista, string> = {
   pendencias: "Pendências", critica: "Críticas", parcial: "Parciais", administrativa: "Administrativas",
-  completas: "Completas", dispensam: "Dispensam", todas: "Todas",
+  aguardando: "Aguardando assinatura", completas: "Completas", dispensam: "Dispensam", todas: "Todas",
 };
 
 export function FilaDePendencias({ linhas, resumo, podeOperar, onMudou, porPagina = 100 }: {
@@ -51,6 +51,7 @@ export function FilaDePendencias({ linhas, resumo, podeOperar, onMudou, porPagin
     const doTipo = linhas.filter(x => {
       if (vista === "todas") return true;
       if (vista === "pendencias") return !!x.documentacao.gravidade;
+      if (vista === "aguardando") return x.documentacao.aguardandoAssinatura;
       if (vista === "completas") return x.situacao === "completa";
       if (vista === "dispensam") return x.situacao === "dispensa";
       return x.documentacao.gravidade === vista;
@@ -74,8 +75,8 @@ export function FilaDePendencias({ linhas, resumo, podeOperar, onMudou, porPagin
             <p className="text-xs text-muted-foreground">da mais grave à mais leve, e do maior valor ao menor</p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {(["pendencias", "critica", "parcial", "administrativa", "completas", "dispensam", "todas"] as const).map(v => {
-              const n = v === "todas" ? resumo.total : v === "pendencias" ? resumo.pendentes : v === "completas" ? resumo.completas : v === "dispensam" ? resumo.dispensam : porGravidade[v];
+            {(["pendencias", "critica", "parcial", "administrativa", ...(resumo.aguardandoAssinatura > 0 ? ["aguardando" as const] : []), "completas", "dispensam", "todas"] as const).map(v => {
+              const n = v === "todas" ? resumo.total : v === "pendencias" ? resumo.pendentes : v === "completas" ? resumo.completas : v === "dispensam" ? resumo.dispensam : v === "aguardando" ? resumo.aguardandoAssinatura : porGravidade[v];
               return (
                 <Button key={v} size="sm" variant={vista === v ? "default" : "outline"} className="h-7 text-xs" onClick={() => setVista(v)} data-vista={v}>
                   {ROTULO_DA_VISTA[v]} <span className="ml-1.5 tabular-nums opacity-80">{n}</span>

@@ -48,6 +48,11 @@ export interface Exigencia {
   atendida: boolean;
   /** o reembolso ainda não foi pago: o comprovante do PIX só existe depois */
   aguardaPagamento?: boolean;
+  /**
+   * A Declaração do Terceiro JÁ FOI GERADA e espera a assinatura do responsável (28/10/2026): só depois da confirmação dele o documento passa a ser exigido, então até lá NÃO é cobrada nas pendências —
+   * fica visível como "Aguardando assinatura". Quando o arquivo assinado sobe, a exigência é atendida e a despesa fica completa.
+   */
+  aguardaAssinatura?: boolean;
 }
 
 export interface EntradaDocumental {
@@ -70,6 +75,8 @@ export interface EntradaDocumental {
   formaLiquidacao?: string | null;
   /** a linha do banco (OFX ou PDF) que confirma o pagamento, se há um vínculo ativo com ela */
   confirmacaoBancaria?: "ofx" | "pdf" | null;
+  /** a Declaração do Terceiro desta obrigação foi gerada e ainda não voltou assinada (a versão mais recente não tem o arquivo assinado) */
+  declaracaoAguardandoAssinatura?: boolean;
   /** `fin_forma_pagamento` do lançamento (`dinheiro`, `pix`, `transferencia`, `cartao_debito`…): decide o MEIO quando a conta sozinha não decide */
   formaPagamento?: string | null;
   /** a observação do lançamento: a marca `[ofx:FITID]` (conciliação anterior aos vínculos) também é a linha do banco ligada */
@@ -95,6 +102,8 @@ export interface DocumentacaoDaSaida {
   documentosOk: boolean;
   /** o comprovante de pagamento está em ordem OU a regra não o exige nesta conta — é a etapa "Comprovante" do Ciclo */
   comprovanteOk: boolean;
+  /** só falta a assinatura da Declaração do Terceiro, que já foi gerada: não é cobrança, é espera (selo "Aguardando assinatura") */
+  aguardandoAssinatura: boolean;
   /** a regra EXIGE comprovante nesta despesa (conta de banco, ou reembolso) */
   exigeComprovante: boolean;
   /** pendências operacionais (categoria, centro, nº do documento, conferência) — não impedem a documentação de estar completa */
@@ -174,6 +183,8 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
   const meio = meioDePagamento(e);
   const confirmacao = e.confirmacaoBancaria ?? confirmacaoPelaMarca(e.observacoes);
   const exige = (o: Origem): Exigencia => ({ rotulo: o.rotulo, aceita: o.aceita, atendida: tem(o.aceita) });
+  // a Declaração do Terceiro da OFERTA: gerada e esperando a assinatura do responsável, não é cobrada (o reembolso pago não entra: o recibo assinado é a prova do pagamento e continua sendo cobrado)
+  const exigeDeclaracaoDaOferta = (): Exigencia => { const x = exige(DECLARACAO); return !x.atendida && e.declaracaoAguardandoAssinatura ? { ...x, aguardaAssinatura: true } : x; };
   const confirmacaoDoBanco = (atendida: boolean): Exigencia => ({ rotulo: CONFIRMACAO_BANCARIA, aceita: ["comprovante"], atendida });
   const comprovante = (rotulo: string, aguarda = false): Exigencia => ({
     rotulo, aceita: ["comprovante"], atendida: tem(["comprovante"]) || !!e.temComprovanteAntigo, ...(aguarda ? { aguardaPagamento: true } : {}),
@@ -188,7 +199,7 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
     if (meio !== "especie") exigidas.push(paga && confirmacao ? confirmacaoDoBanco(true) : comprovante(e.formaPagamento === "transferencia" ? COMPROVANTE_TED : COMPROVANTE_PIX, !paga));
   } else if (e.status === "quitado_terceiro" || (e.terceiroQuitou && e.intencao === "oferta")) {
     modelo = "oferta";
-    exigidas = [exige(NOTA_FISCAL), exige(DECLARACAO)];
+    exigidas = [exige(NOTA_FISCAL), exigeDeclaracaoDaOferta()];
   } else if (categoriaDispensaDocumento(e.categoriaNome)) {
     modelo = "dispensa";
     exigidas = [];
@@ -208,7 +219,8 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
     }
   }
 
-  const faltamEx = exigidas.filter(x => !x.atendida);
+  const faltamEx = exigidas.filter(x => !x.atendida && !x.aguardaAssinatura);
+  const aguardandoAssinatura = exigidas.some(x => !x.atendida && x.aguardaAssinatura);
   // a confirmação do banco de um pagamento automático também é "alguma" prova: sem a fatura a despesa é parcial, não "sem documentos"
   const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo || (modelo === "padrao" && paga && !!confirmacao);
   const situacao: SituacaoDocumental = exigidas.length === 0 ? (temAlgum ? "completa" : "dispensa") : faltamEx.length === 0 ? "completa" : !temAlgum ? "sem" : "parcial";
@@ -222,21 +234,22 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
   const gravidade: Gravidade | null = situacao === "sem" ? "critica" : situacao === "parcial" ? "parcial" : administrativas.length > 0 ? "administrativa" : null;
   const ehComprovante = (x: Exigencia) => x.aceita.length === 1 && x.aceita[0] === "comprovante";
   return {
-    modelo, meio, situacao, gravidade, exigidas, faltam: faltamEx.map(x => x.rotulo), administrativas,
-    documentosOk: exigidas.filter(x => !ehComprovante(x)).every(x => x.atendida),
+    modelo, meio, situacao, gravidade, exigidas, faltam: faltamEx.map(x => x.rotulo), administrativas, aguardandoAssinatura,
+    documentosOk: exigidas.filter(x => !ehComprovante(x)).every(x => x.atendida || x.aguardaAssinatura),
     comprovanteOk: exigidas.filter(ehComprovante).every(x => x.atendida),
     exigeComprovante: exigidas.some(ehComprovante),
   };
 }
 
 /** "Falta Nota Fiscal ou Fatura e Comprovante de pagamento" — a frase que a fila mostra. */
-export function textoDoQueFalta(d: Pick<DocumentacaoDaSaida, "situacao" | "faltam" | "administrativas" | "exigidas">): string {
+export function textoDoQueFalta(d: Pick<DocumentacaoDaSaida, "situacao" | "faltam" | "administrativas" | "exigidas"> & { aguardandoAssinatura?: boolean }): string {
   if (d.faltam.length > 0) {
     const aguarda = d.exigidas.find(x => !x.atendida && x.aguardaPagamento);
     const base = `Falta ${d.faltam.map((f, i) => (i === 0 ? f : f.charAt(0).toLowerCase() + f.slice(1))).join(" e ")}`;
     return aguarda ? `${base} (reembolso ainda não pago)` : base;
   }
   if (d.administrativas.length > 0) return `Documentos ok · falta ${d.administrativas.map(a => a.charAt(0).toLowerCase() + a.slice(1)).join(", ")}`;
+  if ("aguardandoAssinatura" in d && d.aguardandoAssinatura) return "Aguardando a assinatura da Declaração do Terceiro (já gerada)";
   return "Documentação completa";
 }
 
@@ -256,12 +269,14 @@ export interface ResumoDaProntidao {
   pendentes: number;
   /** documentação completa mas com pendência operacional (🔵) */
   administrativas: number;
+  /** só esperam a assinatura da Declaração do Terceiro (já gerada): não são pendência, são espera */
+  aguardandoAssinatura: number;
   /** existentes × necessários por documento exigido (só o que a regra EXIGE) */
   porDocumento: { rotulo: string; necessarios: number; existentes: number }[];
 }
 
 export function resumirProntidao(itens: readonly DocumentacaoDaSaida[]): ResumoDaProntidao {
-  let completas = 0, parciais = 0, sem = 0, dispensam = 0, pendentes = 0, administrativas = 0;
+  let completas = 0, parciais = 0, sem = 0, dispensam = 0, pendentes = 0, administrativas = 0, aguardandoAssinatura = 0;
   const por = new Map<string, { rotulo: string; necessarios: number; existentes: number }>();
   for (const d of itens) {
     if (d.situacao === "completa") completas++;
@@ -270,6 +285,7 @@ export function resumirProntidao(itens: readonly DocumentacaoDaSaida[]): ResumoD
     else dispensam++;
     if (d.gravidade) pendentes++;
     if (d.gravidade === "administrativa") administrativas++;
+    if (d.aguardandoAssinatura) aguardandoAssinatura++;
     for (const x of d.exigidas) {
       const g = por.get(x.rotulo) ?? { rotulo: x.rotulo, necessarios: 0, existentes: 0 };
       g.necessarios++;
@@ -279,7 +295,7 @@ export function resumirProntidao(itens: readonly DocumentacaoDaSaida[]): ResumoD
   }
   const total = itens.length, prontas = completas + dispensam;
   return {
-    total, completas, parciais, sem, dispensam, prontas, percentual: total > 0 ? (prontas / total) * 100 : 0, pendentes, administrativas,
+    total, completas, parciais, sem, dispensam, prontas, percentual: total > 0 ? (prontas / total) * 100 : 0, pendentes, administrativas, aguardandoAssinatura,
     porDocumento: [...por.values()].sort((a, b) => b.necessarios - a.necessarios || a.rotulo.localeCompare(b.rotulo, "pt-BR")),
   };
 }

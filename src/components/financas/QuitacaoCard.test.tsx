@@ -202,12 +202,30 @@ describe("a Declaração do Terceiro no cartão (Fase 1D-a)", () => {
     const el = await montar(lanc());
     expect(el.textContent).toMatch(/Aguardando assinatura/);
     expect(el.textContent).toMatch(/DT-2026-0001 · versão 1/);
+    // GERAR e ENVIAR são dois momentos (28/10/2026): ao gerar só há 'Baixar PDF' e o botão 'Recebi a via assinada'; o upload só aparece depois
+    expect(botao(el, "Baixar PDF")).toBeTruthy();
+    expect(botao(el, "Recebi a via assinada")).toBeTruthy();
+    expect(botao(el, "Registrar assinatura")).toBeFalsy();
+    expect(el.querySelector("#decl-arq")).toBeNull();
+    await act(async () => { botao(el, "Recebi a via assinada")!.click(); });
     expect(botao(el, "Registrar assinatura")).toBeTruthy();
+    expect(el.querySelector("#decl-arq")).toBeTruthy();
+    expect(botao(el, "Recebi a via assinada")).toBeFalsy();
+  });
+  it("aguardando assinatura: 'Cancelar' esconde o upload de novo", async () => {
+    declDisp = true; situacao = sit("aguardando_assinatura");
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    await act(async () => { botao(el, "Recebi a via assinada")!.click(); });
+    await act(async () => { botao(el, "Cancelar")!.click(); });
+    expect(el.querySelector("#decl-arq")).toBeNull();
+    expect(botao(el, "Recebi a via assinada")).toBeTruthy();
   });
   it("REEMBOLSO JÁ PAGO (conciliado): ainda dá para registrar a via assinada — a assinatura do recibo acontece depois do pagamento", async () => {
     declDisp = true; situacao = sit("aguardando_assinatura");
     quitacao = reembolso();
     const el = await montar(lanc({ status: "conciliado" } as never));
+    await act(async () => { botao(el, "Recebi a via assinada")!.click(); });
     expect(botao(el, "Registrar assinatura")).toBeTruthy();
     expect(el.textContent).toMatch(/Pago em \(data da assinatura\)/);
   });

@@ -1,6 +1,7 @@
 // ─── cicloDaDespesaService.ts — tudo o que se sabe de UMA despesa, junto (documento, pagamento, OFX, conciliação, comprovante, malote) ────────────
 // Só leitura. Reúne o lançamento, seus anexos, a liquidação, a situação da obrigação (juros/multa/desconto), o contrato (recorrência) e o último dia
 // coberto por um extrato importado na conta, e entrega o ciclo calculado por `lib/cicloDaDespesa.ts`.
+import { obrigacoesAguardandoAssinatura } from "@/services/declaracaoAguardandoService";
 import { supabase } from "@/integrations/supabase/client";
 import { cicloDaDespesa, ofxVinculado, periodoAprovadoCobre, type CicloDaDespesa } from "@/lib/cicloDaDespesa";
 import { parcelasDoGrupo, raizDaObrigacao, type LinhaDoGrupo, type ParcelaDoGrupo } from "@/lib/grupoDaObrigacao";
@@ -107,7 +108,9 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   // as provas da quitação (declaração, pedido de reembolso, prova do pagamento do terceiro) NÃO são o documento original da despesa (a mesma regra de vw_fin_ciclo)
   const temDocumento = anexos.some(a => ehDocumentoOriginal(a.tipo));
   // a REGRA ÚNICA de completude documental (20/10/2026): o documento certo para o tipo da despesa; o COMPROVANTE é do pagamento (só o desta linha), o resto é da obrigação inteira
+  const declaracaoAguardandoAssinatura = !!quitacao && (await obrigacoesAguardandoAssinatura([raiz]).catch(() => new Set<string>())).has(raiz);
   const documentacao = documentacaoDaSaida({
+    declaracaoAguardandoAssinatura,
     categoriaNome: l.categoria_nome, status: String(l.status), contaTipo, temComprovanteAntigo: !!l.comprovante_url,
     tipos: anexos.filter(a => a.tipo !== "comprovante" || a.lancamento_id === l.id).map(a => a.tipo),
     intencao: quitacao?.intencao ?? null, terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),

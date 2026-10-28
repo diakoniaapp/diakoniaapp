@@ -3,6 +3,7 @@
 // `lib/cicloDaDespesa.ts` (Pagamento Realizado, Aguardando Conciliação, Conciliada, Pronta para o Malote) e aqui só se somam. Só leitura.
 import { supabase } from "@/integrations/supabase/client";
 import { confirmacoesBancarias } from "@/services/confirmacaoBancariaService";
+import { obrigacoesAguardandoAssinatura } from "@/services/declaracaoAguardandoService";
 import { ehTerceiro } from "@/lib/quitacao";
 import { documentacaoDaSaida } from "@/lib/documentacaoExigida";
 import { quitacoesDasObrigacoes } from "@/services/quitacaoService";
@@ -55,6 +56,7 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
   const quitacoes = await quitacoesDasObrigacoes([...new Set(lancs.map(l => String(l.obrigacao_id ?? l.id)))]);
   // pagamento automático: a linha do banco (OFX/PDF) ligada ao lançamento substitui o comprovante
   const confirmacoes = await confirmacoesBancarias(ids);
+  const declaracaoAguardando = await obrigacoesAguardandoAssinatura(lancs.map(l => String(l.obrigacao_id ?? l.id))).catch(() => new Set<string>());
   // D6: as despesas já ENVIADAS (item de malote ativo) e se o período do envio foi aprovado (ARQUIVADA)
   const enviadas = new Map<string, { ano: number; mes: number }>();
   let fechamentos: { status: string; ano_inicio: number; mes_inicio: number; qtd_meses: number }[] = [];
@@ -92,6 +94,7 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
       temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: (l.documento_numero as string | null) ?? null,
       formaLiquidacao: (l.forma_liquidacao as string | null) ?? null, confirmacaoBancaria: confirmacoes.get(id) ?? null,
       formaPagamento: (l.forma_pagamento as string | null) ?? null, observacoes: (l.observacoes as string | null) ?? null,
+      declaracaoAguardandoAssinatura: declaracaoAguardando.has(String(l.obrigacao_id ?? id)),
     });
     const c = cicloDaDespesa({
       tipo: "saida", status: String(l.status), data: String(l.data).slice(0, 10), data_pagamento: (l.data_pagamento as string) ?? null,
