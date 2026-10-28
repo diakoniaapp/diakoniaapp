@@ -14,10 +14,10 @@ export const BLOCOS_DE_CONTRIBUICOES = [
   { id: "curva_adesao", titulo: "Curva de adesão", grupo: "Gráficos", descricao: "Pessoas diferentes que contribuíram em cada semana" },
   { id: "distribuicao_mensal", titulo: "Distribuição mensal", grupo: "Gráficos", descricao: "Valor arrecadado em cada mês" },
   { id: "destaques", titulo: "Semanas de destaque", grupo: "Gráficos", descricao: "Maior adesão, maior arrecadação, maior crescimento" },
-  { id: "criterios", titulo: "Critérios da análise", grupo: "Qualidade dos dados", descricao: "As definições usadas: piso, contribuição, dizimista, recorrente, novo, base" },
+  { id: "criterios", titulo: "Critérios da análise", grupo: "Qualidade dos dados", descricao: "Período, base analisada e contribuições consideradas (as definições dos perfis ficam na tela do sistema)" },
   { id: "cobertura", titulo: "Cobertura da identificação", grupo: "Qualidade dos dados", descricao: "Quanto do valor tem pessoa identificada" },
   { id: "contribuintes_nominal", titulo: "Quem contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome, última contribuição, quantidade de contribuições e situação (recorrente, novo). Sem valores." },
-  { id: "sem_contribuicao_nominal", titulo: "Quem não contribuiu — com nomes", grupo: "Com nomes", descricao: "Nome e perfil de contribuição (sem contribuições no período; sem registro anterior ou última há mais de 90 ou 180 dias). Sem valores." },
+  { id: "sem_contribuicao_nominal", titulo: "Oportunidades de acompanhamento pastoral — com nomes", grupo: "Com nomes", descricao: "Nome e perfil de contribuição (sem contribuições no período; sem registro anterior ou última há mais de 90 ou 180 dias). Sem valores." },
 ] as const;
 
 export type IdDoBloco = typeof BLOCOS_DE_CONTRIBUICOES[number]["id"];

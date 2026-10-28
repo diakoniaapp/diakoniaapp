@@ -428,3 +428,19 @@ describe("filtros puros", () => {
     expect(filtrarSemContribuicao(lista, { ...base, semFamilia: true }).map(p => p.id)).toEqual(["a", "b", "c"]);
   });
 });
+
+describe("'Como interpretar este relatório' saiu do e-mail e mora na tela (decisão dela, 27/10/2026)", () => {
+  it("no Painel: recolhido, com as definições dos perfis para o período escolhido", async () => {
+    await abrir("/financas/doadores");
+    const d = q("[data-como-interpretar]")!;
+    expect(d).not.toBeNull();
+    expect((d as HTMLDetailsElement).open).toBe(false);
+    for (const t of ["Como interpretar este relatório", "Recorrente", "Parcial", "Novo dizimista", "Só ofertas", "28/04/2026", "27/10/2026"]) expect(d.textContent).toContain(t);
+  });
+  it("na aba Sem contribuição também, e a definição do 'sem' acompanha as categorias escolhidas", async () => {
+    await abrir("/financas/doadores?aba=sem&cats=dizimo");
+    const d = q("[data-como-interpretar]")!;
+    expect(d).not.toBeNull();
+    expect(d.textContent).toContain("Sem dízimo registrado no período analisado");
+  });
+});

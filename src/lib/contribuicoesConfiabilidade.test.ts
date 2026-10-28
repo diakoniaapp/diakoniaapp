@@ -95,9 +95,9 @@ describe("os textos do quadro", () => {
 import { readFileSync } from "node:fs";
 import { analisarContribuicoes, analisarSemContribuicao, resumirBase, type PessoaDaBase } from "../../supabase/functions/_shared/contribuicoes/analise";
 import { listasNominaisDoEmail } from "../../supabase/functions/_shared/contribuicoes/nominal";
-import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
+import { AVISO_DISCRETO, montarEmailDeContribuicoes, subtituloDoAcompanhamento } from "../../supabase/functions/_shared/contribuicoes/email";
 
-describe("o e-mail com a confiabilidade", () => {
+describe("o e-mail da lista de acompanhamento pastoral (decisão dela, 27/10/2026): simples, para o pastor e a liderança", () => {
   const pessoas: PessoaDaBase[] = ["a", "b"].map(id => ({ id, nome: `Pessoa ${id}`, tipo_pessoa: "membro", status: "ativo", data_nascimento: "1980-01-01", familia_id: null }));
   const linhas = [L("a", 580), L(null, 20), L(null, 400)];
   const an = analisarContribuicoes(linhas, periodo);
@@ -107,42 +107,39 @@ describe("o e-mail com a confiabilidade", () => {
     blocos: ["nao_contribuiram", "sem_contribuicao_nominal"], base: resumirBase(sem), nominal: listasNominaisDoEmail(linhas, periodo, new Map(), sem, "quantidade", "dízimo registrado"),
     baseAnalisada: "membros", categorias: DIZ, confiabilidade: conf, ...extra,
   });
-  it("traz o quadro: nível, % identificado, pendências, impacto, data dos dados, e o aviso de que só contam contribuições identificadas", () => {
-    const h = montar().html;
-    for (const x of ["Confiabilidade desta lista", "Confiabilidade: Baixa", "Contribuições identificadas: 58%", "Contribuições pendentes de identificação: 2", "Impacto potencial: até", "Dados atualizados até", "apenas contribuições identificadas e vinculadas a pessoas"]) expect(h).toContain(x);
-  });
-  it("com pendências demais, vem antes um alerta à tesouraria, que cita a quantidade e diz que o resultado pode mudar", () => {
-    const h = montar().html;
-    expect(h).toContain("Atenção: há contribuições pendentes de identificação");
-    expect(h).toContain("podem mudar");
-    expect(h.indexOf("Atenção: há contribuições pendentes")).toBeLessThan(h.indexOf("Sem dízimo registrado no período analisado"));
-  });
-  it("o quadro vem UMA vez só, antes das duas listas, mesmo com os dois blocos marcados", () => {
-    const h = montar().html;
-    expect((h.match(/Confiabilidade desta lista/g) ?? []).length).toBe(1);
-  });
-  it("só dízimo escolhido: a expressão é 'Sem dízimo registrado no período analisado' — nunca 'não dizimistas'", () => {
+  it("a lista se chama 'Oportunidades de acompanhamento pastoral', com o subtítulo 'Membros ativos sem dízimos registrados no período analisado.'", () => {
     const h = montar().html, t = montar().texto;
-    expect(h).toContain("Sem dízimo registrado no período analisado");
-    expect(h).not.toContain("Não contribuíram no período");
+    expect(h).toContain("Oportunidades de acompanhamento pastoral");
+    expect(h).toContain("Membros ativos sem dízimos registrados no período analisado.");
+    expect(t).toContain("Oportunidades de acompanhamento pastoral");
+    expect(t).toContain("Membros ativos sem dízimos registrados no período analisado.");
     expect(h).not.toContain("Quem não contribuiu");
-    expect(t).toContain("Sem dízimo registrado no período analisado");
     expect(`${h} ${t}`).not.toMatch(/n[aã]o dizimistas/i);
   });
-  it("a versão em texto leva o quadro, o aviso e o alerta", () => {
-    const t = montar().texto;
-    for (const x of ["Confiabilidade desta lista", "Confiabilidade: Baixa", "apenas contribuições identificadas e vinculadas a pessoas", "Existem 2 contribuições pendentes"]) expect(t).toContain(x);
+  it("o subtítulo acompanha a base e as categorias escolhidas", () => {
+    expect(subtituloDoAcompanhamento("membros", ["dizimo"])).toBe("Membros ativos sem dízimos registrados no período analisado.");
+    expect(subtituloDoAcompanhamento("membros_congregados", ["dizimo"])).toBe("Membros e congregados ativos sem dízimos registrados no período analisado.");
+    expect(subtituloDoAcompanhamento("membros_congregados_visitantes", ["dizimo", "oferta", "missoes"])).toBe("Membros, congregados e visitantes ativos sem contribuições registradas no período analisado.");
+    expect(subtituloDoAcompanhamento("membros", ["oferta"])).toBe("Membros ativos sem ofertas registradas no período analisado.");
   });
-  it("com as três categorias, os títulos são os de sempre; sem o quadro, nada aparece", () => {
-    const h = montar({ categorias: TODAS }).html;
-    expect(h).toContain("Não contribuíram no período");
-    expect(montar({ confiabilidade: undefined }).html).not.toContain("Confiabilidade desta lista");
+  it("UM aviso discreto, e só ele: 'Este relatório considera contribuições identificadas e vinculadas a pessoas.'", () => {
+    const h = montar().html, t = montar().texto;
+    expect(h).toContain(AVISO_DISCRETO);
+    expect((h.match(/considera contribuições identificadas e vinculadas a pessoas/g) ?? []).length).toBe(1);
+    expect((t.match(/considera contribuições identificadas e vinculadas a pessoas/g) ?? []).length).toBe(1);
+    expect(AVISO_DISCRETO).toBe("Este relatório considera contribuições identificadas e vinculadas a pessoas.");
   });
-  it("lista confiável (alta, poucas pendências): o quadro aparece SEM o alerta", () => {
-    const ok = calcularConfiabilidade([L("a", 1000)], periodo, { categorias: DIZ, tamanhoDaLista: 3 });
-    const h = montar({ confiabilidade: ok }).html;
-    expect(h).toContain("Confiabilidade: Alta");
-    expect(h).not.toContain("Atenção: há contribuições pendentes");
+  it("o quadro técnico de confiabilidade (e o alerta) NÃO vão no e-mail: ficam na tela e na gaveta de envio", () => {
+    const h = montar().html, t = montar().texto;
+    for (const fora of ["Confiabilidade desta lista", "Confiabilidade: Baixa", "Atenção: há contribuições pendentes", "Impacto potencial", "Dados atualizados até", "Contribuições pendentes de identificação"]) { expect(h).not.toContain(fora); expect(t).not.toContain(fora); }
+  });
+  it("sem a lista nominal, o aviso discreto fecha o bloco agregado (e só aparece uma vez)", () => {
+    const h = montarEmailDeContribuicoes(an, { blocos: ["nao_contribuiram"], base: resumirBase(sem), baseAnalisada: "membros", categorias: DIZ }).html;
+    expect((h.match(/considera contribuições identificadas e vinculadas a pessoas/g) ?? []).length).toBe(1);
+    expect(h).toContain("Sem dízimo registrado no período analisado");
+  });
+  it("com as três categorias, o bloco agregado mantém o título de sempre", () => {
+    expect(montar({ categorias: TODAS, blocos: ["nao_contribuiram"] }).html).toContain("Não contribuíram no período");
   });
 });
 

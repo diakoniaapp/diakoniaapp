@@ -5,10 +5,10 @@
 // números (`AnaliseDoPeriodo` e `ResumoDaBase`): não há como um nome entrar no e-mail. Os gráficos são barras em tabela
 // HTML (cliente de e-mail não roda JavaScript nem SVG). Mesma moldura, paleta e rodapé de todos os e-mails (`email/desenho.ts`). O que aparece é escolhido por BLOCOS (`blocos.ts`).
 import * as D from "../email/desenho.ts";
-import { PISO_DE_IDENTIFICACAO, ROTULO_DA_BASE, mesesCompletos, oQueFaltaAQuemNaoContribuiu, type TipoDeContribuicao, type AnaliseDoPeriodo, type BaseAnalisada, type ResumoDaBase, type SaudeDeUmTipo, type TendenciaDoPeriodo, type VinculoDaBase } from "./analise.ts";
+import { PISO_DE_IDENTIFICACAO, ROTULO_DA_BASE, mesesCompletos, oQueFaltaAQuemNaoContribuiu, rotuloDasCategorias, type TipoDeContribuicao, type AnaliseDoPeriodo, type BaseAnalisada, type ResumoDaBase, type SaudeDeUmTipo, type TendenciaDoPeriodo, type VinculoDaBase } from "./analise.ts";
 import { IDS_AGREGADOS, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, temBlocoNominal, type IdDoBloco, type OrdenacaoDasListas } from "./blocos.ts";
 import type { LinhaNominal, ListasNominais } from "./nominal.ts";
-import { AVISO_SO_IDENTIFICADAS, ROTULO_DO_NIVEL, linhasDaConfiabilidade, textoDoAlerta, type Confiabilidade } from "./confiabilidade.ts";
+import type { Confiabilidade } from "./confiabilidade.ts";
 
 const ddmmaaaa = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const ddmm = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
@@ -105,29 +105,29 @@ function blocoSaudeDaBase(a: AnaliseDoPeriodo, b: ResumoDaBase | null, base: Bas
 /** Com todas as contribuições escolhidas o texto é o de sempre ("Não contribuíram"); com só dízimo (ou outra seleção) diz o que falta: "Sem dízimo registrado no período analisado". */
 const semX = (oque: string) => (oque === "contribuições" ? "Sem contribuição" : `Sem ${oque}`);
 const tituloDoBlocoSem = (oque: string) => (oque === "contribuições" ? "Não contribuíram no período" : `Sem ${oque} no período analisado`);
-const tituloDaListaSem = (oque: string) => (oque === "contribuições" ? "Quem não contribuiu" : `Sem ${oque} no período analisado`);
-
 /**
- * O quadro de confiabilidade (pedido dela, 27/10/2026): nível (cor), % identificado, pendências, impacto potencial, data dos dados e o aviso de que só contam contribuições identificadas e vinculadas a pessoas.
- * Quando há muita pendência, vem antes um alerta à tesouraria.
+ * A lista de quem não deu dízimo (ou contribuição) é, para a liderança, uma OPORTUNIDADE DE ACOMPANHAMENTO PASTORAL — não uma lista de "quem não contribuiu" (decisão dela, 27/10/2026).
+ * O subtítulo diz de quem se trata e o que falta: "Membros ativos sem dízimos registrados no período analisado."
  */
-function blocoConfiabilidade(c: Confiabilidade | undefined): string {
-  if (!c) return "";
-  let h = D.secao("Confiabilidade desta lista", "O quanto os dados sustentam quem aparece como sem contribuição.");
-  if (c.alertar) h += D.cartaoDeAlerta({ titulo: "Atenção: há contribuições pendentes de identificação", linhas: [textoDoAlerta(c), "Recomendamos concluir a análise das pendências antes de usar esta lista para decisões pastorais."], tom: "aviso" });
-  h += D.cartaoDeLista({ titulo: `Confiabilidade: ${ROTULO_DO_NIVEL[c.nivel]}`, frase: AVISO_SO_IDENTIFICADAS, itens: linhasDaConfiabilidade(c).slice(1), tom: c.nivel === "alta" ? "ok" : c.nivel === "media" ? "aviso" : "atencao" });
-  return h;
+export const TITULO_DA_LISTA_SEM = "Oportunidades de acompanhamento pastoral";
+/** O ÚNICO aviso que o e-mail leva sobre a base de dados (discreto); o quadro técnico de confiabilidade fica na tela do sistema e na gaveta de envio. */
+export const AVISO_DISCRETO = "Este relatório considera contribuições identificadas e vinculadas a pessoas.";
+const NO_PLURAL: Record<TipoDeContribuicao, string> = { dizimo: "dízimos registrados", oferta: "ofertas registradas", missoes: "ofertas para missões registradas" };
+export function subtituloDoAcompanhamento(base: BaseAnalisada, cats: TipoDeContribuicao[] | undefined): string {
+  const quem = ROTULO_DA_BASE[base].endsWith("ativos") ? ROTULO_DA_BASE[base] : `${ROTULO_DA_BASE[base]} ativos`;
+  const oQue = !cats || cats.length === 0 || cats.length >= 3 ? "contribuições registradas" : cats.length === 1 ? NO_PLURAL[cats[0]] : `${rotuloDasCategorias(cats).toLowerCase()} registrados`;
+  return `${quem} sem ${oQue} no período analisado.`;
 }
 
-function blocoNaoContribuiram(b: ResumoDaBase | null, oque = "contribuições", confiabilidade?: Confiabilidade): string {
-  let h = blocoConfiabilidade(confiabilidade) + D.secao(tituloDoBlocoSem(oque), "Quantidades para acompanhamento pastoral.");
+function blocoNaoContribuiram(b: ResumoDaBase | null, oque = "contribuições", comAviso = false): string {
+  let h = D.secao(tituloDoBlocoSem(oque), "Quantidades para acompanhamento pastoral.");
   if (!b) return h + D.blocoDeObservacao("Esta informação não pôde ser calculada neste envio.");
   const linhas = [
     `${semX(oque)} no período e sem registro anterior: ${n(b.nuncaDesdeOPiso)}`,
     `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
     `${semX(oque)} há mais de 30 dias: ${n(b.haMaisDe.dias30)} · 60 dias: ${n(b.haMaisDe.dias60)} · 90 dias: ${n(b.haMaisDe.dias90)} · 180 dias: ${n(b.haMaisDe.dias180)}`,
   ];
-  return h + D.cartaoDeLista({ titulo: "Quem ainda não contribuiu", frase: "Quem contribui por outra pessoa da família, em espécie ou sem identificação pode estar aqui sem ter deixado de contribuir.", itens: linhas, tom: "info" });
+  return h + D.cartaoDeLista({ titulo: "Quem ainda não contribuiu", frase: "Quem contribui por outra pessoa da família, em espécie ou sem identificação pode estar aqui sem ter deixado de contribuir.", itens: linhas, tom: "info" }) + (comAviso ? D.blocoDeObservacao(AVISO_DISCRETO) : "");
 }
 
 const sinal = (v: number | null) => (v === null ? "—" : `${v > 0 ? "+" : ""}${n(v, 1)}%`);
@@ -152,15 +152,15 @@ function blocoTendencias(t: TendenciaDoPeriodo | null | undefined): string {
 }
 
 /** O bloco "Critérios da análise": as definições usadas, em frases. */
-function blocoCriterios(): string {
-  return D.secao("Critérios da análise", "Como cada número é calculado.") + D.cartaoDeLista({ titulo: "Definições", frase: "", tom: "info", itens: [
-    "A análise só usa o período em que a identificação das contribuições por pessoa é confiável: antes dele só cerca de um terço das contribuições tem pessoa identificada.",
-    "Contribuição: dízimo, oferta ou oferta para missões, realizada ou conciliada; transferências e rendimentos ficam de fora.",
-    "Dizimista: pessoa da base com dízimo identificado no período. Doador: qualquer das contribuições escolhidas.",
-    "Recorrente: dizimista que deu dízimo em todos os meses completos do período. Novo: primeira contribuição identificada dentro do período.",
-    "Base: pessoas ativas do vínculo escolhido; quem contribuiu e está fora da base aparece à parte e não entra nos indicadores.",
-    "\"Sem registro anterior\" significa nenhuma contribuição registrada no sistema antes do período analisado, não na vida.",
-  ] });
+/** "Critérios da análise": só período, base analisada e contribuições consideradas (decisão dela, 27/10/2026). As definições longas ficam na tela do sistema, não no e-mail. */
+function blocoCriterios(o: OpcoesDoEmailDeContribuicoes, periodo: string): string {
+  const linhas = o.cabecalho ? cabecalhoDoEmail(o.cabecalho) : [
+    { rotulo: "Período analisado", valor: periodo },
+    { rotulo: "Base analisada", valor: `${ROTULO_DA_BASE[o.baseAnalisada ?? "membros_congregados"]} (ativos)` },
+    { rotulo: "Contribuições consideradas", valor: rotuloDasCategorias(o.categorias ?? ["dizimo", "oferta", "missoes"]) },
+  ];
+  const itens = linhas.map(l => `<li style="margin:0 0 3px">${D.esc(l.rotulo)}: <strong>${D.esc(l.valor)}</strong></li>`).join("");
+  return D.secao("Critérios da análise") + D.cartao(null, `<ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:${D.COR.texto}">${itens}</ul>`);
 }
 
 /** O cabeçalho de rastreabilidade: período, base, contribuições, pessoas consideradas, quando e por quem foi gerado, versão dos critérios. */
@@ -191,39 +191,8 @@ function cartaoDoCabecalho(linhas: { rotulo: string; valor: string }[]): string 
   return D.cartao("Este relatório", `<table role="presentation" cellpadding="0" cellspacing="0" width="100%">${linhas.map(l).join("")}</table>`);
 }
 
-const MESES_POR_EXTENSO = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
-const mesPorExtenso = (m: string) => `${MESES_POR_EXTENSO[Number(m.slice(5, 7)) - 1]} de ${m.slice(0, 4)}`;
-
-/**
- * O texto de "Como interpretar este relatório": as definições dos perfis, GERADAS conforme o período analisado — quantos meses completos tem, quais são, e se há histórico para dizer quem é novo.
- * Determinístico (sem IA): os mesmos números dão sempre o mesmo texto. As frases batem com o que o cálculo faz (`analisarContribuicoes`/`resumirPessoas`).
- */
-export function textosParaInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada, oque = "contribuições"): { titulo: string; texto: string }[] {
-  const { ini, fim } = a.periodo;
-  const p = `${ddmmaaaa(ini)} a ${ddmmaaaa(fim)}`;
-  const entre = `entre ${ddmmaaaa(ini)} e ${ddmmaaaa(fim)}`;   // SEMPRE as datas do filtro escolhido: nunca uma data fixa (decisão dela, 27/10/2026)
-  const completos = mesesCompletos(ini, fim);
-  const meses = completos.length === 0 ? "" : completos.length === 1 ? mesPorExtenso(completos[0]) : `${mesPorExtenso(completos[0])} a ${mesPorExtenso(completos[completos.length - 1])}`;
-  const recorrente = completos.length === 0
-    ? `Pessoa que contribuiu em todos os meses do período analisado. O período ${entre} não tem nenhum mês completo; por isso ninguém é classificado como recorrente.`
-    : `Pessoa que contribuiu em todos os meses do período analisado: ${completos.length === 1 ? "o único mês completo" : `os ${completos.length} meses completos`} ${entre} (${meses}). O primeiro e o último mês, quando incompletos, não entram nessa conta.`;
-  const novo = ini <= PISO_DE_IDENTIFICACAO
-    ? `Pessoa cujo primeiro dízimo identificado ocorreu dentro do período analisado. Como o período começa em ${ddmmaaaa(ini)}, ainda não há histórico anterior confiável; por isso ninguém é classificado como novo dizimista neste relatório.`
-    : `Pessoa cujo primeiro dízimo identificado ocorreu dentro do período analisado (${p}), sem nenhum dízimo identificado antes de ${ddmmaaaa(ini)}. Pode já ter dado ofertas ou missões antes.`;
-  return [
-    { titulo: "Recorrente", texto: recorrente },
-    { titulo: "Parcial", texto: completos.length === 0 ? `Pessoa que contribuiu ${entre}. Sem mês completo no período, não há como separar recorrente de parcial; por isso aparece como "Contribuiu no período".` : `Pessoa que deu dízimo em alguns, mas não em todos, dos meses completos do período analisado. A coluna "Meses com dízimo" mostra quantos (por exemplo, 2/${completos.length}); a quantidade de contribuições não muda o perfil.` },
-    { titulo: "Novo dizimista", texto: novo },
-    { titulo: "Só ofertas", texto: `Pessoa que contribuiu ${entre}, mas nunca com dízimo; por isso não entra na conta de meses com dízimo.` },
-    { titulo: `Sem ${oque} no período analisado`, texto: `Pessoa da base analisada (${ROTULO_DA_BASE[base].toLowerCase()}, ativos) sem ${oque} ${entre}${oque === "contribuições" ? "" : `. Pode ter contribuído de outra forma (as categorias escolhidas foram só estas)`}. O complemento diz se também não há registro anterior ao período ou há quanto tempo foi a última contribuição (mais de 90 ou de 180 dias).` },
-  ];
-}
-
-function blocoComoInterpretar(a: AnaliseDoPeriodo, base: BaseAnalisada, oque = "contribuições"): string {
-  const itens = textosParaInterpretar(a, base, oque);
-  const linha = (i: { titulo: string; texto: string }) => `<p style="margin:0 0 7px;font-size:12px;line-height:1.5;color:${D.COR.texto}"><strong>${D.esc(i.titulo)}:</strong> ${D.esc(i.texto)}</p>`;
-  return D.secao("Como interpretar este relatório", "Definições dos perfis usados nas listas com nomes, para o período analisado.") + D.cartao(null, itens.map(linha).join(""));
-}
+// "Como interpretar este relatório" saiu do e-mail; as definições moram em `interpretar.ts` e aparecem na tela do sistema.
+export { textosParaInterpretar } from "./interpretar.ts";
 
 /** Uma lista com nomes: nome, última contribuição, quantidade (só de quem contribuiu) e situação. Nenhum valor. */
 function tabelaNominal(titulo: string, subtitulo: string, linhas: LinhaNominal[], comQuantidade: boolean, ordenacao: OrdenacaoDasListas, totalReal?: number): string {
@@ -342,14 +311,13 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   // a saúde da base independe de haver arrecadação no período: "ninguém contribuiu" também é informação
   if (tem("saude_da_base")) corpo += blocoSaudeDaBase(a, o.base ?? null, o.baseAnalisada);
   const oque = oQueFaltaAQuemNaoContribuiu(o.categorias);
-  let confiabilidadeJaMostrada = false;
-  if (tem("nao_contribuiram")) { corpo += blocoNaoContribuiram(o.base ?? null, oque, o.confiabilidade); confiabilidadeJaMostrada = true; }
+  const avisoNoBlocoAgregado = tem("nao_contribuiram") && !tem("sem_contribuicao_nominal");   // o aviso discreto vai UMA vez: ao fim da lista, se há lista; senão, ao fim do bloco agregado
+  if (tem("nao_contribuiram")) corpo += blocoNaoContribuiram(o.base ?? null, oque, avisoNoBlocoAgregado);
   if (tem("tendencias")) corpo += blocoTendencias(o.tendencia);
-  if (tem("criterios")) corpo += blocoCriterios();
-  if (comNomes) corpo += `<div id="lista-de-nomes"></div>` + blocoComoInterpretar(a, o.baseAnalisada ?? "membros_congregados", oque);   // as definições vêm ANTES da primeira lista com nomes
+  if (tem("criterios") && !comNomes) corpo += blocoCriterios(o, periodo);
+  if (comNomes) corpo += `<div id="lista-de-nomes"></div>` + blocoCriterios(o, periodo);   // antes da primeira lista com nomes: período, base e contribuições (as definições ficam na tela)
   if (tem("contribuintes_nominal")) corpo += tabelaNominal("Quem contribuiu", "Nome, quantidade de contribuições, meses com dízimo e perfil de contribuição. Sem valores.", o.nominal?.contribuiram ?? [], true, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.contribuiram);
-  if (tem("sem_contribuicao_nominal") && !confiabilidadeJaMostrada) corpo += blocoConfiabilidade(o.confiabilidade);
-  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal(tituloDaListaSem(oque), `Pessoas da base analisada sem ${oque === "contribuições" ? "contribuição registrada" : oque} no período, para acompanhamento pastoral.`, o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.semContribuicao);
+  if (tem("sem_contribuicao_nominal")) corpo += tabelaNominal(TITULO_DA_LISTA_SEM, subtituloDoAcompanhamento(o.baseAnalisada ?? "membros_congregados", o.categorias), o.nominal?.semContribuicao ?? [], false, o.ordenacao ?? ORDENACAO_PADRAO, o.totaisDasListas?.semContribuicao) + D.blocoDeObservacao(AVISO_DISCRETO);
   if (tem("cobertura") && a.arrecadado > 0) {
     const c = a.cobertura;
     corpo += D.blocoDeObservacao(
@@ -385,13 +353,12 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   }
   if (tem("nao_contribuiram") && o.base) {
     const b = o.base;
-    if (o.confiabilidade) linhas.push("", "Confiabilidade desta lista", AVISO_SO_IDENTIFICADAS, ...(o.confiabilidade.alertar ? [textoDoAlerta(o.confiabilidade)] : []), ...linhasDaConfiabilidade(o.confiabilidade));
     linhas.push("", tituloDoBlocoSem(oque), `${semX(oque)} no período e sem registro anterior: ${n(b.nuncaDesdeOPiso)}`, `Contribuíram anteriormente, mas não no período: ${n(b.jaContribuiuAntes)}`,
       `${semX(oque)} há mais de 30 / 60 / 90 / 180 dias: ${n(b.haMaisDe.dias30)} / ${n(b.haMaisDe.dias60)} / ${n(b.haMaisDe.dias90)} / ${n(b.haMaisDe.dias180)}`);
   }
   const linhaNominal = (l: LinhaNominal) => `${l.posicao}. ${l.nome}${l.contribuicoes === null ? "" : ` — ${n(l.contribuicoes)} contribuições`}${l.meses ? ` — ${l.meses} meses com dízimo` : ""} — ${l.perfil}`;
   if (tem("contribuintes_nominal")) linhas.push("", "Quem contribuiu (sem valores)", ...(o.nominal?.contribuiram ?? []).map(linhaNominal));
-  if (tem("sem_contribuicao_nominal")) linhas.push("", ...(o.confiabilidade && !(tem("nao_contribuiram") && o.base) ? ["Confiabilidade desta lista", AVISO_SO_IDENTIFICADAS, ...(o.confiabilidade.alertar ? [textoDoAlerta(o.confiabilidade)] : []), ...linhasDaConfiabilidade(o.confiabilidade), ""] : []), tituloDaListaSem(oque), ...(o.nominal?.semContribuicao ?? []).map(linhaNominal));
+  if (tem("sem_contribuicao_nominal")) linhas.push("", TITULO_DA_LISTA_SEM, subtituloDoAcompanhamento(o.baseAnalisada ?? "membros_congregados", o.categorias), ...(o.nominal?.semContribuicao ?? []).map(linhaNominal), "", AVISO_DISCRETO);
   if (tem("cobertura") && a.arrecadado > 0) linhas.push("", `Identificação: ${a.cobertura.pctDoValor === null ? "—" : n(a.cobertura.pctDoValor, 1) + "%"} do valor tem pessoa identificada.`);
   if (o.encerramento) linhas.push("", o.encerramento);
   linhas.push("", comNomes ? "Este relatório traz nomes, mas nenhum valor individual. Não encaminhe." : "Este relatório traz apenas números agregados. Nomes e valores individuais ficam dentro do sistema.");

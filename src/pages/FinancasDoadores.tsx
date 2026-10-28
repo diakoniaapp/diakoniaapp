@@ -28,7 +28,7 @@ import { hojeLocal } from "@/lib/data";
 import { gerarXlsx } from "@/lib/xlsxSimples";
 import {
   BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, DIAS_NO_MES_MEDIO, FILTROS_PADRAO, PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ROTULO_DA_BASE, VERSAO_DOS_CRITERIOS, VINCULOS_DA_BASE,
-  ajustarAoPiso, analisarContribuicoes, analisarSemContribuicao, aplicarFiltros, calcularConfiabilidade, diasEntre, idsDaBase, intervaloDoPreset, linhasDoCabecalho, oQueFaltaAQuemNaoContribuiu, resumirBase, resumirPessoas,
+  ajustarAoPiso, analisarContribuicoes, analisarSemContribuicao, aplicarFiltros, calcularConfiabilidade, diasEntre, idsDaBase, intervaloDoPreset, linhasDoCabecalho, oQueFaltaAQuemNaoContribuiu, resumirBase, resumirPessoas, textosParaInterpretar,
   type BaseAnalisada, type DecisaoDeTriagem, type LinhaDeContribuicao, type PessoaDaBase, type PresetDePeriodo, type TipoDeContribuicao,
 } from "@/lib/contribuicoes";
 import { carregarBaseDePessoas, carregarContribuicoes, carregarNomes, carregarUltimoExtratoDoBanco, registrarAcessoNominal, type AcaoDoRegistro } from "@/services/contribuicoesService";
@@ -134,6 +134,8 @@ export default function FinancasDoadores() {
     [linhasBrutas, semAnalise, periodo, categoriasEscolhidas, decisoes, ultimoExtrato],
   );
   const oque = oQueFaltaAQuemNaoContribuiu(categoriasEscolhidas);
+  // as definições dos perfis: saíram do e-mail (decisão dela, 27/10/2026) e ficam aqui, recolhidas
+  const interpretacao = useMemo(() => (analise ? textosParaInterpretar(analise, baseEscolhida, oque) : []), [analise, baseEscolhida, oque]);
   // a trava: com muita pendência a lista com nomes só aparece depois de a tesouraria dizer que quer ver mesmo assim (vale para esta situação; se as pendências mudarem, avisa de novo)
   const [reconhecidoEm, setReconhecidoEm] = useState("");
   const chaveDaTrava = confiabilidade ? `${confiabilidade.nivel}|${confiabilidade.pendentesDaLista.quantidade}|${periodo.ini}|${periodo.fim}` : "";
@@ -288,7 +290,7 @@ export default function FinancasDoadores() {
           <TabsList className="w-full justify-start overflow-x-auto" data-abas="doadores">
             {ABAS.map(a => (<TabsTrigger key={a.id} value={a.id}>{a.rotulo}</TabsTrigger>))}
           </TabsList>
-          <TabsContent value="painel" className="mt-4">{analise && <PainelDeContribuicoes analise={analise} saude={saude} rotuloDaBase={ROTULO_DA_BASE[baseEscolhida]} foraDaBase={foraDaBase} aoVerPendencias={() => mudar({ aba: "pendentes" })} />}</TabsContent>
+          <TabsContent value="painel" className="mt-4">{analise && <PainelDeContribuicoes analise={analise} saude={saude} rotuloDaBase={ROTULO_DA_BASE[baseEscolhida]} foraDaBase={foraDaBase} aoVerPendencias={() => mudar({ aba: "pendentes" })} interpretacao={interpretacao} />}</TabsContent>
           <TabsContent value="pessoas" className="mt-4">
             <ListaDePessoas pessoas={pessoasDaLista} grupo={(["dizimistas", "recorrentes", "novos", "novosDizimistas"].includes(url.grupo) ? url.grupo : "todos") as GrupoDePessoas}
               aoMudarGrupo={g => mudar({ grupo: g })} busca={url.q} aoMudarBusca={v => mudar({ q: v })} ordem={ordemDaUrl(url.ordem)} aoMudarOrdem={o => mudar({ ordem: o })} top={topDaUrl(url.top)} aoMudarTop={t => mudar({ top: t })}
@@ -304,7 +306,7 @@ export default function FinancasDoadores() {
                   ...(p.tipo !== undefined && { tipo: p.tipo }), ...(p.classe !== undefined && { classe: p.classe }), ...(p.faixa !== undefined && { faixa: p.faixa }), ...(p.semFamilia !== undefined && { familia: p.semFamilia ? "1" : "" }),
                 })}
                 registro={registroSem} aoExportar={exportarSem} exportando={exportando} coberturaDoPeriodo={analise?.cobertura.pctDoValor ?? null}
-                confiabilidade={confiabilidade} oque={oque} reconhecido={semLiberado} aoReconhecer={() => setReconhecidoEm(chaveDaTrava)} aoVerPendencias={() => mudar({ aba: "pendentes" })} />
+                confiabilidade={confiabilidade} oque={oque} reconhecido={semLiberado} aoReconhecer={() => setReconhecidoEm(chaveDaTrava)} aoVerPendencias={() => mudar({ aba: "pendentes" })} interpretacao={interpretacao} />
             )}
           </TabsContent>
         </Tabs>

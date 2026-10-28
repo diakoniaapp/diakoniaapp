@@ -112,7 +112,7 @@ describe("o cabeçalho de rastreabilidade", () => {
     const a = analisarContribuicoes([L("a", "2026-08-01", 100)], { ini: "2026-07-01", fim: "2026-09-30" });
     const e = montarEmailDeContribuicoes(a, { blocos: ["criterios"], cabecalho: linhas });
     // o e-mail é para leitura do pastor e da liderança, não para auditoria (decisão dela, 27/10/2026): só Período, Base e Contribuições no topo
-    for (const t of ["Este relatório", "Período analisado", "Base analisada", "Membros e congregados (ativos)", "Contribuições consideradas", "Dízimos e Ofertas", "Critérios da análise", "não na vida"]) expect(e.html).toContain(t);
+    for (const t of ["Este relatório", "Período analisado", "Base analisada", "Membros e congregados (ativos)", "Contribuições consideradas", "Dízimos e Ofertas", "Critérios da análise"]) expect(e.html).toContain(t);
     for (const fora of ["Gerado em", "Gerado por", "por Telma Souza", "Versão dos critérios", "Pessoas consideradas", "Contribuintes fora da base"]) { expect(e.html).not.toContain(fora); expect(e.texto).not.toContain(fora); }
     expect(e.texto).toContain("Base analisada: Membros e congregados (ativos)");
     // a tela e a função continuam com o cabeçalho inteiro

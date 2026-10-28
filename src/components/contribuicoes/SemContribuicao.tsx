@@ -12,6 +12,7 @@ import { AlertTriangle, FileSpreadsheet, FileText, Info, Loader2 } from "lucide-
 import { NomePessoa } from "@/components/membros/ficha";
 import { FAIXAS_SEM_CONTRIBUICAO, textoDoAlerta, type AnaliseDosSemContribuicao, type Confiabilidade, type FaixaSemContribuicao, type PessoaSemContribuicao } from "@/lib/contribuicoes";
 import { IndicadorDeConfiabilidade } from "./IndicadorDeConfiabilidade";
+import { ComoInterpretar } from "./ComoInterpretar";
 import { textoDoRegistro, type EstadoDoRegistro } from "./useRegistroDeAcesso";
 
 export type FiltroDeClasse = "todos" | "nunca" | "antes";
@@ -53,9 +54,11 @@ interface Props {
   reconhecido?: boolean;
   aoReconhecer?: () => void;
   aoVerPendencias?: () => void;
+  /** as definições dos perfis (saíram do e-mail; ficam aqui, recolhidas) */
+  interpretacao?: { titulo: string; texto: string }[];
 }
 
-export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro, aoExportar, exportando, coberturaDoPeriodo, confiabilidade, oque = "contribuições", reconhecido = true, aoReconhecer, aoVerPendencias }: Props) {
+export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro, aoExportar, exportando, coberturaDoPeriodo, confiabilidade, oque = "contribuições", reconhecido = true, aoReconhecer, aoVerPendencias, interpretacao = [] }: Props) {
   const visiveis = useMemo(() => filtrarSemContribuicao(a.lista, filtros), [a.lista, filtros]);
   const oQue = oque === "contribuições" ? "contribuição" : oque.replace(/ (registrad[oa]s?)$/, "");   // o que conta como contribuir é o filtro global de categorias (barra no alto da tela)
   const semX = oque === "contribuições" ? "Sem contribuição registrada" : `Sem ${oque}`;
@@ -67,6 +70,7 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
         <h2 className="font-serif text-lg" data-titulo-sem>{oque === "contribuições" ? "Sem contribuição registrada no período analisado" : `Sem ${oque} no período analisado`}</h2>
       </div>
       {confiabilidade && <IndicadorDeConfiabilidade c={confiabilidade} aoVerPendencias={aoVerPendencias} />}
+      <ComoInterpretar itens={interpretacao} />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
         <Peca id="base" rotulo="Membros e congregados ativos" valor={String(a.base)} legenda={a.menoresFora > 0 ? `${a.menoresFora} menores de 18 anos fora da base` : "base considerada"} />

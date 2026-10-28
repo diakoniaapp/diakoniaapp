@@ -64,7 +64,7 @@ describe("o texto é gerado conforme o período", () => {
   });
 });
 
-describe("o bloco no e-mail", () => {
+describe("o e-mail NÃO leva mais o 'Como interpretar' (decisão dela, 27/10/2026): só 'Critérios da análise', simples", () => {
   const periodo = { ini: "2026-07-01", fim: "2026-09-30" };
   const linhas = [L("a", "2026-07-05"), L("a", "2026-08-05"), L("a", "2026-09-05"), L("b", "2026-08-10"), L("b", "2026-09-10")];
   const pessoas: PessoaDaBase[] = ["a", "b", "c"].map(id => ({ id, nome: `Pessoa ${id}`, tipo_pessoa: "membro", status: "ativo", data_nascimento: "1980-01-01", familia_id: null }));
@@ -74,18 +74,22 @@ describe("o bloco no e-mail", () => {
   const email = (blocos: Parameters<typeof montarEmailDeContribuicoes>[1] extends infer O ? (O extends { blocos?: infer B } ? B : never) : never) =>
     montarEmailDeContribuicoes(a, { blocos, nominal: listasNominaisDoEmail(linhas, periodo, nomes, sem), baseAnalisada: "membros_congregados" });
 
-  it("vem ANTES da primeira lista com nomes", () => {
+  it("o bloco 'Como interpretar este relatório' e as definições longas saíram do e-mail (HTML e texto)", () => {
+    for (const bl of [["contribuintes_nominal", "sem_contribuicao_nominal"], ["sem_contribuicao_nominal"], ["indicadores"]] as const) {
+      const e = email([...bl]);
+      for (const fora of ["Como interpretar este relatório", "Recorrente:", "Parcial:", "Novo dizimista:", "Só ofertas:", "os 3 meses completos"]) { expect(e.html).not.toContain(fora); expect(e.texto).not.toContain(fora); }
+    }
+  });
+  it("no lugar dele, com lista com nomes: 'Critérios da análise' com período, base e contribuições — ANTES da primeira lista", () => {
     const h = email(["contribuintes_nominal", "sem_contribuicao_nominal"]).html;
-    expect(h).toContain("Como interpretar este relatório");
-    expect(h.indexOf("Como interpretar este relatório")).toBeLessThan(h.indexOf("Quem contribuiu"));
-    expect(h.indexOf("Como interpretar este relatório")).toBeLessThan(h.indexOf("Quem não contribuiu"));
+    expect(h).toContain("Critérios da análise");
+    for (const t of ["Período analisado", "01/07/2026 a 30/09/2026", "Base analisada", "Membros e congregados (ativos)", "Contribuições consideradas"]) expect(h).toContain(t);
+    expect(h.indexOf("Critérios da análise")).toBeLessThan(h.indexOf("Quem contribuiu"));
+    expect(h.indexOf("Critérios da análise")).toBeLessThan(h.indexOf("Oportunidades de acompanhamento pastoral"));
+    expect((h.match(/Critérios da análise/g) ?? []).length).toBe(1);
   });
-  it("traz as quatro definições com o período do relatório", () => {
-    const h = email(["sem_contribuicao_nominal"]).html;
-    for (const t of ["Recorrente:", "Parcial:", "Novo dizimista:", "Só ofertas:", "Sem contribuições no período analisado:", "01/07/2026 e 30/09/2026", "os 3 meses completos"]) expect(h).toContain(t);
-  });
-  it("só aparece quando há lista com nomes (sem nomes, o bloco não faz sentido)", () => {
-    expect(email(["indicadores", "saude_da_base"]).html).not.toContain("Como interpretar este relatório");
+  it("sem lista com nomes e sem o bloco 'criterios' marcado, não há quadro de critérios", () => {
+    expect(email(["indicadores", "saude_da_base"]).html).not.toContain("Critérios da análise");
   });
   it("as colunas: #, Nome, Contribuições e Perfil de contribuição — sem 'Última' e sem 'Situação'", () => {
     const h = email(["contribuintes_nominal"]).html;
@@ -101,7 +105,7 @@ describe("o bloco no e-mail", () => {
     const h = email(["contribuintes_nominal", "sem_contribuicao_nominal"]).html;
     expect(h).toContain(">Recorrente<");
     expect(h).toContain(">Meses com dízimo<");
-    expect(h).toContain("Sem contribuições no período analisado");
+    expect(h).toContain("Sem contribuições no período analisado");   // o perfil de cada pessoa continua dizendo o que falta
   });
   it("a versão em texto também não tem a última contribuição", () => {
     const t = email(["contribuintes_nominal"]).texto;
@@ -128,9 +132,9 @@ describe("nenhuma data fixa: só o período escolhido (decisão dela, 27/10/2026
       expect(e.html).not.toMatch(/nenhuma desde|a análise começa em/i);
     }
   });
-  it("as datas que aparecem são as do filtro: 'entre 01/07/2026 e 30/09/2026'", () => {
+  it("as datas que aparecem são as do filtro: o quadro de critérios cita '01/07/2026 a 30/09/2026'", () => {
     const e = gerar("2026-07-01", "2026-09-30");
-    expect(e.html).toContain("entre 01/07/2026 e 30/09/2026");
+    expect(e.html).toContain("01/07/2026 a 30/09/2026");
   });
   it("a 01/01/2026 só aparece quando é o início do período escolhido", () => {
     expect(gerar("2026-01-01", "2026-06-30").html).toContain("01/01/2026");

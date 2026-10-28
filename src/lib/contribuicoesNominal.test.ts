@@ -60,7 +60,8 @@ describe("as linhas com nomes não têm valor", () => {
 
 describe("o e-mail com nomes", () => {
   it("leva os nomes, as datas e as situações, e o aviso de dados individuais", () => {
-    for (const t of ["Contém dados individuais", "Quem contribuiu", "Quem não contribuiu", "Zeca Teste", "Recorrente", "Duda Teste", "sem registro anterior", "há mais de 180 dias", "Perfil de contribuição", "Como interpretar este relatório"]) expect(email.html).toContain(t);
+    for (const t of ["Contém dados individuais", "Quem contribuiu", "Oportunidades de acompanhamento pastoral", "Zeca Teste", "Recorrente", "Duda Teste", "sem registro anterior", "há mais de 180 dias", "Perfil de contribuição", "Critérios da análise"]) expect(email.html).toContain(t);
+    expect(email.html).not.toContain("Como interpretar este relatório");
     for (const fora of [">Última<", ">Situação<", "10/09/2026", "05/09/2026"]) expect(email.html).not.toContain(fora);   // a coluna da última contribuição saiu
     expect(email.html).toContain("nenhum valor individual");
   });

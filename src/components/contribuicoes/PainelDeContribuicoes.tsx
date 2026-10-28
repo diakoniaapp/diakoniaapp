@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ComoInterpretar } from "./ComoInterpretar";
 import { brl } from "@/services/finService";
 import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type ForaDaBase, type ResumoDaBase, type SaudeDeUmTipo, type SemanaDeContribuicao } from "@/lib/contribuicoes";
 
@@ -124,7 +125,7 @@ function CardQualidadeDaIdentificacao({ analise, aoVerPendencias }: { analise: A
   );
 }
 
-export function PainelDeContribuicoes({ analise, saude, rotuloDaBase, foraDaBase, aoVerPendencias }: { analise: AnaliseDoPeriodo; saude?: ResumoDaBase | null; rotuloDaBase?: string; foraDaBase?: ForaDaBase; aoVerPendencias?: () => void }) {
+export function PainelDeContribuicoes({ analise, saude, rotuloDaBase, foraDaBase, aoVerPendencias, interpretacao = [] }: { analise: AnaliseDoPeriodo; saude?: ResumoDaBase | null; rotuloDaBase?: string; foraDaBase?: ForaDaBase; aoVerPendencias?: () => void; interpretacao?: { titulo: string; texto: string }[] }) {
   const { periodo, destaques: d } = analise;
   // período longo → barras por mês; curto → por semana (o gráfico semanal de um ano seria uma cerca)
   const porSemana = periodo.dias <= 140;
@@ -148,6 +149,7 @@ export function PainelDeContribuicoes({ analise, saude, rotuloDaBase, foraDaBase
   return (
     <div className="space-y-4" data-painel>
       <CardQualidadeDaIdentificacao analise={analise} aoVerPendencias={aoVerPendencias} />
+      <ComoInterpretar itens={interpretacao} />
       {saude && <CardSaudeDaBase saude={saude} analise={analise} rotuloDaBase={rotuloDaBase ?? "Membros e congregados"} foraDaBase={foraDaBase} />}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
