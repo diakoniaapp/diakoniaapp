@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { paraNumero } from "@/lib/dinheiro";
 import {
-  planejarLiquidacao, type DocumentoAPagar, type MotivoPagouMais, type MotivoPagouMenos, type PlanoDeLiquidacao,
+  planejarLiquidacao, type DestinoDosEncargos, type DocumentoAPagar, type MotivoPagouMais, type MotivoPagouMenos, type PlanoDeLiquidacao,
 } from "@/lib/liquidacao";
 import { documentosEmAbertoDoFavorecido, type DocumentoEmAberto } from "@/services/liquidacaoService";
 import { brl, type FinVencimento } from "@/services/finService";
@@ -47,6 +47,7 @@ export function LiquidacaoPainel({ lancamento, onPlano, valorPagoFixo }: {
   const [complTxt, setComplTxt] = useState("");
   const [ajusteTxt, setAjusteTxt] = useState("");
   const [motivoAjuste, setMotivoAjuste] = useState("");
+  const [destino, setDestino] = useState<DestinoDosEncargos>("mais_antiga");
 
   const documentos: DocumentoAPagar[] = useMemo(() => [
     { id: lancamento.id, valor: Number(lancamento.valor), vencimento: String(lancamento.data).slice(0, 10) },
@@ -56,8 +57,8 @@ export function LiquidacaoPainel({ lancamento, onPlano, valorPagoFixo }: {
   const plano = useMemo(() => planejarLiquidacao({
     documentos, valorPago: paraNumero(valorPagoTxt), motivoMenos, motivoMais,
     juros: paraNumero(jurosTxt), multa: paraNumero(multaTxt), complemento: paraNumero(complTxt),
-    ajuste: paraNumero(ajusteTxt), motivoDoAjuste: motivoAjuste,
-  }), [documentos, valorPagoTxt, motivoMenos, motivoMais, jurosTxt, multaTxt, complTxt, ajusteTxt, motivoAjuste]);
+    ajuste: paraNumero(ajusteTxt), motivoDoAjuste: motivoAjuste, destinoDosEncargos: destino,
+  }), [documentos, valorPagoTxt, motivoMenos, motivoMais, jurosTxt, multaTxt, complTxt, ajusteTxt, motivoAjuste, destino]);
 
   useEffect(() => { onPlano(plano); }, [plano, onPlano]);
 
@@ -111,7 +112,7 @@ export function LiquidacaoPainel({ lancamento, onPlano, valorPagoFixo }: {
               <span className="min-w-0 flex-1 truncate">{e.descricao ?? "Documento"} · vence {dataBrCurta(e.vencimento)}</span>
               <span className="tabular-nums font-medium">{brl(e.valor)}</span>
               <button type="button" aria-label="Tirar este documento do pagamento" className="text-muted-foreground hover:text-foreground"
-                onClick={() => { setExtras(x => x.filter(y => y.id !== e.id)); setMotivoMais(null); setMotivoMenos(null); }}>
+                onClick={() => { setExtras(x => x.filter(y => y.id !== e.id)); setMotivoMais(null); setMotivoMenos(null); setDestino("mais_antiga"); }}>
                 <X className="w-3.5 h-3.5" />
               </button>
             </li>
@@ -179,6 +180,20 @@ export function LiquidacaoPainel({ lancamento, onPlano, valorPagoFixo }: {
                 <ValorDoMotivo rotulo="Multa (R$)" valor={multaTxt} onChange={setMultaTxt} />
               )}
               {motivoMais === "complemento" && <ValorDoMotivo rotulo="Complementação (R$)" valor={complTxt} onChange={setComplTxt} />}
+              {/* vários documentos no mesmo pagamento: a quem pertence a multa/os juros (padrão: à mais antiga, a fatura em atraso) */}
+              {documentos.length > 1 && motivoMais && motivoMais !== "outro_documento" && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="liq-destino" className="text-xs w-32 shrink-0">Aplicar a</Label>
+                  <select id="liq-destino" value={destino} onChange={(e) => setDestino(e.target.value as DestinoDosEncargos)}
+                    className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base md:text-xs">
+                    <option value="mais_antiga">Obrigação mais antiga (em atraso)</option>
+                    <option value="ratear">Ratear proporcionalmente</option>
+                    {[...documentos].sort((a, b) => a.vencimento.localeCompare(b.vencimento)).map(d => (
+                      <option key={d.id} value={d.id}>Só a de {dataBrCurta(d.vencimento)} ({brl(d.valor)})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {motivoMais === "ajuste" && (
                 <>
                   <ValorDoMotivo rotulo="Ajuste (R$)" valor={ajusteTxt} onChange={setAjusteTxt} />

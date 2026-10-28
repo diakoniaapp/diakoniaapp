@@ -32,7 +32,14 @@ export interface EntradaDeLiquidacao {
   complemento: number;
   ajuste: number;
   motivoDoAjuste: string;
+  /**
+   * A QUAL obrigação os encargos pertencem quando o pagamento junta várias (28/10/2026, caso Light): `mais_antiga` (padrão — multa e juros nascem da fatura em atraso), `ratear` (proporcional ao valor
+   * de cada uma) ou o id de um dos documentos. Com um documento só, não muda nada.
+   */
+  destinoDosEncargos?: DestinoDosEncargos;
 }
+
+export type DestinoDosEncargos = "mais_antiga" | "ratear" | (string & {});
 
 export interface ItemDeLiquidacao { lancamento_id: string; valor_pago: number; desconto: number }
 export interface EncargoDeLiquidacao { tipo: "juros" | "multa" | "complemento" | "ajuste"; valor: number; lancamento_id: string; motivo?: string }
@@ -57,6 +64,19 @@ export interface PlanoDeLiquidacao {
 }
 
 const c = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+/**
+ * Reparte UM encargo entre os documentos, em centavos exatos: o resto do arredondamento vai para o maior documento, então a soma das partes é SEMPRE o valor inteiro
+ * (a função do banco recusa o que não fecha ao centavo).
+ */
+export function ratearEncargo(valor: number, docs: readonly DocumentoAPagar[]): { id: string; valor: number }[] {
+  const total = docs.reduce((s, d) => s + d.valor, 0);
+  if (docs.length === 0 || !(total > 0)) return [];
+  const partes = docs.map(d => ({ id: d.id, valor: Math.floor((valor * d.valor / total) * 100 + 1e-9) / 100, peso: d.valor }));
+  const resto = c(valor - partes.reduce((s, p) => s + p.valor, 0));
+  if (resto !== 0) { const maior = partes.reduce((m, p) => (p.peso > m.peso ? p : m), partes[0]); maior.valor = c(maior.valor + resto); }
+  return partes.filter(p => p.valor > 0).map(({ id, valor: v }) => ({ id, valor: c(v) }));
+}
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function planejarLiquidacao(e: EntradaDeLiquidacao): PlanoDeLiquidacao {
@@ -107,15 +127,19 @@ export function planejarLiquidacao(e: EntradaDeLiquidacao): PlanoDeLiquidacao {
       }
     } else {
       docs.forEach(d => itens.push({ lancamento_id: d.id, valor_pago: c(d.valor), desconto: 0 }));
-      const ref = docs[0].id;
+      // onde o encargo "mora": padrão = a obrigação mais antiga (a multa e os juros nascem da fatura em atraso); ratear = proporcional; ou um documento escolhido
+      const destino = e.destinoDosEncargos ?? "mais_antiga";
+      const escolhido = docs.find(d => d.id === destino);
+      const ref = escolhido ? escolhido.id : docs[0].id;
+      const alvos = (valor: number) => (destino === "ratear" && docs.length > 1 ? ratearEncargo(valor, docs) : [{ id: ref, valor }]);
       const juros = e.motivoMais === "juros" || e.motivoMais === "juros_multa" ? c(e.juros) : 0;
       const multa = e.motivoMais === "multa" || e.motivoMais === "juros_multa" ? c(e.multa) : 0;
       const complemento = e.motivoMais === "complemento" ? c(e.complemento) : 0;
       const ajuste = e.motivoMais === "ajuste" ? c(e.ajuste) : 0;
-      if (juros > 0) encargos.push({ tipo: "juros", valor: juros, lancamento_id: ref });
-      if (multa > 0) encargos.push({ tipo: "multa", valor: multa, lancamento_id: ref });
-      if (complemento > 0) encargos.push({ tipo: "complemento", valor: complemento, lancamento_id: ref });
-      if (ajuste > 0) encargos.push({ tipo: "ajuste", valor: ajuste, lancamento_id: ref, motivo: e.motivoDoAjuste.trim() });
+      if (juros > 0) alvos(juros).forEach(a => encargos.push({ tipo: "juros", valor: a.valor, lancamento_id: a.id }));
+      if (multa > 0) alvos(multa).forEach(a => encargos.push({ tipo: "multa", valor: a.valor, lancamento_id: a.id }));
+      if (complemento > 0) alvos(complemento).forEach(a => encargos.push({ tipo: "complemento", valor: a.valor, lancamento_id: a.id }));
+      if (ajuste > 0) alvos(ajuste).forEach(a => encargos.push({ tipo: "ajuste", valor: a.valor, lancamento_id: a.id, motivo: e.motivoDoAjuste.trim() }));
       const explicado = c(juros + multa + complemento + ajuste);
       faltaExplicar = c(diferenca - explicado);
       if (!e.motivoMais) {
@@ -127,7 +151,8 @@ export function planejarLiquidacao(e: EntradaDeLiquidacao): PlanoDeLiquidacao {
         if (faltaExplicar < -0.004) problemas.push(`Os valores informados passam ${brl(-faltaExplicar)} da diferença.`);
         if (e.motivoMais === "ajuste" && !e.motivoDoAjuste.trim()) problemas.push("O ajuste manual exige o motivo.");
       }
-      motivo = encargos.map(x => `${ROTULO_ENCARGO[x.tipo]} ${brl(x.valor)}`).join(" + ");
+      // o resumo soma por tipo (um encargo rateado vira várias linhas, mas é UM motivo)
+      motivo = (["juros", "multa", "complemento", "ajuste"] as const).map(t => ({ t, v: c(encargos.filter(x => x.tipo === t).reduce((s, x) => s + x.valor, 0)) })).filter(x => x.v > 0).map(x => `${ROTULO_ENCARGO[x.t]} ${brl(x.v)}`).join(" + ");
     }
   }
 

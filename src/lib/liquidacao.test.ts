@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planejarLiquidacao, type EntradaDeLiquidacao } from "./liquidacao";
+import { planejarLiquidacao, ratearEncargo, type EntradaDeLiquidacao } from "./liquidacao";
 
 const base = (extra: Partial<EntradaDeLiquidacao> = {}): EntradaDeLiquidacao => ({
   documentos: [{ id: "a", valor: 1418, vencimento: "2026-10-05" }],
@@ -105,5 +105,64 @@ describe("liquidação — os cenários dela", () => {
   it("sem valor pago ou sem documento: não confirma", () => {
     expect(planejarLiquidacao(base({ valorPago: 0 })).pronto).toBe(false);
     expect(planejarLiquidacao(base({ documentos: [] })).pronto).toBe(false);
+  });
+});
+
+describe("um débito pagando várias obrigações — onde moram a multa e os juros (caso Light, 28/10/2026)", () => {
+  const set = { id: "set", valor: 313.77, vencimento: "2026-09-15" };
+  const out = { id: "out", valor: 321.37, vencimento: "2026-10-15" };
+  const dois = (extra: Partial<EntradaDeLiquidacao> = {}) => base({ documentos: [out, set], valorPago: 670.24, motivoMais: "juros_multa", juros: 15.1, multa: 20, ...extra });
+  const soma = (p: ReturnType<typeof planejarLiquidacao>, t?: string) => Math.round(p.encargos.filter(e => !t || e.tipo === t).reduce((s, e) => s + e.valor, 0) * 100) / 100;
+
+  it("padrão: a multa e os juros vão para a obrigação MAIS ANTIGA (a fatura em atraso), sem depender da ordem em que os documentos entram", () => {
+    const p = planejarLiquidacao(dois());
+    expect(p.pronto).toBe(true);
+    expect(p.encargos.every(e => e.lancamento_id === "set")).toBe(true);
+    expect(soma(p, "multa")).toBe(20);
+    expect(soma(p, "juros")).toBe(15.1);
+    expect(p.itens.map(i => i.lancamento_id).sort()).toEqual(["out", "set"]);
+  });
+  it("ratear: reparte em proporção ao valor de cada obrigação e a soma fecha ao centavo", () => {
+    const p = planejarLiquidacao(dois({ destinoDosEncargos: "ratear" }));
+    expect(p.pronto).toBe(true);
+    expect(p.encargos.map(e => e.lancamento_id).sort()).toEqual(["out", "out", "set", "set"]);
+    expect(soma(p, "multa")).toBe(20);
+    expect(soma(p, "juros")).toBe(15.1);
+    const multaOut = p.encargos.find(e => e.tipo === "multa" && e.lancamento_id === "out")!.valor;
+    const multaSet = p.encargos.find(e => e.tipo === "multa" && e.lancamento_id === "set")!.valor;
+    expect(multaOut).toBeGreaterThan(multaSet);   // 321,37 pesa mais que 313,77
+  });
+  it("um documento escolhido recebe tudo", () => {
+    const p = planejarLiquidacao(dois({ destinoDosEncargos: "out" }));
+    expect(p.encargos.every(e => e.lancamento_id === "out")).toBe(true);
+    expect(soma(p)).toBe(35.1);
+  });
+  it("destino que não é um dos documentos cai no padrão (a mais antiga), nunca num id solto", () => {
+    expect(planejarLiquidacao(dois({ destinoDosEncargos: "fantasma" })).encargos.every(e => e.lancamento_id === "set")).toBe(true);
+  });
+  it("o resumo do motivo soma por tipo, mesmo rateado: 'Juros R$ 15,10 + Multa R$ 20,00'", () => {
+    const m = planejarLiquidacao(dois({ destinoDosEncargos: "ratear" })).motivo.replace(/\u00a0/g, " ");
+    expect(m).toBe("Juros R$ 15,10 + Multa R$ 20,00");
+  });
+  it("com UM documento só o rateio não muda nada", () => {
+    const p = planejarLiquidacao(base({ valorPago: 1438, motivoMais: "multa", multa: 20, destinoDosEncargos: "ratear" }));
+    expect(p.encargos).toEqual([{ tipo: "multa", valor: 20, lancamento_id: "a" }]);
+  });
+  it("ratear nunca perde centavo: 3 documentos, valor que não divide exato", () => {
+    const docs = [{ id: "x", valor: 100, vencimento: "2026-08-01" }, { id: "y", valor: 100, vencimento: "2026-09-01" }, { id: "z", valor: 100, vencimento: "2026-10-01" }];
+    const p = planejarLiquidacao(base({ documentos: docs, valorPago: 310, motivoMais: "multa", multa: 10, destinoDosEncargos: "ratear" }));
+    expect(p.pronto).toBe(true);
+    expect(soma(p, "multa")).toBe(10);
+  });
+  it("ratearEncargo: soma exata para vários valores", () => {
+    for (const v of [0.01, 0.02, 1, 7.33, 35.1, 99.99]) {
+      const partes = ratearEncargo(v, [{ id: "a", valor: 313.77, vencimento: "x" }, { id: "b", valor: 321.37, vencimento: "y" }, { id: "c", valor: 50, vencimento: "z" }]);
+      expect(Math.round(partes.reduce((s, p) => s + p.valor, 0) * 100) / 100).toBe(v);
+    }
+  });
+  it("o ajuste manual rateado leva o MESMO motivo em cada parte", () => {
+    const p = planejarLiquidacao(dois({ motivoMais: "ajuste", juros: 0, multa: 0, ajuste: 35.1, motivoDoAjuste: "taxa da concessionária", destinoDosEncargos: "ratear" }));
+    expect(p.pronto).toBe(true);
+    expect(p.encargos.every(e => e.motivo === "taxa da concessionária")).toBe(true);
   });
 });
