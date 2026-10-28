@@ -22,6 +22,7 @@ vi.mock("@/services/contribuicoesService", () => ({
   carregarBaseDePessoas: async () => BASE,
   carregarNomes: async (ids: string[]) => new Map(ids.map(i => [i, NOMES[i] ?? "—"])),
   registrarAcessoNominal: registrar,
+  carregarUltimoExtratoDoBanco: async () => "2026-10-20",
 }));
 
 import FinancasDoadores from "./FinancasDoadores";
@@ -61,6 +62,8 @@ async function abrir(url = "/financas/doadores") {
 const q = (sel: string) => document.body.querySelector(sel) as HTMLElement | null;
 const qa = (sel: string) => [...document.body.querySelectorAll(sel)] as HTMLElement[];
 const valorDe = (id: string) => q(`[data-indicador="${id}"] [data-valor]`)?.textContent;
+/** com muita pendência a lista com nomes fica atrás de uma trava (pedido dela, 27/10/2026): nestes testes a tesouraria já disse "ver mesmo assim" */
+const liberar = async () => { const b = q('[data-acao="ver-lista-mesmo-assim"]'); if (b) { await act(async () => { b.click(); }); await act(async () => { await new Promise(r => setTimeout(r, 30)); }); } };
 const botao = (texto: string) => qa("button").find(b => b.textContent?.trim() === texto);
 const abaAtiva = () => q('[role="tab"][data-state="active"]')?.textContent;
 
@@ -141,20 +144,62 @@ describe("Sem contribuição no período", () => {
   });
   it("registra a consulta com o recorte (período, o que conta, menores) e mostra a lista em ordem alfabética", async () => {
     await abrir("/financas/doadores?aba=sem");
+    await liberar();
     expect(registrar).toHaveBeenCalledWith("ver_nao_contribuiram", { ini: "2026-04-28", fim: "2026-10-27", base: "membros_congregados", categorias: ["dizimo", "oferta", "missoes"], menores: false }, 3);
     expect(qa('[data-lista="sem-contribuicao"] [data-pessoa]').map(e => e.querySelector("button, span")?.textContent)).toEqual(["Bia Teste", "Caio Teste", "Duda Teste"]);
   });
   it("sem registro, sem nomes", async () => {
     registrar.mockResolvedValue({ ok: false, indisponivel: false, erro: "falhou" });
     await abrir("/financas/doadores?aba=sem");
+    await liberar();
     expect(qa("[data-pessoa]").length).toBe(0);
     expect(q('[data-registro="erro"]')).not.toBeNull();
   });
   it("'Incluir menores' põe o menor na lista (e é outro recorte, outro registro)", async () => {
     await abrir("/financas/doadores?aba=sem&menores=1");
+    await liberar();
     expect(valorDe("base")).toBe("6");
     expect(qa("[data-pessoa]").length).toBe(4);
     expect(registrar).toHaveBeenCalledWith("ver_nao_contribuiram", expect.objectContaining({ menores: true }), 4);
+  });
+});
+
+describe("confiabilidade da lista de 'sem contribuição' (pedido dela, 27/10/2026)", () => {
+  it("mostra o quadro: nível, % identificado, pendências, impacto potencial, data dos dados e o aviso de que só contam contribuições identificadas", async () => {
+    await abrir("/financas/doadores?aba=sem");
+    const c = q("[data-confiabilidade]")!;
+    expect(c).not.toBeNull();
+    expect(c.getAttribute("data-confiabilidade")).toBe("media");   // 70 de 670 pendentes = 10,4%
+    for (const x of ["Confiabilidade desta lista: Média", "Contribuições identificadas: 89,6%", "Contribuições pendentes de identificação: 1", "Impacto potencial: até 1 das 3 pessoas", "último extrato importado em 20/10/2026", "apenas contribuições identificadas e vinculadas a pessoas"]) expect(c.textContent).toContain(x);
+  });
+  it("o título é 'Sem contribuição registrada no período analisado' — e nunca 'não dizimistas'", async () => {
+    await abrir("/financas/doadores?aba=sem");
+    expect(q("[data-titulo-sem]")!.textContent).toBe("Sem contribuição registrada no período analisado");
+    expect(document.body.textContent).not.toMatch(/n[aã]o dizimistas/i);
+  });
+  it("só dízimo escolhido: o título vira 'Sem dízimo registrado no período analisado'", async () => {
+    await abrir("/financas/doadores?aba=sem&cats=dizimo");
+    expect(q("[data-titulo-sem]")!.textContent).toBe("Sem dízimo registrado no período analisado");
+    expect(q('[data-indicador="nao"]')!.textContent).toContain("Sem dízimo registrado");
+  });
+  it("A TRAVA: com pendências demais a lista com nomes NÃO aparece e o acesso NÃO é registrado até a tesouraria dizer 'ver mesmo assim'", async () => {
+    await abrir("/financas/doadores?aba=sem");
+    expect(q('[data-trava="pendencias"]')).not.toBeNull();
+    expect(q('[data-trava="pendencias"]')!.textContent).toContain("Existem 1 contribuições pendentes de identificação");
+    expect(q('[data-trava="pendencias"]')!.textContent).toContain("Os resultados podem mudar");
+    expect(qa("[data-pessoa]").length).toBe(0);
+    expect(q('[data-lista="sem-contribuicao"]')).toBeNull();
+    expect(registrar).not.toHaveBeenCalledWith("ver_nao_contribuiram", expect.anything(), expect.anything());
+    await liberar();
+    expect(q('[data-trava="pendencias"]')).toBeNull();
+    expect(qa("[data-pessoa]").length).toBe(3);
+    expect(registrar).toHaveBeenCalledWith("ver_nao_contribuiram", expect.anything(), 3);
+  });
+  it("a trava oferece o caminho certo: resolver as pendências primeiro (leva à aba Pendentes)", async () => {
+    await abrir("/financas/doadores?aba=sem");
+    await act(async () => { q('[data-acao="resolver-pendencias"]')!.click(); });
+    await act(async () => { await new Promise(r => setTimeout(r, 30)); });
+    expect(q('[role="tab"][aria-selected="true"]')?.textContent).toContain("Pendentes");
   });
 });
 
@@ -177,6 +222,7 @@ describe("exportar a lista nominal também registra", () => {
   });
   it("Excel de Sem contribuição registra 'exportar_nao_contribuiram'", async () => {
     await abrir("/financas/doadores?aba=sem");
+    await liberar();
     registrar.mockClear();
     await act(async () => { botao("Excel")!.click(); });
     await act(async () => { await new Promise(r => setTimeout(r, 20)); });
@@ -268,6 +314,7 @@ describe("Fase 2B: filtros globais, card Saúde da base, ordenação e valores",
   });
   it("trocar a base na barra muda os critérios e o recorte registrado", async () => {
     await abrir("/financas/doadores?base=membros&aba=sem");
+    await liberar();
     expect(q("[data-criterios]")!.textContent).toContain("Base analisada:Membros (ativos)");
     expect(registrar).toHaveBeenCalledWith("ver_nao_contribuiram", expect.objectContaining({ base: "membros" }), expect.any(Number));
   });

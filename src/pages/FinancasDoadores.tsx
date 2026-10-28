@@ -28,17 +28,18 @@ import { hojeLocal } from "@/lib/data";
 import { gerarXlsx } from "@/lib/xlsxSimples";
 import {
   BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, DIAS_NO_MES_MEDIO, FILTROS_PADRAO, PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ROTULO_DA_BASE, VERSAO_DOS_CRITERIOS, VINCULOS_DA_BASE,
-  ajustarAoPiso, analisarContribuicoes, analisarSemContribuicao, aplicarFiltros, diasEntre, idsDaBase, intervaloDoPreset, linhasDoCabecalho, resumirBase, resumirPessoas,
-  type BaseAnalisada, type LinhaDeContribuicao, type PessoaDaBase, type PresetDePeriodo, type TipoDeContribuicao,
+  ajustarAoPiso, analisarContribuicoes, analisarSemContribuicao, aplicarFiltros, calcularConfiabilidade, diasEntre, idsDaBase, intervaloDoPreset, linhasDoCabecalho, oQueFaltaAQuemNaoContribuiu, resumirBase, resumirPessoas,
+  type BaseAnalisada, type DecisaoDeTriagem, type LinhaDeContribuicao, type PessoaDaBase, type PresetDePeriodo, type TipoDeContribuicao,
 } from "@/lib/contribuicoes";
-import { carregarBaseDePessoas, carregarContribuicoes, carregarNomes, registrarAcessoNominal, type AcaoDoRegistro } from "@/services/contribuicoesService";
+import { carregarBaseDePessoas, carregarContribuicoes, carregarNomes, carregarUltimoExtratoDoBanco, registrarAcessoNominal, type AcaoDoRegistro } from "@/services/contribuicoesService";
+import { carregarTriagem } from "@/services/pendentesDeIdentificacaoService";
 import { downloadCSV } from "@/services/finService";
 import { PainelDeContribuicoes } from "@/components/contribuicoes/PainelDeContribuicoes";
 import { ListaDePessoas, ordemDaUrl, topDaUrl, type GrupoDePessoas, type PessoaDaLista } from "@/components/contribuicoes/ListaDePessoas";
 import { SemContribuicao, type FiltrosDosSem } from "@/components/contribuicoes/SemContribuicao";
 import { PendentesDeIdentificacao } from "@/components/contribuicoes/PendentesDeIdentificacao";
 import { useRegistroDeAcesso } from "@/components/contribuicoes/useRegistroDeAcesso";
-import { abaDePessoas, abasDoPainel, abasDosSemContribuicao, paraCSV, textoDoPeriodo } from "@/components/contribuicoes/exportacoes";
+import { abaDePessoas, abasDoPainel, abasDosSemContribuicao, linhasDeConfiabilidadeParaArquivo, paraCSV, textoDoPeriodo } from "@/components/contribuicoes/exportacoes";
 
 type Aba = "painel" | "pessoas" | "sem" | "pendentes";
 const ABAS: { id: Aba; rotulo: string }[] = [{ id: "painel", rotulo: "Painel" }, { id: "pessoas", rotulo: "Pessoas" }, { id: "sem", rotulo: "Sem contribuição" }, { id: "pendentes", rotulo: "Pendentes de identificação" }];
@@ -119,6 +120,24 @@ export default function FinancasDoadores() {
     [linhas, pessoasDaBase, periodo, url.menores, baseEscolhida],
   );
   const saude = useMemo(() => (semAnalise ? resumirBase(semAnalise) : null), [semAnalise]);
+  // a CONFIABILIDADE da lista de "sem dízimo / sem contribuição" (pedido dela, 27/10/2026): o que está pendente de identificação, o impacto potencial e até quando vão os dados.
+  // Anônima e ignorada (a triagem da aba Pendentes) não são pendência; o último extrato do banco diz até quando o banco está refletido.
+  const [decisoes, setDecisoes] = useState<Map<string, DecisaoDeTriagem>>(new Map());
+  const [ultimoExtrato, setUltimoExtrato] = useState<string | null>(null);
+  useEffect(() => {
+    if (!linhasBrutas) return;
+    carregarTriagem().then(t => setDecisoes(new Map(t.vigentes.map(v => [v.lancamento_id, v.decisao])))).catch(() => undefined);
+    carregarUltimoExtratoDoBanco().then(setUltimoExtrato).catch(() => undefined);
+  }, [linhasBrutas]);
+  const confiabilidade = useMemo(
+    () => (linhasBrutas && semAnalise && !periodo.vazio ? calcularConfiabilidade(linhasBrutas, { ini: periodo.ini, fim: periodo.fim }, { categorias: categoriasEscolhidas, tamanhoDaLista: semAnalise.naoContribuiram, decisoes, ultimoExtrato }) : null),
+    [linhasBrutas, semAnalise, periodo, categoriasEscolhidas, decisoes, ultimoExtrato],
+  );
+  const oque = oQueFaltaAQuemNaoContribuiu(categoriasEscolhidas);
+  // a trava: com muita pendência a lista com nomes só aparece depois de a tesouraria dizer que quer ver mesmo assim (vale para esta situação; se as pendências mudarem, avisa de novo)
+  const [reconhecidoEm, setReconhecidoEm] = useState("");
+  const chaveDaTrava = confiabilidade ? `${confiabilidade.nivel}|${confiabilidade.pendentesDaLista.quantidade}|${periodo.ini}|${periodo.fim}` : "";
+  const semLiberado = !confiabilidade?.alertar || reconhecidoEm === chaveDaTrava;
   const recorteDosFiltros = { base: baseEscolhida, categorias: categoriasEscolhidas };
   // o cabeçalho de rastreabilidade (o mesmo do e-mail): período, base, contribuições, pessoas consideradas, quando e versão
   const cabecalho = useMemo(() => {
@@ -157,7 +176,7 @@ export default function FinancasDoadores() {
     tipo: url.tipo === "membro" || url.tipo === "congregado" || url.tipo === "visitante" ? url.tipo : "todos", classe: url.classe === "nunca" || url.classe === "antes" ? url.classe : "todos",
     faixa: (["ate30", "de31a60", "de61a90", "de91a180", "mais180"] as const).find(f => f === url.faixa) ?? "", semFamilia: url.familia === "1",
   };
-  const registroSem = useRegistroDeAcesso("ver_nao_contribuiram", { ini: periodo.ini, fim: periodo.fim, ...recorteDosFiltros, menores: filtrosSem.incluirMenores }, semAnalise?.naoContribuiram ?? null, aba === "sem" && !!semAnalise);
+  const registroSem = useRegistroDeAcesso("ver_nao_contribuiram", { ini: periodo.ini, fim: periodo.fim, ...recorteDosFiltros, menores: filtrosSem.incluirMenores }, semAnalise?.naoContribuiram ?? null, aba === "sem" && !!semAnalise && semLiberado);
 
   // ── exportar: nominal só depois de gravar o registro ──
   const [exportando, setExportando] = useState(false);
@@ -192,8 +211,8 @@ export default function FinancasDoadores() {
     try {
       if (!(await registrarOuAvisar("exportar_nao_contribuiram", { ini: periodo.ini, fim: periodo.fim, ...recorteDosFiltros, menores: filtrosSem.incluirMenores, formato }, visiveis.length))) return;
       const quemEntra = `${ROTULO_DA_BASE[baseEscolhida]} (ativos); ${categoriasEscolhidas.length === 3 ? "dízimos, ofertas e missões" : categoriasEscolhidas.join(", ")}`;
-      if (formato === "xlsx") saveAs(await gerarXlsx(abasDosSemContribuicao({ ...semAnalise, lista: visiveis }, periodo, quemEntra)), nomeDoArquivo("sem_contribuicao", "xlsx"));
-      else downloadCSV(nomeDoArquivo("sem_contribuicao", "csv"), paraCSV([["Nome", "Tipo", "Situação", "Última contribuição", "Dias", "Família contribuiu", "Menor de 18", "Sem nascimento"], ...visiveis.map(p => [p.nome, p.tipo === "membro" ? "Membro" : "Congregado", p.classificacao === "nunca" ? "Sem registro anterior ao período" : "Contribuiu antes do período", p.ultima ? dataBr(p.ultima) : "", p.dias, p.familiaContribui ? "Sim" : "Não", p.menor ? "Sim" : "Não", p.semNascimento ? "Sim" : "Não"])]));
+      if (formato === "xlsx") saveAs(await gerarXlsx(abasDosSemContribuicao({ ...semAnalise, lista: visiveis }, periodo, quemEntra, oque, confiabilidade)), nomeDoArquivo("sem_contribuicao", "xlsx"));
+      else downloadCSV(nomeDoArquivo("sem_contribuicao", "csv"), paraCSV([...(confiabilidade ? [...linhasDeConfiabilidadeParaArquivo(confiabilidade).map(l => [l]), []] : []), ["Nome", "Tipo", "Situação", "Última contribuição", "Dias", "Família contribuiu", "Menor de 18", "Sem nascimento"], ...visiveis.map(p => [p.nome, p.tipo === "membro" ? "Membro" : "Congregado", p.classificacao === "nunca" ? "Sem registro anterior ao período" : "Contribuiu antes do período", p.ultima ? dataBr(p.ultima) : "", p.dias, p.familiaContribui ? "Sim" : "Não", p.menor ? "Sim" : "Não", p.semNascimento ? "Sim" : "Não"])]));
       toast.success("Arquivo exportado");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível gerar o arquivo."); } finally { setExportando(false); }
   }
@@ -284,7 +303,8 @@ export default function FinancasDoadores() {
                   ...(p.incluirMenores !== undefined && { menores: p.incluirMenores ? "1" : "" }),
                   ...(p.tipo !== undefined && { tipo: p.tipo }), ...(p.classe !== undefined && { classe: p.classe }), ...(p.faixa !== undefined && { faixa: p.faixa }), ...(p.semFamilia !== undefined && { familia: p.semFamilia ? "1" : "" }),
                 })}
-                registro={registroSem} aoExportar={exportarSem} exportando={exportando} coberturaDoPeriodo={analise?.cobertura.pctDoValor ?? null} />
+                registro={registroSem} aoExportar={exportarSem} exportando={exportando} coberturaDoPeriodo={analise?.cobertura.pctDoValor ?? null}
+                confiabilidade={confiabilidade} oque={oque} reconhecido={semLiberado} aoReconhecer={() => setReconhecidoEm(chaveDaTrava)} aoVerPendencias={() => mudar({ aba: "pendentes" })} />
             )}
           </TabsContent>
         </Tabs>

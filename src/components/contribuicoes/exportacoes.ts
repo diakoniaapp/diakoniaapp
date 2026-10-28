@@ -2,7 +2,7 @@
 // Puro (monta as abas e o texto); quem baixa é a tela, DEPOIS de gravar o registro de acesso. O Resumo e as Semanas são agregados; as listas de pessoas são nominais (e por isso só saem com o registro).
 import type { Aba, Celula } from "@/lib/xlsxSimples";
 import { serialDoExcel } from "@/lib/xlsxSimples";
-import { PISO_DE_IDENTIFICACAO, type AnaliseDoPeriodo, type AnaliseDosSemContribuicao, type PessoaSemContribuicao } from "@/lib/contribuicoes";
+import { AVISO_SO_IDENTIFICADAS, PISO_DE_IDENTIFICACAO, linhasDaConfiabilidade, textoDoAlerta, type AnaliseDoPeriodo, type AnaliseDosSemContribuicao, type Confiabilidade, type PessoaSemContribuicao } from "@/lib/contribuicoes";
 
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const cab = (...t: string[]): Celula[] => t.map(v => ({ v, estilo: "cabecalho" as const }));
@@ -66,13 +66,24 @@ export function abaDePessoas(linhas: LinhaDePessoa[], periodo: { ini: string; fi
 const SITUACAO = { nunca: "Sem registro anterior ao período", antes: "Contribuiu antes do período" } as const;
 const observacao = (p: PessoaSemContribuicao) => [p.menor ? "menor de 18 anos" : "", p.semNascimento ? "sem data de nascimento" : "", p.familiaContribui ? "alguém da família contribuiu no período" : ""].filter(Boolean).join("; ");
 
-export function abasDosSemContribuicao(a: AnaliseDosSemContribuicao, periodo: { ini: string; fim: string }, quemEntra: string): Aba[] {
+/** O texto do quadro de confiabilidade para o topo da planilha/CSV: o aviso e as linhas (nível, % identificado, pendências, impacto, data dos dados). */
+export function linhasDeConfiabilidadeParaArquivo(c: Confiabilidade): string[] {
+  return ["CONFIABILIDADE DESTA LISTA", AVISO_SO_IDENTIFICADAS, ...(c.alertar ? [textoDoAlerta(c)] : []), ...linhasDaConfiabilidade(c)];
+}
+
+export function abasDosSemContribuicao(a: AnaliseDosSemContribuicao, periodo: { ini: string; fim: string }, quemEntra: string, oque = "contribuições", confiabilidade?: Confiabilidade | null): Aba[] {
+  // com todas as contribuições escolhidas o título é o de sempre; com só dízimo: "SEM DÍZIMO REGISTRADO NO PERÍODO ANALISADO"
+  const titulo = oque === "contribuições" ? "SEM CONTRIBUIÇÃO REGISTRADA NO PERÍODO" : `SEM ${oque} NO PERÍODO ANALISADO`.toUpperCase();
+  const preambulo: Celula[][] = [
+    [{ v: titulo, estilo: "titulo" }], [`Período: ${textoDoPeriodo(periodo.ini, periodo.fim)} · ${quemEntra}`],
+    ["Lista para cuidado pastoral. Quem contribui por outra pessoa da família, em espécie ou sem identificação pode aparecer aqui."],
+    ...(confiabilidade ? [[], ...linhasDeConfiabilidadeParaArquivo(confiabilidade).map((l): Celula[] => [l])] : [[AVISO_SO_IDENTIFICADAS]]), [],
+  ];
   return [
     {
-      nome: "Sem contribuição", larguras: [38, 14, 36, 16, 10, 40], linhaDoCabecalho: 4,
+      nome: oque === "contribuições" ? "Sem contribuição" : "Sem dízimo registrado".slice(0, 31), larguras: [38, 14, 36, 16, 10, 40], linhaDoCabecalho: preambulo.length,
       linhas: [
-        [{ v: "SEM CONTRIBUIÇÃO REGISTRADA NO PERÍODO", estilo: "titulo" }], [`Período: ${textoDoPeriodo(periodo.ini, periodo.fim)} · ${quemEntra}`],
-        ["Lista para cuidado pastoral. Quem contribui por outra pessoa da família, em espécie ou sem identificação pode aparecer aqui."], [],
+        ...preambulo,
         cab("Nome", "Tipo", "Situação", "Última contribuição", "Dias", "Observação"),
         ...a.lista.map((p): Celula[] => [p.nome, p.tipo === "membro" ? "Membro" : p.tipo === "visitante" ? "Visitante" : "Congregado", SITUACAO[p.classificacao], DATA(p.ultima), INT(p.dias), observacao(p)]),
       ],

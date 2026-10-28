@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileSpreadsheet, FileText, Info, Loader2 } from "lucide-react";
+import { AlertTriangle, FileSpreadsheet, FileText, Info, Loader2 } from "lucide-react";
 import { NomePessoa } from "@/components/membros/ficha";
-import { FAIXAS_SEM_CONTRIBUICAO, type AnaliseDosSemContribuicao, type FaixaSemContribuicao, type PessoaSemContribuicao } from "@/lib/contribuicoes";
+import { FAIXAS_SEM_CONTRIBUICAO, textoDoAlerta, type AnaliseDosSemContribuicao, type Confiabilidade, type FaixaSemContribuicao, type PessoaSemContribuicao } from "@/lib/contribuicoes";
+import { IndicadorDeConfiabilidade } from "./IndicadorDeConfiabilidade";
 import { textoDoRegistro, type EstadoDoRegistro } from "./useRegistroDeAcesso";
 
 export type FiltroDeClasse = "todos" | "nunca" | "antes";
@@ -44,18 +45,33 @@ interface Props {
   aoExportar: (formato: "xlsx" | "csv", visiveis: PessoaSemContribuicao[]) => void;
   exportando: boolean;
   coberturaDoPeriodo: number | null;
+  /** o quadro de confiabilidade da lista (pendentes, impacto, data dos dados); sem ele a tela não o mostra */
+  confiabilidade?: Confiabilidade | null;
+  /** "Sem dízimo registrado", "Sem contribuição registrada"… conforme as categorias escolhidas */
+  oque?: string;
+  /** a trava: com muitas pendências, a lista com nomes só aparece depois de a tesouraria dizer que quer ver mesmo assim */
+  reconhecido?: boolean;
+  aoReconhecer?: () => void;
+  aoVerPendencias?: () => void;
 }
 
-export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro, aoExportar, exportando, coberturaDoPeriodo }: Props) {
+export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro, aoExportar, exportando, coberturaDoPeriodo, confiabilidade, oque = "contribuições", reconhecido = true, aoReconhecer, aoVerPendencias }: Props) {
   const visiveis = useMemo(() => filtrarSemContribuicao(a.lista, filtros), [a.lista, filtros]);
-  const oQue = "contribuição";   // o que conta como contribuir é o filtro global de categorias (barra no alto da tela)
+  const oQue = oque === "contribuições" ? "contribuição" : oque.replace(/ (registrad[oa]s?)$/, "");   // o que conta como contribuir é o filtro global de categorias (barra no alto da tela)
+  const semX = oque === "contribuições" ? "Sem contribuição registrada" : `Sem ${oque}`;
+  const travada = !!confiabilidade?.alertar && !reconhecido;   // muita pendência: avisa ANTES da lista com nomes
 
   return (
     <div className="space-y-4" data-bloco="sem-contribuicao">
+      <div>
+        <h2 className="font-serif text-lg" data-titulo-sem>{oque === "contribuições" ? "Sem contribuição registrada no período analisado" : `Sem ${oque} no período analisado`}</h2>
+      </div>
+      {confiabilidade && <IndicadorDeConfiabilidade c={confiabilidade} aoVerPendencias={aoVerPendencias} />}
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
         <Peca id="base" rotulo="Membros e congregados ativos" valor={String(a.base)} legenda={a.menoresFora > 0 ? `${a.menoresFora} menores de 18 anos fora da base` : "base considerada"} />
         <Peca id="contribuiram" rotulo={`Com ${oQue} no período`} valor={String(a.contribuiram)} legenda={a.adesaoPct === null ? "—" : `${a.adesaoPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da base`} />
-        <Peca id="nao" rotulo={`Sem ${oQue} registrada`} valor={String(a.naoContribuiram)} legenda="no período filtrado" />
+        <Peca id="nao" rotulo={semX} valor={String(a.naoContribuiram)} legenda="no período filtrado" />
         <Peca id="nunca" rotulo="Sem registro anterior" valor={String(a.nuncaDesdeOPiso)} legenda="sem contribuição no período nem antes dele" />
         <Peca id="antes" rotulo="Contribuíram antes do período" valor={String(a.jaContribuiuAntes)} legenda="e não neste período" />
         <Peca id="familia" rotulo="Com família que contribuiu" valor={String(a.comFamiliaQueContribui)} legenda="podem contribuir por outra pessoa" />
@@ -93,7 +109,17 @@ export function SemContribuicao({ analise: a, filtros, aoMudarFiltros, registro,
         </div>
       </CardContent></Card>
 
-      {registro.estado === "erro" ? (
+      {travada ? (
+        <Card className="border-warning/40 bg-warning/5" data-trava="pendencias"><CardContent className="py-5 px-4 space-y-3">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-warning-text"><AlertTriangle className="w-4 h-4" aria-hidden />Antes de ver a lista com nomes</p>
+          <p className="text-sm">{textoDoAlerta(confiabilidade!)}</p>
+          <p className="text-xs text-muted-foreground">Recomendamos concluir a análise das pendências antes de usar esta lista para decisões pastorais: alguém pode aparecer aqui só porque a contribuição ainda não foi vinculada à pessoa.</p>
+          <div className="flex flex-wrap gap-2">
+            {aoVerPendencias && <Button size="sm" onClick={aoVerPendencias} data-acao="resolver-pendencias">Resolver as pendências primeiro</Button>}
+            <Button size="sm" variant="outline" onClick={aoReconhecer} data-acao="ver-lista-mesmo-assim">Ver a lista mesmo assim</Button>
+          </div>
+        </CardContent></Card>
+      ) : registro.estado === "erro" ? (
         <Card className="border-dashed" data-registro="erro"><CardContent className="py-6 text-center space-y-2">
           <p className="text-sm">Não foi possível registrar este acesso, então a lista com nomes não é mostrada.</p>
           <p className="text-xs text-muted-foreground">{registro.erro}</p>

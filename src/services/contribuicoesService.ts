@@ -5,6 +5,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { lerBaseDePessoas, lerContribuicoesDoPiso } from "../../supabase/functions/_shared/contribuicoes/carregar";
 import type { LinhaDeContribuicao, PessoaDaBase } from "@/lib/contribuicoes";
+import { ehContaDeBanco, lerExtratoDasContas } from "../../supabase/functions/_shared/saldos/extratoDasContas";
 
 const PAGINA = 1000;
 
@@ -22,6 +23,12 @@ async function paginar<T>(consulta: (de: number, ate: number) => PromiseLike<{ d
 /** As contribuições (Dízimos, Ofertas, Missões) realizadas/conciliadas de 01/01/2026 até `fim`, com ou sem pessoa ligada. A consulta é a MESMA do e-mail ao pastor (`_shared/contribuicoes/carregar.ts`). */
 export async function carregarContribuicoes(fim: string): Promise<LinhaDeContribuicao[]> {
   return lerContribuicoesDoPiso(supabase, fim);
+}
+
+/** A data do último extrato importado de uma conta de banco (AAAA-MM-DD), ou `null` se não se sabe: é até quando o banco está refletido nos dados. A MESMA leitura do e-mail. */
+export async function carregarUltimoExtratoDoBanco(): Promise<string | null> {
+  const contas = await lerExtratoDasContas(supabase as never);
+  return contas.filter(ehContaDeBanco).map(c => c.ultimo_movimento).filter((d): d is string => !!d).sort().pop() ?? null;
 }
 
 /** Membros e congregados ATIVOS, com a família de cada um. A MESMA consulta do e-mail ao pastor (`_shared/contribuicoes/carregar.ts`). Quem não está na base (inativo, ex-membro, visitante) volta só pelo nome, em `carregarNomes`. */
