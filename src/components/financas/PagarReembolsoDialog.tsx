@@ -27,7 +27,13 @@ import { supabase } from "@/integrations/supabase/client";
 export type AlvoDoReembolso = Pick<QuitacaoDaObrigacao, "quitacaoId" | "obrigacaoId" | "responsavel" | "pessoaId" | "fornecedorId" | "responsavelNome" | "valorDaObrigacao" | "reembolsado" | "saldoAReembolsar"> & {
   descricao?: string | null;
   emitente?: string | null;
+  /** grau da prova da INTENÇÃO (declaração/pedido assinado): sem ela só se paga em espécie (Opção B, 28/10/2026); ausente = não se sabe, e quem decide é o banco */
+  grauIntencao?: QuitacaoDaObrigacao["grauIntencao"];
 };
+
+/** Espécie = conta Caixinha/Envelopes ou forma Dinheiro (a mesma definição da regra documental). */
+export const pagamentoEmEspecie = (contaTipo: string | null | undefined, forma: string | null | undefined): boolean =>
+  contaTipo === "caixa" || contaTipo === "envelope" || forma === "dinheiro";
 
 /** CPF/CNPJ de quem recebe, do cadastro (pessoa ou favorecido); sem ele o recibo sai só com o nome. */
 async function documentoDeQuemRecebe(pessoaId: string | null | undefined, fornecedorId: string | null | undefined): Promise<string | null> {
@@ -115,7 +121,9 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
 
   if (!alvo) return null;
   const parcial = valor > 0 && valor < saldo - 0.004;
-  const problema = !(valor > 0) ? "Informe o valor." : valor > saldo + 0.004 ? `O valor passa do que falta reembolsar (${brl(saldo)}).` : !contaId ? "Escolha a conta de onde sai o pagamento." : !data ? "Informe a data." : null;
+  const semDeclaracaoAntes = !!alvo.grauIntencao && alvo.grauIntencao !== "formal";
+  const problema = !(valor > 0) ? "Informe o valor." :
+    semDeclaracaoAntes && !pagamentoEmEspecie(conta?.tipo, forma) ? "Sem a Solicitação e Recibo assinada antes, só se paga em espécie (conta Caixinha ou forma Dinheiro). Por PIX ou TED, anexe antes a via assinada." : valor > saldo + 0.004 ? `O valor passa do que falta reembolsar (${brl(saldo)}).` : !contaId ? "Escolha a conta de onde sai o pagamento." : !data ? "Informe a data." : null;
 
   async function pagar() {
     if (!alvo || problema) return;
@@ -213,6 +221,7 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
           )}
           {!carregandoPix && !pix && <p className="text-xs text-muted-foreground rounded-md border border-dashed p-2">Quem recebe ainda não tem chave Pix cadastrada: pague pelo meio combinado e registre o pagamento aqui.</p>}
 
+          {semDeclaracaoAntes && <p className="text-xs rounded-md border border-info-line bg-info-soft px-2 py-1.5 text-info-text">Reembolso <b>em espécie</b> pode ser pago sem a declaração assinada antes: imprima a Solicitação e Recibo, o recebedor assina <b>no ato do pagamento</b> e a via assinada é anexada depois (a despesa só fica em ordem com ela).</p>}
           <div>
             <label className="text-xs font-medium flex items-center gap-1.5 mb-1"><Paperclip className="w-3.5 h-3.5" /> Comprovante do pagamento (opcional agora)</label>
             <p className="text-[11px] text-muted-foreground mb-1">PIX ou TED: anexe o comprovante do banco. <b>Em espécie</b> não precisa: o recebedor assina a Solicitação e Recibo e você anexa a via assinada na despesa.</p>

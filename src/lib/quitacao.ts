@@ -163,6 +163,11 @@ export interface EntradaDaMatriz {
   formalizacaoVencida: boolean;
   /** o Administrador já aprovou o grau Relatado desta quitação (vale para o nível Médio) */
   aprovadoPeloAdministrador: boolean;
+  /**
+   * A obrigação já foi paga pela igreja por inteiro (Opção B, 28/10/2026): no REEMBOLSO a declaração assinada deixa de ser exigida ANTES de pagar — o recebedor a assina no ato do pagamento — e passa a ser
+   * exigida DEPOIS de pago. Ausente = ainda não paga.
+   */
+  paga?: boolean;
   parametros: Pick<ParametrosDaQuitacao, "teto1" | "prazoDeclaracaoDias" | "tetoAnualTerceiro" | "qtdRelatadasTrimestre" | "limiteCapitalizacao">;
 }
 
@@ -272,7 +277,12 @@ export function avaliarQuitacao(e: EntradaDaMatriz): AvaliacaoDaMatriz {
   else if (e.grauResponsavel === "nenhum") motivo = "Falta identificar quem pagou.";
   else if (e.grauIntencao === "nenhum") motivo = "Falta a declaração da intenção.";
   else if (grauConjunto === "formal") suficiente = true;
-  else if (e.intencao === "reembolso") motivo = "Reembolso só se paga com a prova Formal: anexe o Pedido de Reembolso e o comprovante do pagamento do terceiro.";
+  // OPÇÃO B (28/10/2026): com a prova do pagamento do terceiro Formal, o reembolso pode ser pago SEM a declaração assinada antes (ela é assinada pelo recebedor no ato do pagamento). Quem decide se o
+  // pagamento pode sair assim é `fin_liquidar_reembolso` (só em espécie); depois de pago, a falta da declaração volta a tornar a prova insuficiente
+  else if (e.intencao === "reembolso" && e.grauResponsavel === "formal" && e.grauIntencao === "relatado" && !e.paga) suficiente = true;
+  else if (e.intencao === "reembolso") motivo = e.paga && e.grauResponsavel === "formal" && e.grauIntencao === "relatado"
+    ? "Reembolso pago: falta a Solicitação e Recibo de Reembolso assinada pelo recebedor (a prova do recebimento)."
+    : "Reembolso só se paga com a prova Formal: anexe o Pedido de Reembolso e o comprovante do pagamento do terceiro.";
   else if (e.intencao === "compensacao_adiantamento") motivo = "A compensação de adiantamento exige a prova Formal.";
   else if (nivel === "baixo") suficiente = true;
   else if (nivel === "medio") {
