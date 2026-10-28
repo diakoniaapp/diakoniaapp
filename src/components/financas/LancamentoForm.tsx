@@ -1186,7 +1186,7 @@ export function LancamentoForm({
                   {formasDisponiveis.map(k => (
                     <SelectItem key={k} value={k}>{FORMA_LABEL[k]}</SelectItem>
                   ))}
-                  {tipo === "saida" && [...LIQUIDACAO_AUTOMATICA].map(f => <SelectItem key={f} value={`${PREFIXO_AUTOMATICA}${f}`}>{ROTULO_LIQUIDACAO[f]}</SelectItem>)}
+                  {tipo === "saida" && [...LIQUIDACAO_AUTOMATICA].map(f => <SelectItem key={f} value={`${PREFIXO_AUTOMATICA}${f}`}>{f === "debito_automatico" ? "Débito / cobrança automática" : ROTULO_LIQUIDACAO[f]}</SelectItem>)}
                 </SelectContent>
               </Select>
               {tipo === "saida" && ehAutomatica(liquidacao) && <p className="text-[11px] text-muted-foreground mt-1">{DICA_LIQUIDACAO[liquidacao]}</p>}
