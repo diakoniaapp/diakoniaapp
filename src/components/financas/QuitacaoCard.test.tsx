@@ -186,14 +186,15 @@ describe("a Declaração do Terceiro no cartão (Fase 1D-a)", () => {
     expect(el.textContent).toMatch(/Anexar prova do pagamento/);
     expect(el.textContent).toMatch(/Declaração do Terceiro/);
     expect(el.textContent).toMatch(/Ainda não gerada/);
-    expect(botao(el, "Gerar Declaração (PDF)")).toBeTruthy();
+    expect(botao(el, "Gerar Solicitação e Recibo (PDF)")).toBeTruthy();
+    expect(el.textContent).toMatch(/comprovante do recebimento/);
   });
   it("sem a forma de pagamento do terceiro pede a forma e ainda não oferece gerar", async () => {
     declDisp = true; situacao = sit("sem_declaracao", null);
     quitacao = reembolso();
     const el = await montar(lanc());
     expect(el.textContent).toMatch(/Como o terceiro pagou o fornecedor/);
-    expect(botao(el, "Gerar Declaração (PDF)")).toBeFalsy();
+    expect(botao(el, "Gerar Solicitação e Recibo (PDF)")).toBeFalsy();
   });
   it("aguardando assinatura: mostra o número e a versão e oferece registrar a via assinada", async () => {
     declDisp = true; situacao = sit("aguardando_assinatura");

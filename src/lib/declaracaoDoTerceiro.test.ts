@@ -35,9 +35,9 @@ describe("a Declaração do Terceiro gerada pelo sistema", () => {
   it("mostra número, versão e código de verificação, a forma de pagamento por extenso e o valor em reais", () => {
     const t = textoDaDeclaracao(via, conteudo({ forma_pagamento: "cartao_debito" }));
     expect(t.identificacao).toBe("nº DT-2026-0007 · versão 2 · código de verificação a1b2c3d4e5f6");
-    expect(t.campos.find(c => c[0] === "Forma de pagamento")?.[1]).toBe("Cartão de débito");
+    expect(t.campos.find(c => c[0] === "Pago ao fornecedor por")?.[1]).toBe("Cartão de débito");
     expect(t.campos.find(c => c[0] === "Valor")?.[1].replace(/\u00a0/g, " ")).toBe("R$ 240,50");
-    expect(t.campos.find(c => c[0] === "Data do pagamento")?.[1]).toBe("05/10/2026");
+    expect(t.campos.find(c => c[0] === "Pago ao fornecedor em")?.[1]).toBe("05/10/2026");
   });
   it("centro e categoria saem como informação da igreja, fora do que o terceiro assina", () => {
     const t = textoDaDeclaracao(via, conteudo());
@@ -55,11 +55,31 @@ describe("a Declaração do Terceiro gerada pelo sistema", () => {
     expect(Math.round(width)).toBe(595);
     expect(Math.round(height)).toBe(842);
  }, 30_000);
-  it("a assinatura tem data e assinatura do declarante", () => {
-    const t = textoDaDeclaracao(via, conteudo());
+  it("OFERTA: continua a Declaração do Terceiro, com data e assinatura do declarante, sem bloco de recibo", () => {
+    const t = textoDaDeclaracao(via, conteudo({ intencao: "oferta", chave_pix: null }));
+    expect(t.titulo).toBe("DECLARAÇÃO DO TERCEIRO");
     expect(t.assinaturas.map(a => a.rotulo)).toEqual(["Data da assinatura", "Assinatura do declarante"]);
-    expect(t.assinaturas[1].apoio).toBe("Ana Souza");
+    expect(t.recibo).toBeUndefined();
+    expect(t.campos.map(c => c[0])).toContain("Forma de pagamento");
   });
+  it("REEMBOLSO (28/10/2026): vira 'Solicitação e Recibo de Reembolso' — bloco de recibo, 'Pago em' e assinatura do RECEBEDOR", () => {
+    const t = textoDaDeclaracao(via, conteudo());
+    expect(t.titulo).toBe("SOLICITAÇÃO E RECIBO DE REEMBOLSO");
+    expect(t.assinaturas.map(a => a.rotulo)).toEqual(["Pago em", "Assinatura do recebedor"]);
+    expect(t.assinaturas[1].apoio).toBe("Ana Souza");
+    expect(t.recibo?.frase.replace(/ /g, " ")).toBe("Declaro que recebi da Quarta Igreja Batista do Rio de Janeiro o valor de R$ 240,50 referente ao reembolso das despesas descritas neste documento.");
+    expect(t.recibo?.linhas.join(" ")).toMatch(/Espécie.*PIX.*Transferência.*Outro.*Valor recebido/);
+    expect(t.rodape).toMatch(/comprovante do recebimento/);
+  });
+  it("no reembolso a forma e a data da COMPRA não se confundem com as do recibo", () => {
+    const t = textoDaDeclaracao(via, conteudo());
+    expect(t.campos.map(c => c[0])).toEqual(expect.arrayContaining(["Pago ao fornecedor por", "Pago ao fornecedor em"]));
+    expect(t.campos.map(c => c[0])).not.toContain("Forma de pagamento");
+  });
+  it("o PDF do reembolso, com o bloco do recibo, continua em UMA folha A4", async () => {
+    const { PDFDocument } = await import("pdf-lib");
+    expect((await PDFDocument.load(await montarDeclaracaoPdf(via, conteudo()))).getPageCount()).toBe(1);
+  }, 30_000);
 });
 
 describe("valorPorExtenso", () => {

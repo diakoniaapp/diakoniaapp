@@ -19,8 +19,8 @@ import { ROTULO_RESPONSAVEL } from "@/lib/quitacao";
 import {
   adicionarAnexo, brl, buscarFornecedor, buscarPixDaPessoa, FORMA_LABEL, formasPermitidas, listarContas, type FinConta, type FinFormaPagamento,
 } from "@/services/finService";
-import { montarReciboPdf } from "@/lib/declaracaoDoTerceiro";
-import { lancamentosDaLiquidacao, pagarReembolso, situacaoDaDeclaracao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
+import { baixarDaVia, montarReciboPdf } from "@/lib/declaracaoDoTerceiro";
+import { lancamentosDaLiquidacao, pagarReembolso, situacaoDaDeclaracao, type QuitacaoDaObrigacao, type ViaDaDeclaracao } from "@/services/quitacaoService";
 import { supabase } from "@/integrations/supabase/client";
 
 /** O que a tela precisa saber do reembolso a pagar (a linha da fila, ou o cartão da despesa). */
@@ -53,7 +53,7 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
   const [pix, setPix] = useState<{ chave: string; tipo: TipoChavePix | null } | null>(null);
   const [carregandoPix, setCarregandoPix] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
-  const [dadosRecibo, setDadosRecibo] = useState<{ documento: string | null; notaNumero: string | null; notaData: string | null; declaracao: string | null } | null>(null);
+  const [dadosRecibo, setDadosRecibo] = useState<{ documento: string | null; notaNumero: string | null; notaData: string | null; declaracao: string | null; via: ViaDaDeclaracao | null } | null>(null);
 
   // abrir: carrega as contas (a da despesa é a sugerida) e a chave Pix de QUEM RECEBE
   useEffect(() => {
@@ -83,7 +83,7 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
         ]);
         const nota = l.data as unknown as { documento_numero?: string | null; data?: string | null } | null;
         const d = dec?.ultima?.conteudo?.declarado;
-        if (vivo) setDadosRecibo({ documento: d?.declarante_documento ?? doc, notaNumero: d?.nota_numero ?? nota?.documento_numero ?? null, notaData: d?.nota_data ?? nota?.data ?? null, declaracao: dec?.ultima?.numero ?? null });
+        if (vivo) setDadosRecibo({ documento: d?.declarante_documento ?? doc, notaNumero: d?.nota_numero ?? nota?.documento_numero ?? null, notaData: d?.nota_data ?? nota?.data ?? null, declaracao: dec?.ultima?.numero ?? null, via: dec?.ultima ?? null });
       } catch { /* o recibo sai sem esses dados: são complementares */ }
     })();
     setCarregandoPix(true); setPix(null);
@@ -131,9 +131,17 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
     } catch (e) { toast.error(mensagemErro(e, "Não foi possível pagar o reembolso")); }
     finally { setOcupado(false); }
   }
-  /** O Recibo de Reembolso (A4, duas vias A5): em espécie é o comprovante que a Política exige; nas outras formas serve de registro assinado. */
+  /**
+   * O documento que o recebedor ASSINA no ato do pagamento. Havendo a Solicitação e Recibo de Reembolso (a Declaração do Terceiro do reembolso, gerada pelo sistema), é ELA: um documento só, que também
+   * serve de comprovante em espécie (28/10/2026). Sem ela (a Declaração ainda não foi gerada), o Recibo avulso de antes, com o valor e a forma já preenchidos.
+   */
   async function imprimirRecibo() {
-    if (!alvo || problema) return;
+    if (!alvo) return;
+    if (dadosRecibo?.via) {
+      try { await baixarDaVia(dadosRecibo.via); } catch (e) { toast.error(mensagemErro(e, "Não foi possível gerar o documento")); }
+      return;
+    }
+    if (problema) return;
     try {
       const bytes = await montarReciboPdf({
         beneficiarioNome: alvo.responsavelNome ?? ROTULO_RESPONSAVEL[alvo.responsavel], beneficiarioDocumento: dadosRecibo?.documento ?? null, valor, dataDoPagamento: data,
@@ -206,14 +214,15 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
           {!carregandoPix && !pix && <p className="text-xs text-muted-foreground rounded-md border border-dashed p-2">Quem recebe ainda não tem chave Pix cadastrada: pague pelo meio combinado e registre o pagamento aqui.</p>}
 
           <div>
-            <label className="text-xs font-medium flex items-center gap-1.5 mb-1"><Paperclip className="w-3.5 h-3.5" /> Anexar comprovante do pagamento (opcional agora; sem ele a despesa não fica Pronta)</label>
+            <label className="text-xs font-medium flex items-center gap-1.5 mb-1"><Paperclip className="w-3.5 h-3.5" /> Comprovante do pagamento (opcional agora)</label>
+            <p className="text-[11px] text-muted-foreground mb-1">PIX ou TED: anexe o comprovante do banco. <b>Em espécie</b> não precisa: o recebedor assina a Solicitação e Recibo e você anexa a via assinada na despesa.</p>
             <input type="file" accept="image/jpeg,image/png,application/pdf" onChange={e => setArquivo(e.target.files?.[0] ?? null)} className="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border file:text-xs file:bg-background" />
           </div>
           {problema && <p className="text-xs text-warning-text" role="status">{problema}</p>}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" className="gap-1.5" disabled={ocupado || !!problema} onClick={() => void imprimirRecibo()}><FileDown className="w-3.5 h-3.5" /> Recibo (2 vias)</Button>
+          <Button variant="outline" className="gap-1.5" disabled={ocupado || (!dadosRecibo?.via && !!problema)} onClick={() => void imprimirRecibo()}><FileDown className="w-3.5 h-3.5" /> {dadosRecibo?.via ? "Solicitação e Recibo (2 vias)" : "Recibo (2 vias)"}</Button>
           <Button variant="outline" disabled={ocupado} onClick={onFechar}>Cancelar</Button>
           <Button disabled={ocupado || !!problema} onClick={() => void pagar()}>{ocupado ? "…" : parcial ? "Pagar parte" : "Pagar reembolso"}</Button>
         </DialogFooter>

@@ -84,30 +84,47 @@ export interface TextoDoDocumento {
   /** [rótulo, nome ou apoio impresso sob a linha] */
   assinaturas: { rotulo: string; apoio: string }[];
   rodape: string;
+  /** o bloco de RECIBO (só na Solicitação e Recibo de Reembolso): o recebedor o preenche e assina NO ATO do pagamento */
+  recibo?: { titulo: string; frase: string; linhas: string[] };
 }
 export type TextoDaDeclaracao = TextoDoDocumento;
 
-/** A Declaração do Terceiro. Reembolso leva a chave PIX quando houver; oferta não. */
+/**
+ * A Declaração do Terceiro. Oferta: só a declaração. REEMBOLSO (decisão dela, 28/10/2026): vira UM documento de duas funções — "Solicitação e Recibo de Reembolso". Imprime-se na hora do pagamento; o
+ * recebedor preenche o bloco do recibo (forma, valor, "Pago em") e assina; a via assinada que sobe é, ao mesmo tempo, a prova formal da intenção e o COMPROVANTE do pagamento em espécie.
+ */
 export function textoDaDeclaracao(via: IdentificacaoDaVia, c: ConteudoDaDeclaracao): TextoDoDocumento {
   const d = c.declarado;
+  const reembolso = d.intencao === "reembolso";
   const campos: [string, string][] = [
     ["Declarante", [d.declarante_nome ?? "—", d.declarante_documento ? `(${d.declarante_documento})` : ""].filter(Boolean).join(" ")],
     ["Fornecedor", [d.fornecedor_nome ?? "—", d.fornecedor_documento ? `(${d.fornecedor_documento})` : ""].filter(Boolean).join(" ")],
     ["Nota fiscal", [d.nota_numero ? `nº ${d.nota_numero}` : "sem número", d.nota_data ? `de ${dataBr(d.nota_data)}` : "", d.nota_chave ? `chave ${d.nota_chave}` : ""].filter(Boolean).join(" · ")],
     ["Valor", brl(d.valor)],
-    ["Forma de pagamento", ROTULO_FORMA[d.forma_pagamento] ?? d.forma_pagamento],
-    ["Data do pagamento", dataBr(d.data_pagamento)],
+    // no reembolso o recibo também tem "forma" e "data": os da compra ficam claros como os do pagamento AO FORNECEDOR
+    [reembolso ? "Pago ao fornecedor por" : "Forma de pagamento", ROTULO_FORMA[d.forma_pagamento] ?? d.forma_pagamento],
+    [reembolso ? "Pago ao fornecedor em" : "Data do pagamento", dataBr(d.data_pagamento)],
   ];
   // a chave PIX é "quando aplicável": sem ela, o reembolso se combina com a Tesouraria (espécie com recibo assinado, ou transferência)
-  if (d.intencao === "reembolso") campos.push(d.chave_pix ? ["Chave PIX", d.chave_pix] : ["Recebimento do reembolso", "sem chave PIX informada: forma combinada com a Tesouraria (espécie, com recibo assinado, ou transferência)"]);
+  if (reembolso) campos.push(d.chave_pix ? ["Chave PIX", d.chave_pix] : ["Recebimento do reembolso", "sem chave PIX informada: forma combinada com a Tesouraria (espécie, com recibo assinado, ou transferência)"]);
   return {
-    titulo: "DECLARAÇÃO DO TERCEIRO",
+    titulo: reembolso ? "SOLICITAÇÃO E RECIBO DE REEMBOLSO" : "DECLARAÇÃO DO TERCEIRO",
     identificacao: `nº ${via.numero} · versão ${via.versao} · código de verificação ${via.codigo}`,
     frase: fraseDaIntencao(d),
     campos,
     informativos: [["Centro de custo", c.informativo.centro ?? "—"], ["Categoria", c.informativo.categoria ?? "—"]],
-    assinaturas: [{ rotulo: "Data da assinatura", apoio: "" }, { rotulo: "Assinatura do declarante", apoio: d.declarante_nome ?? "" }],
-    rodape: "Gerado pelo DiakoniaApp. O código de verificação identifica o conteúdo declarado; se algum dado mudar depois, uma nova via deve ser gerada e assinada.",
+    // no reembolso a assinatura é a do RECEBEDOR, no ato do pagamento: a data dela é a data em que foi pago
+    assinaturas: reembolso
+      ? [{ rotulo: "Pago em", apoio: "" }, { rotulo: "Assinatura do recebedor", apoio: d.declarante_nome ?? "" }]
+      : [{ rotulo: "Data da assinatura", apoio: "" }, { rotulo: "Assinatura do declarante", apoio: d.declarante_nome ?? "" }],
+    ...(reembolso ? { recibo: {
+      titulo: "RECIBO DE REEMBOLSO  ·  preencher no ato do pagamento",
+      frase: `Declaro que recebi da ${IGREJA.nome} o valor de ${brl(d.valor)} referente ao reembolso das despesas descritas neste documento.`,
+      linhas: ["Forma:   (   ) Espécie    (   ) PIX    (   ) Transferência    (   ) Outro: ______________        Valor recebido: R$ ______________"],
+    } } : {}),
+    rodape: reembolso
+      ? "Gerado pelo DiakoniaApp. Assinado no ato do pagamento, este documento é a solicitação e o comprovante do recebimento. Se algum dado mudar depois, uma nova via deve ser gerada e assinada."
+      : "Gerado pelo DiakoniaApp. O código de verificação identifica o conteúdo declarado; se algum dado mudar depois, uma nova via deve ser gerada e assinada.",
   };
 }
 
@@ -220,8 +237,18 @@ async function montarFolhaDuasVias(t: TextoDoDocumento, titulo: string, vias: [s
       pagina.drawText(`Classificação da igreja (informativa): ${t.informativos.map(([r, v]) => `${r}: ${v}`).join("  ·  ")}`, { x: margem, y, size: 7, font: normal, color: cor(CINZA) });
       y -= 10;
     }
-    // assinaturas, no pé da via
+    // o bloco do RECIBO (só na Solicitação e Recibo de Reembolso): faixa suave logo acima das assinaturas
     const ya = y0 + 66;
+    if (t.recibo) {
+      const fraseR = quebrar(t.recibo.frase, s => normal.widthOfTextAtSize(s, 8.5), largura - 16);
+      const alturaR = 12 + fraseR.length * 11 + 14 + 6;
+      const yTopo = ya + 14 + alturaR;   // ancorado logo acima da linha da assinatura
+      pagina.drawRectangle({ x: margem, y: yTopo - alturaR, width: largura, height: alturaR, color: rgb(0.93, 0.97, 0.94), borderColor: rgb(0.72, 0.84, 0.76), borderWidth: 0.6 });
+      pagina.drawText(t.recibo.titulo, { x: margem + 8, y: yTopo - 11, size: 7.5, font: negrito, color: rgb(0.13, 0.36, 0.22) });
+      fraseR.forEach((l, i) => pagina.drawText(l, { x: margem + 8, y: yTopo - 22 - i * 11, size: 8.5, font: normal, color: cor(TINTA) }));
+      t.recibo.linhas.forEach((l, i) => pagina.drawText(l, { x: margem + 8, y: yTopo - 22 - fraseR.length * 11 - 3 - i * 12, size: 8, font: normal, color: cor(TINTA) }));
+    }
+    // assinaturas, no pé da via
     const wData = largura * 0.36, folga = 24, wAss = largura - wData - folga;
     t.assinaturas.forEach((a, i) => {
       const xi = i === 0 ? margem : margem + wData + folga, w = i === 0 ? wData : wAss;
@@ -246,6 +273,14 @@ async function montarFolhaDuasVias(t: TextoDoDocumento, titulo: string, vias: [s
 /** O PDF da Declaração do Terceiro: A4 com duas vias A5 (da igreja e do declarante). `pdf-lib` é carregado sob demanda: só quem gera paga o peso. */
 export function montarDeclaracaoPdf(via: IdentificacaoDaVia, c: ConteudoDaDeclaracao): Promise<Uint8Array> {
   return montarFolhaDuasVias(textoDaDeclaracao(via, c), `Declaração do Terceiro ${via.numero}`, ["VIA DA IGREJA", "VIA DO DECLARANTE"]);
+}
+
+/** Baixa o PDF de uma via já gerada (Declaração do Terceiro ou, no reembolso, Solicitação e Recibo). */
+export async function baixarDaVia(via: IdentificacaoDaVia & { conteudo: ConteudoDaDeclaracao }): Promise<void> {
+  const bytes = await montarDeclaracaoPdf({ numero: via.numero, versao: via.versao, codigo: via.codigo }, via.conteudo);
+  const { saveAs } = await import("file-saver");
+  const nome = via.conteudo.declarado.intencao === "reembolso" ? "Solicitacao_e_Recibo_de_Reembolso" : "Declaracao_do_Terceiro";
+  saveAs(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${nome}_${via.numero}_v${via.versao}.pdf`);
 }
 
 /** O PDF do Recibo de Reembolso: A4 com duas vias A5 (da igreja e do beneficiário). */

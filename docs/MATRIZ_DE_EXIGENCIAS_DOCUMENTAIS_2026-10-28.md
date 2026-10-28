@@ -42,3 +42,15 @@ Pendências **administrativas** (🔵: categoria, centro de custo, nº do docume
 ## Como achar o que está indevidamente na Mesa (somente leitura)
 
 Rodar `docs/CONSULTA_MESA_PENDENCIAS_INDEVIDAS_2026-10-28.sql` no SQL Editor. Ela lista, só leitura, os três grupos que a regra antiga mostrava a mais: reembolso pago/previsto pela Caixinha, despesa de Caixinha com Nota Fiscal e débito automático com marca `[ofx:…]`.
+
+## Reembolso: um documento só (Solicitação e Recibo) — 28/10/2026
+
+A Declaração do Terceiro **do reembolso** passou a se chamar **SOLICITAÇÃO E RECIBO DE REEMBOLSO** (a da oferta continua "Declaração do Terceiro"). O PDF (A4, duas vias A5) agora traz:
+
+- os dados da compra, com "Pago ao fornecedor por/em" (para não se confundir com o pagamento do reembolso);
+- o bloco **RECIBO DE REEMBOLSO**: "Declaro que recebi da Quarta Igreja Batista do Rio de Janeiro o valor de R$ … referente ao reembolso", forma (Espécie/PIX/Transferência/Outro) e "Valor recebido" à mão;
+- no pé: **"Pago em ___/___/___"** e **"Assinatura do recebedor"**.
+
+Fluxo: gerar → imprimir na hora do pagamento → a igreja paga, o recebedor preenche e assina → anexar a via assinada. Em **espécie** essa via é o comprovante: a Mesa não pede PIX, TED nem comprovante de banco. Em PIX/TED o comprovante do banco continua. O botão do diálogo "Pagar reembolso" passa a baixar esse mesmo documento (o "Recibo avulso" só aparece quando a Declaração ainda não foi gerada).
+
+Não incluí "Data da solicitação": o PDF pode ser baixado de novo depois, e a data mudaria. Se quiser, guardo a data de geração da via no banco.
