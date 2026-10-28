@@ -31,7 +31,7 @@ describe("o HTML com a lista de nomes fica abaixo do corte do Gmail", () => {
     const { a, sem, nominal } = cenario(135, 133);
     const e = montarEmailDeContribuicoes(a, { blocos: IDS_DOS_BLOCOS, base: resumirBase(sem), nominal, baseAnalisada: "membros_congregados" });
     expect(bytes(e.html)).toBeLessThan(LIMITE_DO_GMAIL);
-    expect(bytes(e.html)).toBeLessThan(90_000);   // folga: a base cresce
+    expect(bytes(e.html)).toBeLessThan(95_000);   // folga: a base cresce (o Resumo executivo, com 6 indicadores, acrescentou ~3 KB aos blocos de números)
   });
   it("uma igreja maior (300 + 300 nomes) ainda cabe", () => {
     const { a, sem, nominal } = cenario(300, 300);

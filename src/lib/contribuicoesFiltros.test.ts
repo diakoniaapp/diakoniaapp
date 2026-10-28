@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   CATEGORIAS_DE_CONTRIBUICAO, FILTROS_PADRAO, VERSAO_DOS_CRITERIOS, aplicarFiltros, analisarContribuicoes, analisarSemContribuicao, analisarTendencia, idsDaBase,
-  linhasDoCabecalho, rotuloDasCategorias, type LinhaDeContribuicao, type PessoaDaBase,
+  linhasDoCabecalho, resumirBase, rotuloDasCategorias, type LinhaDeContribuicao, type PessoaDaBase,
 } from "../../supabase/functions/_shared/contribuicoes/analise";
 import { montarEmailDeContribuicoes } from "../../supabase/functions/_shared/contribuicoes/email";
 import { validarPedido } from "../../supabase/functions/_shared/contribuicoes/pedido";
@@ -111,8 +111,12 @@ describe("o cabeçalho de rastreabilidade", () => {
   it("o e-mail traz o cabeçalho no topo (em vez do parágrafo solto de período) e o bloco de critérios quando escolhido", () => {
     const a = analisarContribuicoes([L("a", "2026-08-01", 100)], { ini: "2026-07-01", fim: "2026-09-30" });
     const e = montarEmailDeContribuicoes(a, { blocos: ["criterios"], cabecalho: linhas });
-    for (const t of ["Este relatório", "Base analisada", "Membros e congregados (ativos)", "Dízimos e Ofertas", "Gerado em", "Telma Souza", "Versão dos critérios", "Critérios da análise", "não na vida"]) expect(e.html).toContain(t);
-    expect(e.texto).toContain("Gerado em: 27/10/2026 09:15 por Telma Souza");
+    // o e-mail é para leitura do pastor e da liderança, não para auditoria (decisão dela, 27/10/2026): só Período, Base e Contribuições no topo
+    for (const t of ["Este relatório", "Período analisado", "Base analisada", "Membros e congregados (ativos)", "Contribuições consideradas", "Dízimos e Ofertas", "Critérios da análise", "não na vida"]) expect(e.html).toContain(t);
+    for (const fora of ["Gerado em", "Gerado por", "por Telma Souza", "Versão dos critérios", "Pessoas consideradas", "Contribuintes fora da base"]) { expect(e.html).not.toContain(fora); expect(e.texto).not.toContain(fora); }
+    expect(e.texto).toContain("Base analisada: Membros e congregados (ativos)");
+    // a tela e a função continuam com o cabeçalho inteiro
+    expect(linhas.map(l => l.rotulo)).toEqual(expect.arrayContaining(["Pessoas consideradas", "Gerado em", "Versão dos critérios"]));
   });
   it("o bloco Tendências do e-mail diz de onde vem a comparação", () => {
     const a = analisarContribuicoes([L("a", "2026-08-01", 100)], periodo);
@@ -150,5 +154,36 @@ describe("a função aplica os filtros e carimba o cabeçalho", () => {
     expect(fn).toContain('timeZone: "America/Sao_Paulo"');
     expect(fn).toContain("versao: VERSAO_DOS_CRITERIOS");
     expect(fn).toMatch(/base: pedido\.base, categorias: pedido\.categorias, ordenacao: pedido\.ordenacao, versao: VERSAO_DOS_CRITERIOS/);
+  });
+});
+
+// ─── o e-mail simplificado: três linhas no topo e um Resumo executivo (decisão dela, 27/10/2026) ───────────────────────────────────────────────────────────────────────────────────────────
+describe("o e-mail para leitura do pastor e da liderança", () => {
+  const cab = [
+    { rotulo: "Período analisado", valor: "01/07/2026 a 30/09/2026" }, { rotulo: "Base analisada", valor: "Membros (ativos)" }, { rotulo: "Contribuições consideradas", valor: "Dízimos" },
+    { rotulo: "Pessoas consideradas", valor: "226 na base, 87 contribuíram; contribuintes fora da base: 15" }, { rotulo: "Gerado em", valor: "27/10/2026 16:15 por Telma Souza" }, { rotulo: "Versão dos critérios", valor: "2026-10-27.1" },
+  ];
+  const a = analisarContribuicoes([L("a", "2026-08-01", 100), L("b", "2026-09-01", 50)], { ini: "2026-07-01", fim: "2026-09-30" });
+  it("o topo tem SÓ período, base e contribuições consideradas", () => {
+    const e = montarEmailDeContribuicoes(a, { blocos: ["resumo"], cabecalho: cab });
+    for (const t of ["Período analisado", "01/07/2026 a 30/09/2026", "Base analisada", "Contribuições consideradas"]) expect(e.html).toContain(t);
+    for (const fora of ["Pessoas consideradas", "Gerado em", "Gerado por", "Versão dos critérios", "Contribuintes fora da base", "226 na base"]) { expect(e.html).not.toContain(fora); expect(e.texto).not.toContain(fora); }
+  });
+  it("o Resumo executivo traz a frase corrida e SÓ os principais indicadores", () => {
+    const e = montarEmailDeContribuicoes(a, { blocos: ["resumo"], cabecalho: cab });
+    expect(e.html).toContain("Resumo executivo");
+    for (const t of ["Arrecadado", "Dizimistas", "Contribuintes", "Recorrência", "Novos dizimistas"]) expect(e.html).toContain(t);
+    for (const naoAqui of ["Em números", "Média por doador", "Frequência média"]) expect(e.html).not.toContain(naoAqui);
+    expect(e.texto).toContain("Resumo executivo");
+  });
+  it("com a base calculada, entra a adesão ao dízimo; sem arrecadação no período, só a frase", () => {
+    const sem = analisarSemContribuicao([L("a", "2026-08-01", 100)], [{ id: "a", nome: "A", tipo_pessoa: "membro", status: "ativo", data_nascimento: "1980-01-01", familia_id: null }, { id: "z", nome: "Z", tipo_pessoa: "membro", status: "ativo", data_nascimento: "1980-01-01", familia_id: null }], { ini: "2026-07-01", fim: "2026-09-30" }, { considerar: "dizimo", incluirMenores: true });
+    expect(montarEmailDeContribuicoes(a, { blocos: ["resumo"], base: resumirBase(sem) }).html).toContain("Adesão ao dízimo");
+    const vazio = montarEmailDeContribuicoes(analisarContribuicoes([], { ini: "2026-07-01", fim: "2026-09-30" }), { blocos: ["resumo"] });
+    expect(vazio.html).toContain("Resumo executivo");
+    expect(vazio.html).not.toContain("Recorrência");
+  });
+  it("as informações técnicas seguem disponíveis: o cabeçalho completo continua sendo calculado para a tela", () => {
+    expect(cab.map(l => l.rotulo)).toEqual(["Período analisado", "Base analisada", "Contribuições consideradas", "Pessoas consideradas", "Gerado em", "Versão dos critérios"]);
   });
 });

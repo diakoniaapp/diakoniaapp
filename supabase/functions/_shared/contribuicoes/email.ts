@@ -164,6 +164,28 @@ function blocoCriterios(): string {
 }
 
 /** O cabeçalho de rastreabilidade: período, base, contribuições, pessoas consideradas, quando e por quem foi gerado, versão dos critérios. */
+/**
+ * O e-mail é para o pastor, a diretoria e a liderança, não para auditoria (decisão dela, 27/10/2026): do cabeçalho de rastreabilidade só vão ESTAS três linhas. "Pessoas consideradas", "Contribuintes
+ * fora da base", "Gerado em", "Gerado por" e "Versão dos critérios" continuam na tela do sistema (que mostra o cabeçalho inteiro) e na função, mas não ocupam o topo do e-mail.
+ */
+export const ROTULOS_DO_CABECALHO_DO_EMAIL = ["Período analisado", "Base analisada", "Contribuições consideradas"];
+const cabecalhoDoEmail = (c: { rotulo: string; valor: string }[]) => c.filter(x => ROTULOS_DO_CABECALHO_DO_EMAIL.includes(x.rotulo));
+
+/** O RESUMO EXECUTIVO: a frase corrida e SÓ os principais indicadores (o que o pastor precisa ver primeiro); o detalhe fica nos blocos seguintes. */
+function blocoResumoExecutivo(a: AnaliseDoPeriodo, resumo: string, base: ResumoDaBase | null | undefined): string {
+  let h = D.secao("Resumo executivo") + D.paragrafo(resumo);
+  if (a.arrecadado === 0) return h;
+  const itens = [
+    { icone: "💰", rotulo: "Arrecadado", valor: brl(a.arrecadado) },
+    { icone: "👥", rotulo: "Dizimistas", valor: n(a.dizimistas) },
+    { icone: "🤝", rotulo: "Contribuintes", valor: n(a.doadores) },
+    { icone: "🔁", rotulo: "Recorrência", valor: a.recorrentes ? `${n(a.recorrentes.pct ?? 0, 1)}%` : "—" },
+    { icone: "🌿", rotulo: "Novos dizimistas", valor: a.novosDizimistas === null ? "—" : n(a.novosDizimistas) },
+    ...(base ? [{ icone: "📈", rotulo: "Adesão ao dízimo", valor: pctOuTraco(base.saude.dizimo.adesaoPct) }] : []),
+  ];
+  return h + D.indicadores(itens);
+}
+
 function cartaoDoCabecalho(linhas: { rotulo: string; valor: string }[]): string {
   const l = (x: { rotulo: string; valor: string }) => `<tr><td style="padding:2px 10px 2px 0;font-size:12px;color:${D.COR.suave};white-space:nowrap" valign="top">${D.esc(x.rotulo)}</td><td style="padding:2px 0;font-size:12px;color:${D.COR.texto}">${D.esc(x.valor)}</td></tr>`;
   return D.cartao("Este relatório", `<table role="presentation" cellpadding="0" cellspacing="0" width="100%">${linhas.map(l).join("")}</table>`);
@@ -274,9 +296,9 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
   const d = a.destaques;
 
   const comNomes = temBlocoNominal([...escolhidos]);
-  let corpo = D.saudacao("Relatório de contribuições") + (o.abertura ? D.paragrafo(o.abertura) : "") + (o.cabecalho ? cartaoDoCabecalho(o.cabecalho) : D.paragrafo(`Período analisado: ${periodo}.`));
+  let corpo = D.saudacao("Relatório de contribuições") + (o.abertura ? D.paragrafo(o.abertura) : "") + (o.cabecalho ? cartaoDoCabecalho(cabecalhoDoEmail(o.cabecalho)) : D.paragrafo(`Período analisado: ${periodo}.`));
   if (comNomes) corpo += D.cartaoDeAlerta({ titulo: "Contém dados individuais", linhas: ["Este relatório traz nomes de pessoas e a data da última contribuição, sem valores. Não encaminhe nem imprima sem necessidade."], tom: "aviso" });
-  if (tem("resumo")) corpo += D.paragrafo(resumo);
+  if (tem("resumo")) corpo += blocoResumoExecutivo(a, resumo, o.base);
 
   if (a.arrecadado > 0) {
     if (tem("indicadores")) {
@@ -342,9 +364,12 @@ function montarSemLimite(a: AnaliseDoPeriodo, o: OpcoesDoEmailDeContribuicoes = 
 
   const html = D.moldura({ assunto, igreja: o.igreja, aviso: o.aviso, preheader, corpo, versiculo: D.VERSICULO_DOS_RELATORIOS });
 
-  const linhas = ["Relatório de contribuições", ...(o.cabecalho ? o.cabecalho.map(c => `${c.rotulo}: ${c.valor}`) : [`Período analisado: ${periodo}`])];
+  const linhas = ["Relatório de contribuições", ...(o.cabecalho ? cabecalhoDoEmail(o.cabecalho).map(c => `${c.rotulo}: ${c.valor}`) : [`Período analisado: ${periodo}`])];
   if (o.abertura) linhas.push("", o.abertura);
-  if (tem("resumo")) linhas.push("", resumo);
+  if (tem("resumo")) {
+    linhas.push("", "Resumo executivo", resumo);
+    if (a.arrecadado > 0) linhas.push(`Arrecadado: ${brl(a.arrecadado)} · Dizimistas: ${n(a.dizimistas)} · Contribuintes: ${n(a.doadores)} · Recorrência: ${a.recorrentes ? n(a.recorrentes.pct ?? 0, 1) + "%" : "—"} · Novos dizimistas: ${a.novosDizimistas === null ? "—" : n(a.novosDizimistas)}${o.base ? ` · Adesão ao dízimo: ${pctOuTraco(o.base.saude.dizimo.adesaoPct)}` : ""}`);
+  }
   if (a.arrecadado > 0) {
     if (tem("indicadores")) linhas.push("", `Dizimistas: ${n(a.dizimistas)}`, `Doadores: ${n(a.doadores)}`, `Arrecadado: ${brl(a.arrecadado)}`, `Média mensal: ${brl(a.mediaMensal)}`,
       `Recorrência: ${a.recorrentes ? n(a.recorrentes.pct ?? 0, 1) + "%" : "—"}`, `Novos contribuintes: ${a.novos === null ? "—" : n(a.novos)}`, `Novos dizimistas: ${a.novosDizimistas === null ? "—" : n(a.novosDizimistas)}`);
