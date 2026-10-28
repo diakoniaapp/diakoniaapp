@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Search, UserRound, Building2, FileText } from "lucide-react";
+import { FornecedorForm } from "@/components/financas/FornecedorForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,11 +36,14 @@ interface Props {
   /** Mostra o aviso de obrigatório. */
   obrigatorio?: boolean;
   rotulo?: string;
+  /** Mostra o link "Cadastrar novo fornecedor" (despesa). Em entrada o favorecido é um contribuinte, não um fornecedor. */
+  permiteCadastrarFornecedor?: boolean;
 }
 
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 
-export function SeletorFavorecido({ value, onChange, categorias, centros, obrigatorio, rotulo = "Favorecido (empresa, prestador ou pessoa)" }: Props) {
+export function SeletorFavorecido({ value, onChange, categorias, centros, obrigatorio, rotulo = "Favorecido (empresa, prestador ou pessoa)", permiteCadastrarFornecedor = false }: Props) {
+  const [cadastrando, setCadastrando] = useState(false);
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<Favorecido[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -114,6 +118,7 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
   const nomeCentro = (id: string | null) => centros.find(c => c.id === id)?.nome?.replace(" · ", " › ") ?? null;
 
   return (
+    <>
     <div>
       <Label>{rotulo}{obrigatorio && " *"}</Label>
       {value ? (
@@ -168,10 +173,21 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
             </div>
           )}
           {busca.trim().length >= 2 && !buscando && achados.length === 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">Não achei no cadastro. Cadastre o fornecedor (ou a pessoa) antes e volte aqui.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{permiteCadastrarFornecedor ? "Não achei no cadastro." : "Não achei no cadastro. Cadastre o fornecedor (ou a pessoa) antes e volte aqui."}</p>
+          )}
+          {permiteCadastrarFornecedor && (
+            <button type="button" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" onClick={() => setCadastrando(true)}>
+              + Cadastrar novo fornecedor{busca.trim().length >= 2 ? ` “${busca.trim()}”` : ""}
+            </button>
           )}
         </div>
       )}
     </div>
+    {/* o cadastro abre por cima e devolve o fornecedor já escolhido (com o que o cadastro souber: categoria e centro padrão) */}
+    {permiteCadastrarFornecedor && (
+      <FornecedorForm open={cadastrando} onOpenChange={setCadastrando} inicial={{ nome: busca }}
+        onSaved={(f) => { void escolher({ tipo: "fornecedor", id: f.id, nome: f.nome, pessoaId: f.pessoa_id ?? null }); }} />
+    )}
+    </>
   );
 }

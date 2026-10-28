@@ -286,7 +286,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
 
           <SeletorFavorecido
             value={favorecido} onChange={aoEscolherFavorecido} categorias={categorias} centros={centros}
-            obrigatorio={tipo === "saida"}
+            obrigatorio={tipo === "saida"} permiteCadastrarFornecedor={tipo === "saida"}
             rotulo={tipo === "saida" ? "Favorecido (empresa, prestador ou pessoa)" : "Pessoa / contribuinte (opcional)"} />
 
           <div>
