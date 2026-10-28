@@ -1,7 +1,7 @@
 // ─── EnviarRelatorioDeContribuicoes — a gaveta "Enviar por e-mail" do relatório de Doadores e dizimistas (27/10/2026) ────────────────────────────────────────────────────────────────────────
 // Escolher o período → destinatários → VISUALIZAR (obrigatório) → enviar. O botão Enviar só habilita depois de abrir a prévia DO MESMO período (mudou o período, a prévia perde a validade). O e-mail leva
 // só números agregados — nenhum nome —, e a tela diz isso antes de enviar. Os números são calculados pela Edge Function, não por esta tela.
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -15,9 +15,11 @@ import { Eye, Loader2, Send, X } from "lucide-react";
 import { hojeLocal } from "@/lib/data";
 import { BASES_ANALISADAS, CATEGORIAS_DE_CONTRIBUICAO, FILTROS_PADRAO, PISO_DE_IDENTIFICACAO, PRESETS_DE_PERIODO, ROTULO_DA_BASE, ajustarAoPiso, intervaloDoPreset, rotuloDasCategorias, type BaseAnalisada, type PresetDePeriodo, type TipoDeContribuicao } from "@/lib/contribuicoes";
 import { emailDeRespostaValido } from "@/lib/comunicacao";
+import { textoDoAlerta, type Confiabilidade } from "@/lib/contribuicoes";
+import { IndicadorDeConfiabilidade } from "@/components/contribuicoes/IndicadorDeConfiabilidade";
 import { BLOCOS_DE_CONTRIBUICOES, IDS_DOS_BLOCOS, IDS_NOMINAIS, MODELOS_DE_RELATORIO, ORDENACAO_PADRAO, ORDENACOES_DAS_LISTAS, type OrdenacaoDasListas, blocosDoModelo, modeloDaSelecao, modeloPadrao, temBlocoNominal, type IdDoBloco, type IdDoModelo } from "@/lib/contribuicoesBlocos";
 import {
-  enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
+  confiabilidadeDoRelatorioDeContribuicoes, enviarRelatorioDeContribuicoes, enviarTesteDoRelatorioDeContribuicoes, previaDoRelatorioDeContribuicoes,
   LIMITE_DO_ASSUNTO, LIMITE_DO_TEXTO, type FiltrosDoRelatorio, type PeriodoDoRelatorio, type PreviaDoRelatorio, type ResultadoDoEnvio,
 } from "@/services/comunicacaoService";
 
@@ -26,8 +28,11 @@ export interface ServicoDoEnvio {
   previa: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio) => Promise<PreviaDoRelatorio>;
   teste: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio) => Promise<{ enviadoPara: string }>;
   enviar: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios: string[]) => Promise<ResultadoDoEnvio>;
+  /** o quadro de confiabilidade da lista de "sem contribuição" (sem nomes); opcional para os testes antigos */
+  confiabilidade?: (p: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio) => Promise<Confiabilidade>;
 }
-const SERVICO_REAL: ServicoDoEnvio = { previa: previaDoRelatorioDeContribuicoes, teste: enviarTesteDoRelatorioDeContribuicoes, enviar: enviarRelatorioDeContribuicoes };
+const SERVICO_REAL: ServicoDoEnvio = { previa: previaDoRelatorioDeContribuicoes, teste: enviarTesteDoRelatorioDeContribuicoes, enviar: enviarRelatorioDeContribuicoes, confiabilidade: confiabilidadeDoRelatorioDeContribuicoes };
+const semCategoria0 = (c: unknown[]) => c.length === 0;
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 
 interface Props {
@@ -56,6 +61,10 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const [previa, setPrevia] = useState<{ chave: string; dados: PreviaDoRelatorio } | null>(null);
   const [ocupado, setOcupado] = useState<"" | "previa" | "teste" | "enviar">("");
   const [confirmando, setConfirmando] = useState(false);
+  // a CONFIABILIDADE da lista de "sem contribuição" (pedido dela, 27/10/2026): pedida ao servidor quando o relatório traz esses blocos; com a lista com nomes e muita pendência, avisa ANTES de gerá-la
+  const [conf, setConf] = useState<{ chave: string; dados: Confiabilidade } | null>(null);
+  const [travaPara, setTravaPara] = useState<"previa" | "teste" | null>(null);
+  const [reconhecidaEm, setReconhecidaEm] = useState("");
 
   const pedido = useMemo(() => {
     const bruto = preset === "personalizado" ? { ini: de, fim: ate } : intervaloDoPreset(preset, hoje);
@@ -73,6 +82,22 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
   const assuntoPadrao = `Relatório de contribuições — ${dataBr(pedido.ini)} a ${dataBr(pedido.fim)}`;
   const textoEditado = !!(assuntoEditado.trim() || abertura.trim() || encerramento.trim());
   const limparTextos = () => { setAssuntoEditado(""); setAbertura(""); setEncerramento(""); };
+  const comSem = blocos.includes("nao_contribuiram") || blocos.includes("sem_contribuicao_nominal");
+  const comSemNominal = blocos.includes("sem_contribuicao_nominal");
+  const pedeConfiabilidade = !!servico.confiabilidade && comSem && !pedido.vazio && !semCategoria0(categorias);
+  useEffect(() => {
+    if (!pedeConfiabilidade) return;
+    let vivo = true;
+    const t = setTimeout(() => {
+      servico.confiabilidade!({ ini: pedido.ini, fim: pedido.fim }, ordenados, filtros).then(d => { if (vivo) setConf({ chave, dados: d }); }).catch(() => { if (vivo) setConf(null); });
+    }, 350);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [chave, pedeConfiabilidade]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const confiabilidade = pedeConfiabilidade && conf?.chave === chave ? conf.dados : null;
+  const chaveDaTrava = confiabilidade ? `${chave}|${confiabilidade.pendentesDaLista.quantidade}` : "";
+  const precisaDaTrava = comSemNominal && !!confiabilidade?.alertar && reconhecidaEm !== chaveDaTrava;
+  const pedirPrevia = () => { if (precisaDaTrava) setTravaPara("previa"); else visualizar(); };
+  const pedirTeste = () => { if (precisaDaTrava) setTravaPara("teste"); else testar(); };
   const alternarCategoria = (id: TipoDeContribuicao) => setCategorias(atual => (atual.includes(id) ? atual.filter(c => c !== id) : [...atual, id]));
   const semCategoria = categorias.length === 0;
   const alternar = (id: IdDoBloco) => setBlocos(atual => (atual.includes(id) ? atual.filter(b => b !== id) : [...atual, id]));
@@ -219,6 +244,13 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
               <p className="text-xs text-muted-foreground" data-aviso="so-agregado">Valor individual, média individual, telefone e e-mail nunca vão por e-mail. Os blocos sem ⚠ levam só números.</p>
             </div>
 
+            {confiabilidade && (
+              <div className="space-y-1.5" data-secao="confiabilidade">
+                <Label className="text-xs">Confiabilidade da lista <span className="text-muted-foreground font-normal">— também vai no e-mail</span></Label>
+                <IndicadorDeConfiabilidade c={confiabilidade} />
+              </div>
+            )}
+
             <div className="space-y-2 rounded-md border p-3" data-secao="texto-do-email">
               <div className="flex items-center justify-between gap-2">
                 <Label className="text-xs">Texto do e-mail <span className="text-muted-foreground font-normal">— opcional: edite antes de enviar</span></Label>
@@ -259,10 +291,10 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
 
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={visualizar} disabled={pedido.vazio || blocos.length === 0 || semCategoria || !!ocupado} data-acao="visualizar">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={pedirPrevia} disabled={pedido.vazio || blocos.length === 0 || semCategoria || !!ocupado} data-acao="visualizar">
                   {ocupado === "previa" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />} Visualizar e-mail
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={testar} disabled={pedido.vazio || blocos.length === 0 || semCategoria || !!ocupado} data-acao="teste">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={pedirTeste} disabled={pedido.vazio || blocos.length === 0 || semCategoria || !!ocupado} data-acao="teste">
                   {ocupado === "teste" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Enviar teste para mim
                 </Button>
                 {!previaValida && <span className="text-xs text-muted-foreground" data-aviso="previa-obrigatoria">Visualize o e-mail para liberar o envio.</span>}
@@ -299,6 +331,21 @@ export function EnviarRelatorioDeContribuicoes({ aberto, aoFechar, aoEnviar, per
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={travaPara !== null} onOpenChange={v => !v && setTravaPara(null)}>
+        <AlertDialogContent data-trava="pendencias">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Há contribuições pendentes de identificação</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confiabilidade ? textoDoAlerta(confiabilidade) : ""} Quem está nesta lista pode ter contribuição ainda não vinculada. Recomendamos concluir a análise das pendências (aba Pendentes, em Doadores) antes de gerar a lista com nomes. Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-acao="trava-cancelar">Voltar</AlertDialogCancel>
+            <AlertDialogAction data-acao="trava-continuar" onClick={e => { e.preventDefault(); const qual = travaPara; setReconhecidaEm(chaveDaTrava); setTravaPara(null); if (qual === "previa") visualizar(); else if (qual === "teste") testar(); }}>Continuar mesmo assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmando} onOpenChange={v => !v && setConfirmando(false)}>
         <AlertDialogContent data-confirmacao="envio">

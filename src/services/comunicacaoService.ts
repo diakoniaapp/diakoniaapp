@@ -4,7 +4,10 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PeriodoDoRelatorio { ini: string; fim: string }
+import type { Confiabilidade } from "@/lib/contribuicoes";
 export interface PreviaDoRelatorio {
+  /** o quadro de confiabilidade da lista de "sem contribuição" (o servidor o calcula do banco) */
+  confiabilidade?: Confiabilidade;
   assunto: string; html: string; texto: string; resumo: string; periodo: { ini: string; fim: string; ajustado: boolean };
   /** quantos nomes cada lista leva (só contagens); `null` quando nenhum bloco com nomes foi escolhido */
   nomes?: { contribuiram: number; semContribuicao: number } | null;
@@ -22,7 +25,7 @@ export const LIMITE_DO_ASSUNTO = 150;
 export const LIMITE_DO_TEXTO = 2000;
 export interface FiltrosDoRelatorio { base: string; categorias: string[]; ordenacao: string; textos?: TextosDoEmail }
 
-async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios?: string[]) {
+async function chamar(acao: "previa" | "teste" | "enviar" | "confiabilidade", periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio, destinatarios?: string[]) {
   const { data, error } = await supabase.functions.invoke("contribuicoes-enviar", { body: { acao, periodo, blocos, base: filtros.base, categorias: filtros.categorias, ordenacao: filtros.ordenacao, ...(filtros.textos?.assunto?.trim() ? { assunto: filtros.textos.assunto } : {}), ...(filtros.textos?.abertura?.trim() ? { abertura: filtros.textos.abertura } : {}), ...(filtros.textos?.encerramento?.trim() ? { encerramento: filtros.textos.encerramento } : {}), ...(destinatarios ? { destinatarios } : {}) } });
   if (error) {
     let msg = error.message;
@@ -35,7 +38,13 @@ async function chamar(acao: "previa" | "teste" | "enviar", periodo: PeriodoDoRel
 
 export async function previaDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio): Promise<PreviaDoRelatorio> {
   const r = await chamar("previa", periodo, blocos, filtros);
-  return { assunto: r.assunto ?? "", html: r.html ?? "", texto: r.texto ?? "", resumo: r.resumo ?? "", periodo: r.periodo ?? { ...periodo, ajustado: false }, nomes: r.nomes ?? null, tamanhoDoHtml: r.tamanhoDoHtml, listasCortadas: !!r.listasCortadas };
+  return { assunto: r.assunto ?? "", html: r.html ?? "", texto: r.texto ?? "", resumo: r.resumo ?? "", periodo: r.periodo ?? { ...periodo, ajustado: false }, nomes: r.nomes ?? null, tamanhoDoHtml: r.tamanhoDoHtml, listasCortadas: !!r.listasCortadas, confiabilidade: r.confiabilidade };
+}
+
+/** Só o quadro de confiabilidade (percentual identificado, pendências, impacto, data dos dados): SEM nomes e sem registro de acesso. A gaveta o pede antes de gerar a lista com nomes. */
+export async function confiabilidadeDoRelatorioDeContribuicoes(periodo: PeriodoDoRelatorio, blocos: string[], filtros: FiltrosDoRelatorio): Promise<Confiabilidade> {
+  const r = await chamar("confiabilidade", periodo, blocos, filtros);
+  return r.confiabilidade as Confiabilidade;
 }
 
 /** Manda o e-mail marcado [TESTE] SÓ para o e-mail cadastrado de quem está logado. */

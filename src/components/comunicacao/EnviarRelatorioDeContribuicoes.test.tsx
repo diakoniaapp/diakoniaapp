@@ -2,6 +2,7 @@
 // Trava: a prévia é OBRIGATÓRIA (e perde a validade se o período muda); destinatários limpos e limitados; o envio só sai depois da confirmação, para a lista certa e o período certo; o aviso de que só
 // vão números agregados; o teste vai só para quem pediu; o piso de 01/01/2026; e o Histórico mostra quem pediu, para quem foi e o resultado — ou avisa que a migration está pendente.
 import { act } from "react";
+import { calcularConfiabilidade } from "@/lib/contribuicoes";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -181,6 +182,84 @@ describe("o que mostrar: modelos e blocos", () => {
     await clicar(q('[data-acao="visualizar"]'));
     await clicar(botaoEnviar());
     expect(q('[data-confirmacao="envio"]')?.textContent).toContain("só números agregados, sem nomes");
+  });
+});
+
+describe("confiabilidade da lista 'sem contribuição' e a trava antes da lista com nomes (pedido dela, 27/10/2026)", () => {
+  const linhas = (pendente: number) => [{ id: "a", pessoa_id: "p1", data: "2026-08-10", valor: 1000 - pendente, categoria: "Dizimos" }, ...(pendente > 0 ? [{ id: "b", pessoa_id: null, data: "2026-08-11", valor: pendente, categoria: "Dizimos" }] : [])];
+  const CONF_MEDIA = calcularConfiabilidade(linhas(100), { ini: "2026-04-28", fim: "2026-10-27" }, { categorias: ["dizimo"], tamanhoDaLista: 139, ultimoExtrato: "2026-10-20" });
+  const CONF_ALTA = calcularConfiabilidade(linhas(0), { ini: "2026-04-28", fim: "2026-10-27" }, { categorias: ["dizimo"], tamanhoDaLista: 139 });
+  const marcar = async (id: string) => { const c = q(`[data-bloco="${id}"]`) as HTMLInputElement; if (c && !c.checked) await clicar(c); };
+  const comConf = (c: typeof CONF_MEDIA) => servico({ confiabilidade: vi.fn(async () => c) as never });
+  it("com o bloco 'sem contribuição' no relatório, a gaveta pede e mostra o quadro de confiabilidade", async () => {
+    const s = comConf(CONF_MEDIA);
+    await abrirGaveta(s);
+    await marcar("nao_contribuiram");
+    await esperar(450);
+    expect(s.confiabilidade).toHaveBeenCalled();
+    const c = q('[data-secao="confiabilidade"] [data-confiabilidade]')!;
+    expect(c.getAttribute("data-confiabilidade")).toBe("media");
+    expect(c.textContent).toContain("Confiabilidade desta lista: Média");
+    expect(c.textContent).toContain("apenas contribuições identificadas e vinculadas a pessoas");
+  });
+  it("sem nenhum bloco de 'sem contribuição', nada é pedido nem mostrado", async () => {
+    const s = comConf(CONF_MEDIA);
+    await abrirGaveta(s);
+    const a = q('[data-bloco="nao_contribuiram"]') as HTMLInputElement | null;
+    if (a?.checked) await clicar(a);
+    await esperar(450);
+    expect(s.confiabilidade).not.toHaveBeenCalled();
+    expect(q('[data-secao="confiabilidade"]')).toBeNull();
+  });
+  it("A TRAVA: lista com nomes de quem não contribuiu + muita pendência = avisa ANTES de gerar; 'Voltar' não gera nada", async () => {
+    const s = comConf(CONF_MEDIA);
+    await abrirGaveta(s);
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await marcar("sem_contribuicao_nominal");
+    await esperar(450);
+    await clicar(q('[data-acao="visualizar"]'));
+    const trava = q('[data-trava="pendencias"]')!;
+    expect(trava).not.toBeNull();
+    expect(trava.textContent).toContain("Existem 1 contribuições pendentes de identificação");
+    expect(trava.textContent).toContain("Deseja continuar?");
+    expect(s.previa).not.toHaveBeenCalled();
+    await clicar(q('[data-acao="trava-cancelar"]'));
+    expect(s.previa).not.toHaveBeenCalled();
+  });
+  it("'Continuar mesmo assim' gera a prévia — e não pergunta de novo enquanto nada mudar", async () => {
+    const s = comConf(CONF_MEDIA);
+    await abrirGaveta(s);
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await marcar("sem_contribuicao_nominal");
+    await esperar(450);
+    await clicar(q('[data-acao="visualizar"]'));
+    await clicar(q('[data-acao="trava-continuar"]'));
+    expect(s.previa).toHaveBeenCalledTimes(1);
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q('[data-trava="pendencias"]')).toBeNull();
+    expect(s.previa).toHaveBeenCalledTimes(2);
+  });
+  it("o teste por e-mail também passa pela trava", async () => {
+    const s = comConf(CONF_MEDIA);
+    await abrirGaveta(s);
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await marcar("sem_contribuicao_nominal");
+    await esperar(450);
+    await clicar(q('[data-acao="teste"]'));
+    expect(q('[data-trava="pendencias"]')).not.toBeNull();
+    expect(s.teste).not.toHaveBeenCalled();
+    await clicar(q('[data-acao="trava-continuar"]'));
+    expect(s.teste).toHaveBeenCalledTimes(1);
+  });
+  it("lista confiável (alta, poucas pendências): vai direto, sem trava", async () => {
+    const s = comConf(CONF_ALTA);
+    await abrirGaveta(s);
+    await clicar(q('[data-acao="exibir-nomes"]'));
+    await marcar("sem_contribuicao_nominal");
+    await esperar(450);
+    await clicar(q('[data-acao="visualizar"]'));
+    expect(q('[data-trava="pendencias"]')).toBeNull();
+    expect(s.previa).toHaveBeenCalledTimes(1);
   });
 });
 
