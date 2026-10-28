@@ -174,6 +174,7 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
   const meio = meioDePagamento(e);
   const confirmacao = e.confirmacaoBancaria ?? confirmacaoPelaMarca(e.observacoes);
   const exige = (o: Origem): Exigencia => ({ rotulo: o.rotulo, aceita: o.aceita, atendida: tem(o.aceita) });
+  const confirmacaoDoBanco = (atendida: boolean): Exigencia => ({ rotulo: CONFIRMACAO_BANCARIA, aceita: ["comprovante"], atendida });
   const comprovante = (rotulo: string, aguarda = false): Exigencia => ({
     rotulo, aceita: ["comprovante"], atendida: tem(["comprovante"]) || !!e.temComprovanteAntigo, ...(aguarda ? { aguardaPagamento: true } : {}),
   });
@@ -184,7 +185,7 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
     modelo = "reembolso";
     // reembolso em ESPÉCIE (Caixinha): a prova é a Declaração assinada + a Nota — não há PIX nem TED para comprovar (decisão dela, 28/10/2026)
     exigidas = [exige(NOTA_FISCAL), exige(DECLARACAO)];
-    if (meio !== "especie") exigidas.push(comprovante(e.formaPagamento === "transferencia" ? COMPROVANTE_TED : COMPROVANTE_PIX, !paga));
+    if (meio !== "especie") exigidas.push(paga && confirmacao ? confirmacaoDoBanco(true) : comprovante(e.formaPagamento === "transferencia" ? COMPROVANTE_TED : COMPROVANTE_PIX, !paga));
   } else if (e.status === "quitado_terceiro" || (e.terceiroQuitou && e.intencao === "oferta")) {
     modelo = "oferta";
     exigidas = [exige(NOTA_FISCAL), exige(DECLARACAO)];
@@ -198,16 +199,18 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
     exigidas = [nfBasta ? exige({ rotulo: `${origem.rotulo} ou Nota Fiscal`, aceita: [...origem.aceita, "nota_fiscal"] }) : exige(origem)];
     // o comprovante é do BANCO: espécie e cartão não têm (o cupom/NF e a fatura do cartão são a prova)
     if (paga && e.contaTipo === "banco" && meio !== "especie" && meio !== "cartao") {
-      // pagamento automático: a confirmação do banco (OFX/PDF) é a prova — conta como "comprovante" para o Ciclo e a Prontidão (`aceita: ["comprovante"]`), e um comprovante anexado à mão também vale
-      exigidas.push(meio === "automatico"
-        ? { rotulo: CONFIRMACAO_BANCARIA, aceita: ["comprovante"], atendida: !!confirmacao || tem(["comprovante"]) || !!e.temComprovanteAntigo }
+      // a CONFIRMAÇÃO DO BANCO (linha do OFX/PDF ligada ao lançamento) é a prova do pagamento em QUALQUER meio — PIX, TED, boleto ou débito automático (decisão dela, 28/10/2026; em 22/10 valia só
+      // para o pagamento automático). Conta como "comprovante" para o Ciclo e a Prontidão (`aceita: ["comprovante"]`); um comprovante anexado à mão também vale. No pagamento automático ela é EXIGIDA
+      // (não há comprovante de um débito que o banco fez sozinho); nos demais, sem a linha do banco ligada, continua valendo o comprovante de pagamento.
+      exigidas.push(meio === "automatico" || confirmacao
+        ? confirmacaoDoBanco(!!confirmacao || tem(["comprovante"]) || !!e.temComprovanteAntigo)
         : comprovante(COMPROVANTE));
     }
   }
 
   const faltamEx = exigidas.filter(x => !x.atendida);
   // a confirmação do banco de um pagamento automático também é "alguma" prova: sem a fatura a despesa é parcial, não "sem documentos"
-  const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo || (modelo === "padrao" && paga && meio === "automatico" && !!confirmacao);
+  const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo || (modelo === "padrao" && paga && !!confirmacao);
   const situacao: SituacaoDocumental = exigidas.length === 0 ? (temAlgum ? "completa" : "dispensa") : faltamEx.length === 0 ? "completa" : !temAlgum ? "sem" : "parcial";
 
   const administrativas: string[] = [];

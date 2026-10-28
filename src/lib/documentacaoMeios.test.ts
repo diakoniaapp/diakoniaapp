@@ -111,8 +111,37 @@ describe("a matriz por meio de pagamento (28/10/2026)", () => {
     it("sem vínculo e sem marca, o que falta é a confirmação do banco", () => {
       expect(documentacaoDaSaida(luz({ observacoes: "pagamento da Light" })).faltam).toEqual(["Confirmação bancária (OFX ou PDF)"]);
     });
-    it("a marca [ofx:] NÃO dispensa o comprovante de um pagamento MANUAL", () => {
-      expect(documentacaoDaSaida(luz({ formaLiquidacao: "manual", observacoes: "[ofx:123]" })).faltam).toEqual(["Comprovante de pagamento"]);
+  });
+
+  describe("conciliado com o banco — o caso Verisure (28/10/2026)", () => {
+    const verisure = (o: Partial<EntradaDocumental>) => base({ categoriaNome: "Segurança", tipos: ["nota_fiscal"], documentoNumero: "40274977", ...o });
+    it.each([
+      ["a marca [ofx:] nas observações", { observacoes: "[ofx:N11F2D]" }],
+      ["o vínculo ativo com o extrato", { confirmacaoBancaria: "ofx" as const }],
+      ["o vínculo com o extrato em PDF", { confirmacaoBancaria: "pdf" as const }],
+    ])("pagamento manual + %s: o comprovante deixa de ser exigido", (_n, o) => {
+      const d = documentacaoDaSaida(verisure(o));
+      expect(d.situacao).toBe("completa");
+      expect(d.faltam).toEqual([]);
+      expect(d.comprovanteOk).toBe(true);
+    });
+    it.each(["pix", "transferencia", "boleto"])("%s com a linha do banco ligada também", forma => {
+      expect(documentacaoDaSaida(verisure({ formaPagamento: forma, confirmacaoBancaria: "ofx" })).situacao).toBe("completa");
+    });
+    it("sem a linha do banco, o comprovante continua sendo exigido", () => {
+      expect(documentacaoDaSaida(verisure({})).faltam).toEqual(["Comprovante de pagamento"]);
+    });
+    it("a confirmação NÃO substitui o documento de origem: sem a Nota, falta a Nota", () => {
+      const d = documentacaoDaSaida(verisure({ tipos: [], confirmacaoBancaria: "ofx" }));
+      expect(d.faltam).toEqual(["Nota Fiscal ou Fatura"]);
+    });
+    it("reembolso por PIX/TED com a linha do banco ligada: a confirmação substitui o comprovante da igreja", () => {
+      const d = documentacaoDaSaida(base({ intencao: "reembolso", terceiroQuitou: true, formaPagamento: "pix", tipos: ["nota_fiscal", "declaracao_terceiro"], confirmacaoBancaria: "ofx" }));
+      expect(d.situacao).toBe("completa");
+    });
+    it("reembolso AINDA NÃO pago nunca é dado como confirmado", () => {
+      const d = documentacaoDaSaida(base({ status: "previsto", intencao: "reembolso", terceiroQuitou: true, tipos: ["nota_fiscal", "declaracao_terceiro"], confirmacaoBancaria: "ofx" }));
+      expect(d.faltam).toEqual(["Comprovante do PIX da igreja"]);
     });
   });
 });

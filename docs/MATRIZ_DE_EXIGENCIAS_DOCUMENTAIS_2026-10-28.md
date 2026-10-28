@@ -35,7 +35,6 @@ Pendências **administrativas** (🔵: categoria, centro de custo, nº do docume
 ## Decisões minhas a confirmar
 
 - **"Conciliado" sem vínculo** (histórico do Omie) em débito automático **continua pedindo a confirmação**: o histórico não passou por extrato. Se quiser aceitar, é uma linha.
-- **PIX/TED manual com linha do OFX ligada** continua exigindo o comprovante (só o débito automático foi dispensado, como decidido em 22/10).
 - **Caixa de Envelopes** foi tratada como espécie (já não exigia comprovante).
 - **Cartão em conta de banco** não exige comprovante; se a contabilidade quiser a fatura do cartão como obrigatória, é um documento a acrescentar.
 
@@ -54,3 +53,12 @@ A Declaração do Terceiro **do reembolso** passou a se chamar **SOLICITAÇÃO E
 Fluxo: gerar → imprimir na hora do pagamento → a igreja paga, o recebedor preenche e assina → anexar a via assinada. Em **espécie** essa via é o comprovante: a Mesa não pede PIX, TED nem comprovante de banco. Em PIX/TED o comprovante do banco continua. O botão do diálogo "Pagar reembolso" passa a baixar esse mesmo documento (o "Recibo avulso" só aparece quando a Declaração ainda não foi gerada).
 
 Não incluí "Data da solicitação": o PDF pode ser baixado de novo depois, e a data mudaria. Se quiser, guardo a data de geração da via no banco.
+
+## Conciliação bancária = pagamento comprovado (28/10/2026, caso Verisure)
+
+Em conta de **banco**, quando há a **linha do extrato ligada** ao lançamento — vínculo ativo com o OFX/PDF, liquidação com FITID, ou a marca `[ofx:…]` das conciliações antigas —, o comprovante de pagamento **não é mais exigido**, em **qualquer** meio (PIX, TED, boleto, débito automático, cobrança automática). A confirmação do banco ocupa o lugar dele ("Confirmação bancária (OFX ou PDF)", já atendida). Vale também para reembolso por PIX/TED depois de pago.
+
+- Sem a linha do banco ligada, o comprovante continua exigido (exceto débito automático, que exige a confirmação).
+- A confirmação **não** substitui o documento de origem: sem a Nota/Fatura/Guia, a despesa segue pendente.
+- Reembolso ainda **não pago** nunca é dado como confirmado.
+- Lista do que muda: `docs/CONSULTA_PENDENTES_SO_POR_COMPROVANTE_COM_CONCILIACAO_2026-10-28.sql`.

@@ -200,11 +200,16 @@ describe("pagamento automático: a confirmação do banco substitui o comprovant
   it("um comprovante anexado à mão também vale para o pagamento automático (nada é tirado de quem já anexou)", () => {
     expect(documentacaoDaSaida(energia({ formaLiquidacao: "debito_automatico", tipos: ["fatura", "comprovante"] })).situacao).toBe("completa");
   });
-  it("pagamento MANUAL segue exigindo o comprovante, mesmo com linha do banco ligada", () => {
-    const d = documentacaoDaSaida(energia({ formaLiquidacao: "manual", tipos: ["fatura"], confirmacaoBancaria: "ofx" }));
-    expect(d.situacao).toBe("parcial");
-    expect(d.faltam).toEqual(["Comprovante de pagamento"]);
-    expect(documentacaoDaSaida(energia({ tipos: ["fatura"], confirmacaoBancaria: "ofx" })).faltam).toEqual(["Comprovante de pagamento"]);
+  it("pagamento MANUAL também dispensa o comprovante quando há a linha do banco ligada (decisão de 28/10/2026); sem ela, continua exigindo", () => {
+    for (const forma of ["manual", undefined]) {
+      const ligado = documentacaoDaSaida(energia({ formaLiquidacao: forma, tipos: ["fatura"], confirmacaoBancaria: "ofx" }));
+      expect(ligado.situacao).toBe("completa");
+      expect(ligado.faltam).toEqual([]);
+      expect(ligado.comprovanteOk).toBe(true);
+      const solto = documentacaoDaSaida(energia({ formaLiquidacao: forma, tipos: ["fatura"] }));
+      expect(solto.situacao).toBe("parcial");
+      expect(solto.faltam).toEqual(["Comprovante de pagamento"]);
+    }
   });
   it("ainda não paga (previsto): não há o que confirmar — só a fatura é exigida", () => {
     const d = documentacaoDaSaida(energia({ status: "previsto", formaLiquidacao: "debito_automatico", tipos: ["fatura"] }));

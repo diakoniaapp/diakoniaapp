@@ -335,13 +335,13 @@ describe("pagamento automático no extrato: a confirmação do banco substitui o
       tiposDeAnexo: new Map(Object.entries(tipos)), confirmacoes: new Map(Object.entries(confirmacoes)),
     });
 
-  it("débito automático pago: Fatura + linha do banco = completa; só a Fatura = parcial; manual com a mesma linha continua parcial", () => {
+  it("pago: Fatura + linha do banco = completa (débito automático OU manual, 28/10/2026); só a Fatura = parcial", () => {
     const r = montarAuto([
       l({ id: "a", status: "conciliado", forma_liquidacao: "debito_automatico" }),
       l({ id: "b", status: "conciliado", forma_liquidacao: "debito_automatico" }),
       l({ id: "c", status: "conciliado", forma_liquidacao: "manual" }),
     ], { a: ["fatura"], b: ["fatura"], c: ["fatura"] }, { a: "ofx", c: "ofx" });
-    expect(Object.fromEntries(r.map(x => [x.obrigacaoId, x.documentacao]))).toEqual({ a: "completa", b: "parcial", c: "parcial" });
+    expect(Object.fromEntries(r.map(x => [x.obrigacaoId, x.documentacao]))).toEqual({ a: "completa", b: "parcial", c: "completa" });
   });
   it("a confirmação de UMA das parcelas da obrigação vale para a obrigação (a chave é a raiz)", () => {
     const r = montarAuto([
