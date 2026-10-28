@@ -204,6 +204,13 @@ describe("a Declaração do Terceiro no cartão (Fase 1D-a)", () => {
     expect(el.textContent).toMatch(/DT-2026-0001 · versão 1/);
     expect(botao(el, "Registrar assinatura")).toBeTruthy();
   });
+  it("REEMBOLSO JÁ PAGO (conciliado): ainda dá para registrar a via assinada — a assinatura do recibo acontece depois do pagamento", async () => {
+    declDisp = true; situacao = sit("aguardando_assinatura");
+    quitacao = reembolso();
+    const el = await montar(lanc({ status: "conciliado" } as never));
+    expect(botao(el, "Registrar assinatura")).toBeTruthy();
+    expect(el.textContent).toMatch(/Pago em \(data da assinatura\)/);
+  });
   it("desatualizada: avisa que a via assinada não vale mais e oferece gerar nova via", async () => {
     declDisp = true; situacao = sit("desatualizada");
     quitacao = reembolso();

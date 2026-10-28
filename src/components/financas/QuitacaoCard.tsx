@@ -212,7 +212,8 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
           })}
           <p className="text-[11px] text-muted-foreground">Registrada por {eventos?.find(e => e.evento === "registrada")?.porNome ?? "usuário"} em {dataHoraBr(q.registradoEm)}.</p>
 
-          {q.responsavel !== "nao_localizado" && <DeclaracaoDoTerceiroCard q={q} podeEscrever={podeEscrever} aberta={aberta} recarga={n} onMudou={onMudou} />}
+          {/* REEMBOLSO PAGO: a Solicitação e Recibo é assinada NO ATO do pagamento, ou seja, DEPOIS de a despesa virar paga — o cartão precisa deixar registrar a via assinada mesmo com a despesa já realizada/conciliada (28/10/2026) */}
+          {q.responsavel !== "nao_localizado" && <DeclaracaoDoTerceiroCard q={q} podeEscrever={podeEscrever} aberta={aberta || (q.intencao === "reembolso" && (lancamento.status === "realizado" || lancamento.status === "conciliado"))} recarga={n} onMudou={onMudou} />}
 
           {podeEscrever && q.responsavel !== "nao_localizado" && aberta && (
             <div className="flex flex-wrap gap-1.5 pt-1">
