@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -24,6 +24,11 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   fornecedor?: FinFornecedor | null;
   onSaved: (f: FinFornecedor) => void;
+  /**
+   * Dados que já se sabem (o emitente lido da NF anexada, ou o que a pessoa digitou na busca). Com eles o cadastro de um fornecedor NOVO abre direto no formulário da empresa, já preenchido (28/10/2026).
+   * Só vale ao abrir: mudar esta prop com o diálogo aberto não apaga o que a pessoa está digitando.
+   */
+  inicial?: { nome?: string | null; cnpjCpf?: string | null };
 }
 
 const VAZIO = {
@@ -33,7 +38,15 @@ const VAZIO = {
   categoriaPadraoId: "", centroCustoPadraoId: "", observacao: "",
 };
 
-export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaProp, onSaved }: Props) {
+/** Campos de um fornecedor NOVO: vazios, ou com o nome e o CNPJ/CPF que já se sabem (11 dígitos = pessoa física). */
+export function camposIniciaisDoFornecedor(i?: Props["inicial"] | null) {
+  const digitos = (i?.cnpjCpf ?? "").replace(/\D/g, "");
+  return { ...VAZIO, nome: (i?.nome ?? "").trim(), cnpjCpf: digitos, tipo: digitos.length === 11 ? "fisica" : "juridica" };
+}
+
+export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaProp, onSaved, inicial }: Props) {
+  const inicialRef = useRef(inicial);
+  inicialRef.current = inicial;
   // Favorecido Financeiro (07/10/2026): criar começa por "quem é?" — pessoa do Cadastro de Pessoas (vincula, sem duplicar)
   // ou Favorecido Empresarial. Depois de vincular a pessoa, o diálogo segue como EDIÇÃO dela, só com os dados financeiros.
   const [vinculado, setVinculado] = useState<FinFornecedor | null>(null);
@@ -45,7 +58,8 @@ export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaPro
   useEffect(() => {
     if (!open) return;
     setVinculado(null);
-    setEtapa(fornecedorDaProp ? "formulario" : "escolha");
+    // com dados iniciais (da NF) o fornecedor novo é uma EMPRESA/prestador: pula a escolha "pessoa do cadastro × empresa"
+    setEtapa(fornecedorDaProp || inicialRef.current ? "formulario" : "escolha");
   }, [open, fornecedorDaProp]);
   useEffect(() => {
     setPessoaNome(null);
@@ -120,7 +134,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaPro
           observacao: fornecedor.observacao ?? "",
         });
       } else {
-        setCampos(VAZIO);
+        setCampos(camposIniciaisDoFornecedor(inicialRef.current));
       }
     });
     return () => { cancelado = true; };

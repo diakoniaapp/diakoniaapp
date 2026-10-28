@@ -33,6 +33,7 @@ import {
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado, type ItemNota } from "@/services/ocrService";
+import { FornecedorForm } from "@/components/financas/FornecedorForm";
 import { contaEmAbertoParaPagamento, pagarContaEmAberto } from "@/services/contasJaPagasService";
 import type { SugestaoDeLiquidacao } from "@/lib/contasJaPagas";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -275,6 +276,8 @@ export function LancamentoForm({
   const [sugestaoDoc, setSugestaoDoc] = useState<Sugestao | null>(null);
   const usaPainelDePagamento = !!docPagamento && ["boleto", "guia", "fatura"].includes(docPagamento.documento.tipo);
   const [fornecedorOcrSugerido, setFornecedorOcrSugerido] = useState<FinFornecedor | null>(null);
+  // "Cadastrar novo favorecido" sem sair do lançamento (28/10/2026): abre o cadastro completo por cima, já com o emitente lido da NF anexada, e devolve o favorecido escolhido
+  const [cadastrandoFornecedor, setCadastrandoFornecedor] = useState(false);
   // A pessoa/fornecedor que a DESCRIÇÃO cita, achada no cadastro (06/10/2026). Só preenche
   // quando o lançamento não tem vínculo nenhum e o casamento é de UM candidato; a tela
   // avisa que foi sugestão e deixa desfazer. Ver `identificacaoService`.
@@ -1144,6 +1147,11 @@ export function LancamentoForm({
                 ))}
               </div>
             )}
+            {tipo === "saida" && !fornecedorId && !pessoaId && (
+              <button type="button" className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" onClick={() => setCadastrandoFornecedor(true)}>
+                + Cadastrar novo fornecedor{ocr?.razaoSocial ? " com os dados da nota" : fornecedorBusca.trim().length >= 2 ? ` “${fornecedorBusca.trim()}”` : ""}
+              </button>
+            )}
             {nomeForaDoCadastro && !fornecedorId && !pessoaId && (
               <p className="mt-1 text-xs text-muted-foreground" role="status">
                 A descrição cita <strong>{nomeForaDoCadastro}</strong>, mas não achei essa pessoa no catálogo
@@ -1487,6 +1495,13 @@ export function LancamentoForm({
         />
       </Suspense>
     )}
+    <FornecedorForm open={cadastrandoFornecedor} onOpenChange={setCadastrandoFornecedor}
+      inicial={{ nome: ocr?.razaoSocial ?? fornecedorBusca, cnpjCpf: ocr?.cnpj ?? "" }}
+      onSaved={(f) => {
+        setFornecedorOcrSugerido(f); setFornecedorId(f.id); setPessoaId(""); setFornecedorBusca(f.nome); setFornecedores([]); setPessoasSugeridas([]);
+        if (f.categoria_padrao_id && !categoriaId) setCategoriaId(f.categoria_padrao_id);
+        if (f.centro_custo_padrao_id && !centroCustoId) setCentroCustoId(f.centro_custo_padrao_id);
+      }} />
     </>
   );
 }

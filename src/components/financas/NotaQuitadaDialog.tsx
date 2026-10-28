@@ -3,7 +3,7 @@
 // Fase 1B. É o caso das 17 NFs que o escritório conhece e o aplicativo nunca teve: a obrigação e a quitação são criadas na MESMA operação do banco (ou nada nasce) — não fica uma conta "a pagar"
 // ao fornecedor que um terceiro já pagou. Oferta NÃO usa conta financeira (a nota nasce na conta estrutural "Não Aplicável"); reembolso e relatado escolhem a conta onde a nota fica registrada. A ORDEM da tela segue a Política (14/10/2026): a nota, a igreja é a compradora, quem pagou, o que a pessoa quer, e SÓ DEPOIS a classificação (categoria, centro, projeto). Não cria entrada, transferência nem saída realizada.
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { FileText, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,11 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CamposDaQuitacao, ESTADO_VAZIO, problemasDoEstado, type EstadoDaQuitacao } from "@/components/financas/CamposDaQuitacao";
+import { FornecedorForm } from "@/components/financas/FornecedorForm";
+import { lerDocumento } from "@/lib/documentos/leitura";
+import { lerArquivo } from "@/services/centralDocumentosService";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
 import { mensagemErro } from "@/lib/erroRede";
 import { chaveNfeValida, type NaturezaDoItem } from "@/lib/quitacao";
-import { listarCategorias, listarCentrosCusto, listarContas, listarFornecedores, listarProjetos, type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor, type FinProjeto } from "@/services/finService";
+import { adicionarAnexo, buscarFornecedorPorCnpj, listarCategorias, listarCentrosCusto, listarContas, listarFornecedores, listarProjetos, type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor, type FinProjeto } from "@/services/finService";
 import { contaNaoAplicavelDisponivel, declaracaoDisponivel, ofertaDisponivel, projetoNaNotaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
 
 export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boolean; onFechar: () => void; onFeito: (obrigacaoId: string) => void }) {
@@ -34,6 +37,12 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
   const [contaNeutra, setContaNeutra] = useState(false);   // o banco já tem a conta "Não Aplicável": oferta não escolhe conta
   const [pedirForma, setPedirForma] = useState(false);   // Fase 1D-a: só pede a forma de pagamento do terceiro quando o banco já a tem
   const [salvando, setSalvando] = useState(false);
+  // A NF anexada na própria tela (28/10/2026): o sistema a lê e preenche o que estiver vazio; o emitente lido ajuda a achar OU a cadastrar o fornecedor, sem sair da tela.
+  const [arquivoNota, setArquivoNota] = useState<File | null>(null);
+  const [chaveDoArquivo, setChaveDoArquivo] = useState(0);   // o <input type="file"> não é controlado: a `key` o remonta para limpar
+  const [lendoNota, setLendoNota] = useState(false);
+  const [lidoDaNota, setLidoDaNota] = useState<{ nome: string | null; cnpj: string | null } | null>(null);
+  const [cadastrando, setCadastrando] = useState(false);
   // Projeto: dimensão da OBRIGAÇÃO (aprovado em 14/10/2026), ao lado de categoria e centro — não da quitação. Mesmo comportamento do LancamentoForm:
   // caixa que revela o seletor, item "Nenhum", só projetos ativos, e nada aparece sem projeto ativo. Aqui também some sem a migration 20261016110000.
   const [projetos, setProjetos] = useState<FinProjeto[]>([]); const [usarProjeto, setUsarProjeto] = useState(false); const [projetoId, setProjetoId] = useState("");
@@ -42,6 +51,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
   useEffect(() => {
     if (!aberto) return;
     setV(ESTADO_VAZIO); setEmitente(null); setBuscaEmit(""); setNumero(""); setChave(""); setDataNota(""); setValorTxt(""); setDescricao(""); setContaId(""); setCategoriaId(""); setCentroId(""); setMotivo(""); setUsarProjeto(false); setProjetoId("");
+    setArquivoNota(null); setLidoDaNota(null); setCadastrando(false); setChaveDoArquivo(k => k + 1);
     let vivo = true;
     ofertaDisponivel().then(ok => { if (vivo) setOfertaLiberada(ok); });
     contaNaoAplicavelDisponivel().then(ok => { if (vivo) setContaNeutra(ok); }).catch(() => { if (vivo) setContaNeutra(false); });
@@ -73,6 +83,31 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     return [...p, ...problemasDoEstado(v, emitente?.id ?? null, hoje, pedirForma)];
   }, [emitente, dataNota, valor, contaId, semConta, chaveLimpa, v, hoje, pedirForma]);
 
+  async function lerANota(file: File | null) {
+    setArquivoNota(file); setLidoDaNota(null);
+    if (!file) return;
+    setLendoNota(true);
+    try {
+      // PDF com texto: instantâneo. Foto ou PDF digitalizado: cai no OCR (mais lento, e aproximado — por isso só PREENCHE o que está vazio)
+      let lei = await lerArquivo(file, file.name, false);
+      if (lei.fonte === "nao_lido" && !file.name.toLowerCase().endsWith(".xml")) lei = await lerArquivo(file, file.name, true);
+      const l = lerDocumento(lei.texto ?? "");
+      let preencheu = 0;
+      if (!numero.trim() && l.numero) { setNumero(l.numero); preencheu++; }
+      if (!dataNota && l.emissao && l.emissao <= hoje) { setDataNota(l.emissao); preencheu++; }
+      if (!valorTxt.trim() && l.valores[0]) { setValorTxt(String(l.valores[0].valor).replace(".", ",")); preencheu++; }
+      if (!chave.trim() && l.chave) { setChave(l.chave); preencheu++; }
+      if (!emitente && (l.cnpj || l.emitente)) {
+        const achado = l.cnpj ? await buscarFornecedorPorCnpj(l.cnpj).catch(() => null) : null;
+        if (achado) { setEmitente(achado); setBuscaEmit(""); setAchadosEmit([]); preencheu++; toast.success(`Fornecedor encontrado pelo CNPJ da nota: ${achado.nome}.`); }
+        else setLidoDaNota({ nome: l.emitente, cnpj: l.cnpj });
+      }
+      toast[preencheu > 0 || l.cnpj || l.emitente ? "success" : "message"](preencheu > 0 || l.cnpj || l.emitente
+        ? "Nota lida: confira o que foi preenchido." : "Não consegui ler dados desta nota: preencha à mão (o arquivo continua anexado).");
+    } catch { toast.message("Não consegui ler esta nota: preencha à mão (o arquivo continua anexado)."); }
+    finally { setLendoNota(false); }
+  }
+
   async function salvar() {
     if (!emitente) return;
     setSalvando(true);
@@ -86,15 +121,19 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
         intencao: v.tipo === "nao_localizado" ? "nao_se_aplica" : v.intencao, pagoEm: v.tipo === "nao_localizado" ? null : v.pagoEm || null, declaradoEm: declara && v.tipo !== "nao_localizado" ? v.declaradoEm || null : null,
         condicao: v.tipo !== "nao_localizado" && v.intencao === "oferta" && v.condicao.trim() ? v.condicao.trim() : null, pedeRecibo: v.tipo !== "nao_localizado" && v.intencao === "oferta" && v.pedeRecibo, motivo: motivo.trim() || null,
       });
+      // a NF anexada nesta tela vira o documento original da obrigação (uma falha aqui não desfaz o registro)
+      let anexada = false;
+      if (arquivoNota) { try { await adicionarAnexo(id, arquivoNota, "nota_fiscal"); anexada = true; } catch (e) { toast.error(`Nota registrada, mas a NF não subiu: ${mensagemErro(e)}. Anexe-a no detalhe da despesa.`); } }
       toast.success(v.tipo === "nao_localizado"
         ? "Nota registrada em aberto, na fila Investigar: ninguém sabe quem a pagou. Anexe a nota fiscal no detalhe da despesa e descubra quem pagou."
-        : v.intencao === "oferta" ? "Nota registrada como oferta de terceiro. Anexe a nota fiscal e a Declaração do Terceiro assinada no detalhe da despesa: com as duas a oferta está formalizada."
-        : "Nota registrada já quitada por terceiro. Anexe a nota fiscal, a prova do pagamento e a declaração no detalhe da despesa.");
+        : v.intencao === "oferta" ? `Nota registrada como oferta de terceiro. Anexe ${anexada ? "" : "a nota fiscal e "}a Declaração do Terceiro assinada no detalhe da despesa: com as duas a oferta está formalizada.`
+        : `Nota registrada já quitada por terceiro. Anexe ${anexada ? "" : "a nota fiscal, "}a prova do pagamento e a declaração no detalhe da despesa.`);
       onFeito(id); onFechar();
     } catch (e) { toast.error(mensagemErro(e)); } finally { setSalvando(false); }
   }
 
   return (
+    <>
     <Dialog open={aberto} onOpenChange={o => { if (!o && !salvando) onFechar(); }}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -107,6 +146,13 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
         <div className="space-y-4">
           <section aria-label="A nota" className="space-y-3 rounded-md border p-3">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">A nota fiscal</h3>
+            <div className="space-y-1.5 rounded-md border border-dashed bg-muted/20 p-2.5">
+              <Label htmlFor="n-arquivo" className="flex items-center gap-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> Anexar a nota fiscal (PDF ou foto) — o sistema lê e preenche</Label>
+              <input id="n-arquivo" key={chaveDoArquivo} type="file" accept="application/pdf,image/jpeg,image/png,.xml" disabled={lendoNota || salvando}
+                onChange={e => void lerANota(e.target.files?.[0] ?? null)} className="text-xs w-full file:mr-2 file:rounded file:border file:bg-background file:px-2 file:py-1 file:text-xs" />
+              {lendoNota && <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status"><Loader2 className="h-3 w-3 animate-spin" /> Lendo a nota… (foto ou digitalização demora um pouco mais)</p>}
+              {arquivoNota && !lendoNota && <p className="text-[11px] text-muted-foreground">Fica anexada como documento original ao registrar. O que o sistema lê é só uma ajuda: confira.</p>}
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="n-emit">Fornecedor que emitiu</Label>
               {emitente ? (
@@ -123,6 +169,18 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
                       {achadosEmit.map(f => <li key={f.id}><button type="button" className="w-full px-3 py-1.5 text-left hover:bg-muted/60" onClick={() => { setEmitente(f); setAchadosEmit([]); }}>{f.nome}</button></li>)}
                     </ul>
                   )}
+                </div>
+              )}
+              {!emitente && (
+                <div className="space-y-1">
+                  {lidoDaNota && (
+                    <p className="rounded-md border border-info-line bg-info-soft px-2.5 py-1.5 text-xs text-info-text" role="status">
+                      A nota é de <strong>{lidoDaNota.nome ?? "emitente não identificado"}</strong>{lidoDaNota.cnpj ? <> (CNPJ {lidoDaNota.cnpj})</> : null}. Não achei esse fornecedor no cadastro.
+                    </p>
+                  )}
+                  <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" onClick={() => setCadastrando(true)}>
+                    <Plus className="h-3.5 w-3.5" /> Cadastrar novo fornecedor{lidoDaNota ? " com os dados da nota" : buscaEmit.trim().length >= 2 ? ` “${buscaEmit.trim()}”` : ""}
+                  </button>
                 </div>
               )}
             </div>
@@ -207,5 +265,10 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {/* o cadastro abre POR CIMA desta tela e, ao salvar, devolve o fornecedor já escolhido: nada do que foi digitado se perde */}
+    <FornecedorForm open={cadastrando} onOpenChange={setCadastrando}
+      inicial={{ nome: lidoDaNota?.nome ?? buscaEmit, cnpjCpf: lidoDaNota?.cnpj ?? "" }}
+      onSaved={f => { setEmitente(f); setBuscaEmit(""); setAchadosEmit([]); setLidoDaNota(null); toast.success(`${f.nome} cadastrado e escolhido como emitente.`); }} />
+    </>
   );
 }
