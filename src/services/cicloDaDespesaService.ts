@@ -113,7 +113,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     intencao: quitacao?.intencao ?? null, terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: l.documento_numero ?? null,
     // pagamento automático: a linha do banco (OFX/PDF) ligada a ESTA linha substitui o comprovante
-    formaLiquidacao: l.forma_liquidacao ?? null,
+    formaLiquidacao: l.forma_liquidacao ?? null, formaPagamento: (l as { forma_pagamento?: string | null }).forma_pagamento ?? null, observacoes: l.observacoes ?? null,
     confirmacaoBancaria: confirmacaoDaLinha(((vincRes.data ?? []) as unknown as Record<string, unknown>[]), l.id)
       ?? confirmacaoDaLiquidacao((liq.data as unknown as { ofx_fitid?: string | null } | null)?.ofx_fitid),
   });

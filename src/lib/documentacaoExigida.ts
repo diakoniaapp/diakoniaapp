@@ -19,6 +19,12 @@
 //   · PAGAMENTO AUTOMÁTICO (débito automático, Pix recorrente, transferência programada): o documento de origem (a fatura) + a CONFIRMAÇÃO BANCÁRIA — a linha do extrato OFX ou do PDF do banco ligada
 //     ao lançamento — no lugar do comprovante. Não existe comprovante de um débito que o banco fez sozinho; exigi-lo obrigava a tesouraria a anexar um papel artificial (decisão dela, 22/10/2026).
 //
+// POR MEIO DE PAGAMENTO (decisão dela, 28/10/2026 — matriz completa em docs/MATRIZ_DE_EXIGENCIAS_DOCUMENTAIS_2026-10-28.md):
+//   · ESPÉCIE / CAIXINHA ... a Nota Fiscal basta (qualquer categoria); nunca comprovante bancário
+//   · REEMBOLSO EM ESPÉCIE . Nota Fiscal + Declaração; sem PIX nem TED (por PIX/TED o comprovante continua)
+//   · DÉBITO AUTOMÁTICO ... a confirmação do banco (vínculo, liquidação com FITID ou a marca [ofx:…]) substitui o comprovante
+//   · CARTÃO ............... sem comprovante (a fatura do cartão é a prova)
+//
 // O COMPROVANTE de pagamento só se exige onde o banco o emite: conta do tipo `banco`. Caixinha trabalha com espécie (o cupom/NF é a prova), o Cartão já é a própria prova do pagamento
 // e a Caixa de Envelopes tem dinâmica própria — decisão dela. Enquanto a obrigação não foi paga, ainda não há comprovante a exigir (só o reembolso, que a decisão dela lista inteiro).
 //
@@ -64,10 +70,22 @@ export interface EntradaDocumental {
   formaLiquidacao?: string | null;
   /** a linha do banco (OFX ou PDF) que confirma o pagamento, se há um vínculo ativo com ela */
   confirmacaoBancaria?: "ofx" | "pdf" | null;
+  /** `fin_forma_pagamento` do lançamento (`dinheiro`, `pix`, `transferencia`, `cartao_debito`…): decide o MEIO quando a conta sozinha não decide */
+  formaPagamento?: string | null;
+  /** a observação do lançamento: a marca `[ofx:FITID]` (conciliação anterior aos vínculos) também é a linha do banco ligada */
+  observacoes?: string | null;
 }
+
+/** Como a despesa foi (ou será) paga — é o que decide qual prova do pagamento existe: espécie não tem, PIX/TED/boleto têm o do banco, o débito automático tem o extrato. */
+export type MeioDePagamento = "especie" | "pix" | "ted" | "cartao" | "automatico" | "boleto" | "outro";
+export const ROTULO_DO_MEIO: Record<MeioDePagamento, string> = {
+  especie: "Espécie / Caixinha", pix: "PIX", ted: "TED / transferência", cartao: "Cartão", automatico: "Débito automático", boleto: "Boleto / guia / fatura", outro: "Outro",
+};
 
 export interface DocumentacaoDaSaida {
   modelo: ModeloDocumental;
+  /** o meio de pagamento que a regra enxergou (a matriz de exigências é por meio) */
+  meio: MeioDePagamento;
   situacao: SituacaoDocumental;
   gravidade: Gravidade | null;
   exigidas: Exigencia[];
@@ -123,13 +141,38 @@ const COMPROVANTE = "Comprovante de pagamento";
 const CONFIRMACAO_BANCARIA = "Confirmação bancária (OFX ou PDF)";
 const COMPROVANTE_PIX = "Comprovante do PIX da igreja";
 
+const COMPROVANTE_TED = "Comprovante da TED da igreja";
+
 const PAGAS = new Set(["realizado", "conciliado"]);
+
+/**
+ * O meio de pagamento. A CONTA manda primeiro (Caixinha e Caixa de Envelopes só têm espécie — não existe PIX saindo de uma gaveta), depois a forma de liquidação (débito automático, PIX
+ * recorrente, transferência programada), depois a forma de pagamento do lançamento. Sem nada disso, "outro" — e "outro" se comporta como sempre se comportou (comprovante em conta de banco).
+ */
+export function meioDePagamento(e: Pick<EntradaDocumental, "contaTipo" | "formaPagamento" | "formaLiquidacao">): MeioDePagamento {
+  if (e.contaTipo === "caixa" || e.contaTipo === "envelope") return "especie";
+  if (ehAutomatica(e.formaLiquidacao)) return "automatico";
+  if (e.formaPagamento === "dinheiro") return "especie";
+  if (e.contaTipo === "cartao" || e.formaPagamento === "cartao_debito" || e.formaPagamento === "cartao_credito") return "cartao";
+  if (e.formaPagamento === "pix") return "pix";
+  if (e.formaPagamento === "transferencia") return "ted";
+  if (e.formaPagamento === "boleto" || e.formaPagamento === "guia" || e.formaPagamento === "fatura") return "boleto";
+  return "outro";
+}
+
+/** A marca `[ofx:FITID]` das conciliações anteriores aos vínculos (e `[ofx:PDF:…]`, a do extrato em PDF): a linha do banco já está ligada ao lançamento. */
+export function confirmacaoPelaMarca(observacoes: string | null | undefined): "ofx" | "pdf" | null {
+  const m = /\[ofx:([^\]]+)\]/.exec(observacoes ?? "");
+  return m ? (m[1].startsWith("PDF:") ? "pdf" : "ofx") : null;
+}
 
 // ─── a regra ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
   const tem = (aceita: readonly string[]) => aceita.some(t => e.tipos.includes(t));
   const paga = PAGAS.has(e.status);
+  const meio = meioDePagamento(e);
+  const confirmacao = e.confirmacaoBancaria ?? confirmacaoPelaMarca(e.observacoes);
   const exige = (o: Origem): Exigencia => ({ rotulo: o.rotulo, aceita: o.aceita, atendida: tem(o.aceita) });
   const comprovante = (rotulo: string, aguarda = false): Exigencia => ({
     rotulo, aceita: ["comprovante"], atendida: tem(["comprovante"]) || !!e.temComprovanteAntigo, ...(aguarda ? { aguardaPagamento: true } : {}),
@@ -139,7 +182,9 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
   let exigidas: Exigencia[];
   if (e.terceiroQuitou && e.intencao === "reembolso") {
     modelo = "reembolso";
-    exigidas = [exige(NOTA_FISCAL), exige(DECLARACAO), comprovante(COMPROVANTE_PIX, !paga)];
+    // reembolso em ESPÉCIE (Caixinha): a prova é a Declaração assinada + a Nota — não há PIX nem TED para comprovar (decisão dela, 28/10/2026)
+    exigidas = [exige(NOTA_FISCAL), exige(DECLARACAO)];
+    if (meio !== "especie") exigidas.push(comprovante(e.formaPagamento === "transferencia" ? COMPROVANTE_TED : COMPROVANTE_PIX, !paga));
   } else if (e.status === "quitado_terceiro" || (e.terceiroQuitou && e.intencao === "oferta")) {
     modelo = "oferta";
     exigidas = [exige(NOTA_FISCAL), exige(DECLARACAO)];
@@ -147,18 +192,22 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
     modelo = "dispensa";
     exigidas = [];
   } else {
-    exigidas = [exige(origemExigida(e.categoriaNome))];
-    if (paga && e.contaTipo === "banco") {
+    const origem = origemExigida(e.categoriaNome);
+    // ESPÉCIE (Caixinha): a Nota Fiscal anexada é o documento comprobatório SUFICIENTE da despesa, qualquer que seja a categoria (decisão dela, 28/10/2026)
+    const nfBasta = meio === "especie" && !origem.aceita.includes("nota_fiscal");
+    exigidas = [nfBasta ? exige({ rotulo: `${origem.rotulo} ou Nota Fiscal`, aceita: [...origem.aceita, "nota_fiscal"] }) : exige(origem)];
+    // o comprovante é do BANCO: espécie e cartão não têm (o cupom/NF e a fatura do cartão são a prova)
+    if (paga && e.contaTipo === "banco" && meio !== "especie" && meio !== "cartao") {
       // pagamento automático: a confirmação do banco (OFX/PDF) é a prova — conta como "comprovante" para o Ciclo e a Prontidão (`aceita: ["comprovante"]`), e um comprovante anexado à mão também vale
-      exigidas.push(ehAutomatica(e.formaLiquidacao)
-        ? { rotulo: CONFIRMACAO_BANCARIA, aceita: ["comprovante"], atendida: !!e.confirmacaoBancaria || tem(["comprovante"]) || !!e.temComprovanteAntigo }
+      exigidas.push(meio === "automatico"
+        ? { rotulo: CONFIRMACAO_BANCARIA, aceita: ["comprovante"], atendida: !!confirmacao || tem(["comprovante"]) || !!e.temComprovanteAntigo }
         : comprovante(COMPROVANTE));
     }
   }
 
   const faltamEx = exigidas.filter(x => !x.atendida);
   // a confirmação do banco de um pagamento automático também é "alguma" prova: sem a fatura a despesa é parcial, não "sem documentos"
-  const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo || (modelo === "padrao" && paga && ehAutomatica(e.formaLiquidacao) && !!e.confirmacaoBancaria);
+  const temAlgum = e.tipos.length > 0 || !!e.temComprovanteAntigo || (modelo === "padrao" && paga && meio === "automatico" && !!confirmacao);
   const situacao: SituacaoDocumental = exigidas.length === 0 ? (temAlgum ? "completa" : "dispensa") : faltamEx.length === 0 ? "completa" : !temAlgum ? "sem" : "parcial";
 
   const administrativas: string[] = [];
@@ -170,7 +219,7 @@ export function documentacaoDaSaida(e: EntradaDocumental): DocumentacaoDaSaida {
   const gravidade: Gravidade | null = situacao === "sem" ? "critica" : situacao === "parcial" ? "parcial" : administrativas.length > 0 ? "administrativa" : null;
   const ehComprovante = (x: Exigencia) => x.aceita.length === 1 && x.aceita[0] === "comprovante";
   return {
-    modelo, situacao, gravidade, exigidas, faltam: faltamEx.map(x => x.rotulo), administrativas,
+    modelo, meio, situacao, gravidade, exigidas, faltam: faltamEx.map(x => x.rotulo), administrativas,
     documentosOk: exigidas.filter(x => !ehComprovante(x)).every(x => x.atendida),
     comprovanteOk: exigidas.filter(ehComprovante).every(x => x.atendida),
     exigeComprovante: exigidas.some(ehComprovante),

@@ -58,6 +58,8 @@ export interface LinhaDeObrigacao {
   observacoes?: string | null;
   /** como será liquidada (`manual`, `debito_automatico`…); ausente antes da migration ou quando não foi lida */
   forma_liquidacao?: string | null;
+  /** `fin_forma_pagamento` (`dinheiro`, `pix`, `transferencia`…): decide o meio de pagamento da regra documental */
+  forma_pagamento?: string | null;
 }
 
 /** A quitação registrada para a obrigação (`vw_fin_quitacao`), quando existe. `resultado` e `fila` dizem se o reembolso JÁ foi pago ou se a igreja ainda deve. */
@@ -227,7 +229,10 @@ export function montarExtratoDeObrigacoes(entrada: {
       debito: situacao === "em_aberto" && vencimentoAberto && ehAutomatica(grupo.find(l => l.id === idEmAberto)?.forma_liquidacao ?? raiz.forma_liquidacao)
         ? situacaoDoDebito({ status: "previsto", data: vencimentoAberto }, hoje) : null,
       documentacao: situacao === "cancelada" || !entrada.tiposDeAnexo ? null : documentacaoDaSaida({
-        categoriaNome: (raiz.categoria_id && nomes.categorias.get(raiz.categoria_id)) || "", contaTipo: raiz.conta_id ? nomes.contaTipos?.get(raiz.conta_id) ?? null : null,
+        categoriaNome: (raiz.categoria_id && nomes.categorias.get(raiz.categoria_id)) || "",
+        // o reembolso é pago por OUTRA linha (a do pagamento): é a conta dela que diz se saiu da Caixinha (espécie) ou do banco
+        contaTipo: (() => { const c = situacao === "reembolso" ? grupo.find(l => PAGAS.includes(l.status) && l.conta_id)?.conta_id ?? raiz.conta_id : raiz.conta_id; return c ? nomes.contaTipos?.get(c) ?? null : null; })(),
+        formaPagamento: (situacao === "reembolso" ? grupo.find(l => PAGAS.includes(l.status))?.forma_pagamento : null) ?? raiz.forma_pagamento ?? null, observacoes: raiz.observacoes ?? null,
         // a obrigação ainda não paga (ou só em parte) não tem comprovante a exigir; o reembolso a pagar é "previsto" (o PIX só existe depois)
         status: situacao === "quitada_por_terceiro" ? "quitado_terceiro" : situacao === "paga" || (situacao === "reembolso" && !reembolsoAPagar) ? "conciliado" : "previsto",
         tipos: entrada.tiposDeAnexo.get(chave) ?? [], intencao: q?.intencao ?? null, terceiroQuitou: !!q && ehTerceiro(q.responsavel),

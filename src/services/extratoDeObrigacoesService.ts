@@ -20,7 +20,7 @@ export interface FiltrosDoExtrato {
   projetoId?: string;
 }
 
-const COLUNAS = "id, obrigacao_id, data, status, valor, valor_original, descricao, documento_numero, fornecedor_id, pessoa_id, categoria_id, centro_custo_id, projeto_id, conta_id, observacoes";
+const COLUNAS = "id, obrigacao_id, data, status, valor, valor_original, descricao, documento_numero, fornecedor_id, pessoa_id, categoria_id, centro_custo_id, projeto_id, conta_id, observacoes, forma_pagamento";
 const PAGINA = 1000;
 const LOTE = 50;
 

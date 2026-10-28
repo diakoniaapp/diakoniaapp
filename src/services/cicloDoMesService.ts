@@ -28,7 +28,7 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
   const lancs: Record<string, unknown>[] = [];
   for (let p = 0; ; p++) {
     const { data, error } = await supabase.from("fin_lancamentos")
-      .select("id, obrigacao_id, status, data, data_pagamento, observacoes, origem, conta_id, categoria_id, centro_custo_id, comprovante_url, documento_numero, forma_liquidacao")
+      .select("id, obrigacao_id, status, data, data_pagamento, observacoes, origem, conta_id, categoria_id, centro_custo_id, comprovante_url, documento_numero, forma_liquidacao, forma_pagamento")
       .eq("tipo", "saida").in("status", ["realizado", "conciliado"]).neq("origem", "transferencia")
       .or(`and(data_pagamento.gte.${ini},data_pagamento.lte.${fim}),and(data_pagamento.is.null,data.gte.${ini},data.lte.${fim})`)
       .order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
@@ -91,6 +91,7 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
       intencao: q?.intencao ?? null, terceiroQuitou: !!q && ehTerceiro(q.responsavel),
       temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, documentoNumero: (l.documento_numero as string | null) ?? null,
       formaLiquidacao: (l.forma_liquidacao as string | null) ?? null, confirmacaoBancaria: confirmacoes.get(id) ?? null,
+      formaPagamento: (l.forma_pagamento as string | null) ?? null, observacoes: (l.observacoes as string | null) ?? null,
     });
     const c = cicloDaDespesa({
       tipo: "saida", status: String(l.status), data: String(l.data).slice(0, 10), data_pagamento: (l.data_pagamento as string) ?? null,
