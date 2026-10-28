@@ -48,6 +48,7 @@ import {
   type LancamentoLido, type LeituraDoArquivo,
 } from "@/services/documentoPagamentoService";
 import type { Sugestao } from "@/lib/documentos/sugestaoPagamento";
+import { tipoDeAnexoPeloNome } from "@/lib/documentos/nomeArquivo";
 import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 
 interface Props {
@@ -116,6 +117,9 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
     setLeitura(null); setSugestao(null);
     const minha = ++leituraAtual.current;
     if (!file) return;
+    // a via gerada pelo sistema (Declaracao_do_Terceiro_DT-…) já diz o que é: sugere o tipo certo antes mesmo de ler (a pessoa pode trocar)
+    const peloNome = tipoDeAnexoPeloNome(file.name);
+    if (peloNome) setTipo(peloNome);
     setLendo(true);
     try {
       const l = await lerArquivoDePagamento(file);
@@ -123,7 +127,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
       if (!l || !pareceDocumentoDePagamento(l.documento)) return;
       setLeitura(l);
       const sugerido = tipoDeAnexoSugerido(l.documento);
-      if (sugerido) setTipo(sugerido);
+      if (sugerido && !peloNome) setTipo(sugerido);
       const s = await sugerirParaDocumento(l.documento);
       if (minha === leituraAtual.current) setSugestao(s);
     } catch (e: any) {
@@ -258,6 +262,11 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
               </SelectContent>
             </Select>
           </div>
+          {tipo === "declaracao_terceiro" && (
+            <p className="text-xs text-muted-foreground" role="note">
+              Anexada aqui, a declaração conta como documento da despesa. Se é a via assinada da declaração <b>gerada pelo sistema</b>, prefira o cartão da Quitação → <b>“Recebi a via assinada”</b>: ele registra a versão e a data da assinatura e encerra a espera.
+            </p>
+          )}
           {lendo && (
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <ScanSearch className="w-3.5 h-3.5 animate-pulse" /> Lendo o documento…

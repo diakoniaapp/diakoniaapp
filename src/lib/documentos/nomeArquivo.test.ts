@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerNomeDeArquivo } from "./nomeArquivo";
+import { lerNomeDeArquivo, tipoDeAnexoPeloNome } from "./nomeArquivo";
 
 // Nomes SINTÉTICOS no padrão da tesouraria (fornecedores inventados).
 
@@ -74,5 +74,14 @@ describe("convenção de nomes da tesouraria", () => {
     expect(lerNomeDeArquivo("scan0001.pdf")).toEqual({
       data: null, valor: null, nf: null, fornecedor: "scan0001", forma: null, parcela: null, tipoDocumento: null, recibo: null,
     });
+  });
+});
+
+describe("tipoDeAnexoPeloNome — a via gerada pelo sistema já diz o que é (28/10/2026)", () => {
+  it.each([
+    "Declaracao_do_Terceiro_DT-2026-0027_v1.pdf", "Declaracao_do_Terceiro_DT-2026-0027_v1 (1).pdf", "declaração do terceiro assinada.pdf", "Solicitacao_e_Recibo_de_Reembolso_DT-2026-0004_v1.pdf",
+  ])("%s → declaracao_terceiro", nome => { expect(tipoDeAnexoPeloNome(nome)).toBe("declaracao_terceiro"); });
+  it.each(["NFSe_40274977.pdf", "10.04.2026 - R$ 321,37 _ NF123 _ LIGHT.pdf", "comprovante pix.png", "Recibo_de_Reembolso_Lucio_2026-10-14.pdf"])("%s → nada (a pessoa escolhe)", nome => {
+    expect(tipoDeAnexoPeloNome(nome)).toBeNull();
   });
 });

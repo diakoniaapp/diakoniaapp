@@ -1353,8 +1353,10 @@ export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
 };
 
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */
+// "Declaração do Terceiro" passou a ser oferecida (28/10/2026): quem recebe a via assinada de fora do cartão da Quitação precisa de um tipo com o nome certo (antes a via assinada era anexada como
+// "Comprovante" ou "Outro", e a regra documental não a reconhecia como a declaração).
 export const FIN_ANEXO_TIPOS_OFERECIDOS: FinAnexoTipo[] = [
-  "nota_fiscal", "boleto", "guia", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "outro",
+  "nota_fiscal", "boleto", "guia", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "declaracao_terceiro", "outro",
 ];
 
 export const FIN_ANEXO_MIMES = [...FIN_COMPROVANTE_MIMES, "application/xml", "text/xml"];

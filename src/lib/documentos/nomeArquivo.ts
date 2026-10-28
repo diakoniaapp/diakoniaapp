@@ -32,6 +32,15 @@ export interface NomeLido {
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
 
+/**
+ * O tipo de anexo que o NOME do arquivo já diz: a Declaração do Terceiro gerada pelo sistema se chama `Declaracao_do_Terceiro_DT-2026-0027_v1.pdf` (ou "Solicitacao_e_Recibo_de_Reembolso_…" no reembolso).
+ * Só reconhece esses dois nomes do próprio sistema; qualquer outro devolve `null` e a tela segue como sempre (a pessoa escolhe).
+ */
+export function tipoDeAnexoPeloNome(nomeArquivo: string): "declaracao_terceiro" | null {
+  const n = nomeArquivo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /declaracao[_ .-]*do[_ .-]*terceiro|solicitacao[_ .-]*e[_ .-]*recibo[_ .-]*de[_ .-]*reembolso/.test(n) ? "declaracao_terceiro" : null;
+}
+
 export function lerNomeDeArquivo(nomeArquivo: string): NomeLido {
   // tira o caminho da pasta e as extensões (inclusive `.pdf.pdf`)
   let nome = nomeArquivo.split(/[\\/]/).pop()!.replace(/(\.(pdf|png|jpe?g|xml))+$/i, "");
