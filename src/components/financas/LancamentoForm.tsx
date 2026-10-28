@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from "react";
-import { FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao } from "@/lib/formaLiquidacao";
+import { FORMAS_LIQUIDACAO, LIQUIDACAO_AUTOMATICA, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, ehAutomatica, normalizarLiquidacao, type FormaLiquidacao } from "@/lib/formaLiquidacao";
 import { identificarPorDescricao } from "@/services/identificacaoService";
 import { hojeLocal } from "@/lib/data";
 import { CAMPANHAS_EM_ORDEM, ROTULO_DA_CAMPANHA, campanhaSugeridaPorFornecedor, type CampanhaMissionaria } from "@/lib/missoesModelo";
@@ -96,6 +96,9 @@ interface Props {
   };
   onSaved: () => void;
 }
+
+/** valor do item "automático" no seletor de Forma de pagamento (não colide com as chaves de `fin_forma_pagamento`) */
+const PREFIXO_AUTOMATICA = "auto:";
 
 export function LancamentoForm({
   open, onOpenChange, contaIdPadrao, tipoPadrao = "entrada",
@@ -725,7 +728,8 @@ export function LancamentoForm({
       }
 
       const liquidacaoOriginal = normalizarLiquidacao(lancamento?.forma_liquidacao);
-      if (tipo === "saida" && status === "previsto" && (liquidacao !== "manual" || liquidacaoOriginal !== "manual")) {
+      // previsto: como sempre. JÁ PAGO/conciliado: grava quando MUDOU (marcar o débito automático de um lançamento que já saiu no extrato)
+      if (tipo === "saida" && ((status === "previsto" && (liquidacao !== "manual" || liquidacaoOriginal !== "manual")) || (status !== "previsto" && liquidacao !== liquidacaoOriginal))) {
         payload.forma_liquidacao = liquidacao;
       }
 
@@ -1170,14 +1174,22 @@ export function LancamentoForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Forma de pagamento</Label>
-              <Select value={forma} onValueChange={(v) => setForma(v as FinFormaPagamento)}>
+              {/* Débito automático, PIX recorrente e transferência programada são FORMAS DE LIQUIDAÇÃO (o banco faz sozinho): entram aqui como opções, para valer também para o lançamento já pago/conciliado (28/10/2026) */}
+              <Select value={tipo === "saida" && ehAutomatica(liquidacao) ? `${PREFIXO_AUTOMATICA}${liquidacao}` : forma}
+                onValueChange={(v) => {
+                  if (v.startsWith(PREFIXO_AUTOMATICA)) { setLiquidacao(v.slice(PREFIXO_AUTOMATICA.length) as FormaLiquidacao); setForma(""); return; }
+                  setForma(v as FinFormaPagamento);
+                  if (ehAutomatica(liquidacao)) setLiquidacao("manual");   // escolheu uma forma comum: deixa de ser automático
+                }}>
                 <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
                 <SelectContent>
                   {formasDisponiveis.map(k => (
                     <SelectItem key={k} value={k}>{FORMA_LABEL[k]}</SelectItem>
                   ))}
+                  {tipo === "saida" && [...LIQUIDACAO_AUTOMATICA].map(f => <SelectItem key={f} value={`${PREFIXO_AUTOMATICA}${f}`}>{ROTULO_LIQUIDACAO[f]}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {tipo === "saida" && ehAutomatica(liquidacao) && <p className="text-[11px] text-muted-foreground mt-1">{DICA_LIQUIDACAO[liquidacao]}</p>}
               {contaAtual && formasDisponiveis.length < Object.keys(FORMA_LABEL).length && (
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Formas permitidas em "{contaAtual.nome}" — configurável em Cadastros.
