@@ -16,7 +16,7 @@ vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: () => papeis.ok, 
 vi.mock("react-router-dom", async orig => ({ ...(await orig<typeof import("react-router-dom")>()), useNavigate: () => navegar }));
 vi.mock("@/components/sistema/ConteudoDoResumoSemanal", () => ({ ConteudoDoResumoSemanal: () => <div data-filho="perfis-e-blocos" /> }));
 vi.mock("@/components/sistema/ResumoDiarioDaTesouraria", () => ({ ResumoDiarioDaTesouraria: () => <div data-filho="resumo-diario" /> }));
-vi.mock("@/services/comunicacaoService", () => ({ listarEnviosDaComunicacao: async () => ({ envios: [], indisponivel: false }), previaDoRelatorioDeContribuicoes: vi.fn(), enviarTesteDoRelatorioDeContribuicoes: vi.fn(), enviarRelatorioDeContribuicoes: vi.fn() }));
+vi.mock("@/services/comunicacaoService", () => ({ listarEnviosDaComunicacao: async () => ({ envios: [], indisponivel: false }), previaDoRelatorioDeContribuicoes: vi.fn(), confiabilidadeDoRelatorioDeContribuicoes: vi.fn(), enviarTesteDoRelatorioDeContribuicoes: vi.fn(), enviarRelatorioDeContribuicoes: vi.fn() }));
 vi.mock("@/services/sistemaService", () => ({
   carregarStatusResumoSemanal: async () => ({
     ativo: true, dia_semana: 5, hora: 18, minuto: 0, destinatarios: [],
